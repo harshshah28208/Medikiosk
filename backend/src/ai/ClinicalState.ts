@@ -79,7 +79,7 @@ export interface ClinicalState {
 export interface QuestionOutput {
   question: string;
   questionLanguage: 'EN' | 'HI' | 'GU';
-  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH';
+  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH' | 'CLOSING';
   touchOptions: string[];
   isRedFlag: boolean;
   redFlagReason: string | null;
