@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ─────────────────────────────────── */
+@layer base {
+  html {
+    @apply antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+}
+
+/* ─── Clinical Dark Theme ──────────────────── */
+.theme-clinical {
+  @apply bg-slate-950 text-slate-100;
+}
+
+.theme-clinical ::-webkit-scrollbar-thumb {
+  @apply bg-slate-700;
+}
+
+/* ─── Kiosk Theme ──────────────────────────── */
+.theme-kiosk {
+  background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 50%, #F0F7FF 100%);
+  min-height: 100vh;
+}
+
+/* ─── Voice Animations ─────────────────────── */
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+  50% { box-shadow: 0 0 0 20px rgba(37, 99, 235, 0); }
+}
+
+.voice-listening {
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+/* ─── Priority Colors ──────────────────────── */
+.priority-normal { @apply border-l-4 border-l-blue-500; }
+.priority-urgent { @apply border-l-4 border-l-amber-500; }
+.priority-emergency { @apply border-l-4 border-l-red-500; }
+
+/* ─── Touch Targets ────────────────────────── */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.touch-target-lg {
+  min-height: 56px;
+  min-width: 56px;
+}

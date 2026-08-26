@@ -1,0 +1,323 @@
+import { Response } from 'express';
+import prisma from '../config/db.js';
+import { generateMRN, generateToken } from '../utils/generators.js';
+import { createAuditLog } from '../middleware/audit.js';
+import { AUDIT_ACTIONS } from '../config/constants.js';
+import type { AuthRequest } from '../middleware/auth.js';
+import type { RegisterPatientInput, PatientLookupInput } from '../validators/patient.schema.js';
+
+export async function registerPatient(req: AuthRequest, res: Response): Promise<void> {
+  const input = req.body as RegisterPatientInput;
+
+  const existing = await prisma.patient.findFirst({
+    where: { phone: input.phone },
+  });
+
+  if (existing) {
+    res.status(409).json({
+      error: 'A patient with this phone number already exists.',
+      patient: {
+        id: existing.id,
+        mrn: existing.mrn,
+        name: existing.name,
+        phone: existing.phone,
+      },
+    });
+    return;
+  }
+
+  if (input.abhaId) {
+    const existingAbha = await prisma.patient.findUnique({
+      where: { abhaId: input.abhaId },
+    });
+    if (existingAbha) {
+      res.status(409).json({
+        error: 'A patient with this ABHA ID already exists.',
+        patient: {
+          id: existingAbha.id,
+          mrn: existingAbha.mrn,
+          name: existingAbha.name,
+        },
+      });
+      return;
+    }
+  }
+
+  const department = await prisma.department.findUnique({
+    where: { id: input.departmentId },
+    select: { id: true, code: true, name: true },
+  });
+
+  if (!department) {
+    res.status(400).json({ error: 'Invalid department selected.' });
+    return;
+  }
+
+  const mrn = await generateMRN();
+  const token = await generateToken(department.code);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const patient = await tx.patient.create({
+      data: {
+        mrn,
+        name: input.name,
+        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
+        age: input.age,
+        gender: input.gender,
+        phone: input.phone,
+        email: input.email || null,
+        address: input.address || null,
+        emergencyContact: input.emergencyContact || null,
+        preferredLang: input.preferredLang,
+        abhaId: input.abhaId || null,
+      },
+    });
+
+    const visit = await tx.visit.create({
+      data: {
+        patientId: patient.id,
+        departmentId: department.id,
+        token,
+        visitType: 'NEW',
+        status: 'REGISTERED',
+        priority: 'NORMAL',
+        reasonForVisit: input.reasonForVisit || null,
+        language: input.preferredLang,
+      },
+    });
+
+    const queueEntry = await tx.queueEntry.create({
+      data: {
+        visitId: visit.id,
+        patientId: patient.id,
+        departmentId: department.id,
+        tokenNumber: token,
+        priority: 'NORMAL',
+        status: 'WAITING',
+      },
+    });
+
+    // Store optional longitudinal medical history
+    if (input.currentMedications && input.currentMedications.trim()) {
+      const medList = input.currentMedications.split(/[,;\n]/).map(m => m.trim()).filter(Boolean);
+      for (const med of medList) {
+        await tx.medication.create({
+          data: {
+            patientId: patient.id,
+            name: med,
+            dosage: 'Regular',
+            status: 'ACTIVE',
+            source: 'PATIENT_REPORTED_REGISTRATION',
+          },
+        });
+      }
+    }
+
+    if (input.allergies && input.allergies.trim()) {
+      const algList = input.allergies.split(/[,;\n]/).map(a => a.trim()).filter(Boolean);
+      for (const alg of algList) {
+        await tx.allergy.create({
+          data: {
+            patientId: patient.id,
+            allergen: alg,
+            reaction: 'Reported during registration',
+            severity: 'MODERATE',
+            status: 'ACTIVE',
+          },
+        });
+      }
+    }
+
+    if (input.pastMedicalHistory && input.pastMedicalHistory.trim()) {
+      await tx.clinicalHistory.create({
+        data: {
+          visitId: visit.id,
+          patientId: patient.id,
+          status: 'INITIAL',
+          chiefComplaint: input.reasonForVisit || 'OPD Intake',
+          pastMedicalHistory: JSON.stringify([input.pastMedicalHistory.trim()]),
+          medications: input.currentMedications ? JSON.stringify([{ name: input.currentMedications.trim() }]) : '[]',
+          allergies: input.allergies ? JSON.stringify([{ allergen: input.allergies.trim() }]) : '[]',
+          completionScore: 30,
+        },
+      });
+    }
+
+    return { patient, visit, queueEntry };
+  });
+
+  await createAuditLog({
+    userId: req.user?.id,
+    role: req.user?.role,
+    action: AUDIT_ACTIONS.REGISTER_PATIENT,
+    resourceType: 'PATIENT',
+    resourceId: result.patient.id,
+    details: { mrn, visitId: result.visit.id, department: department.name },
+    ipAddress: req.ip,
+  });
+
+  res.status(201).json({
+    message: 'Patient registered successfully.',
+    patient: {
+      id: result.patient.id,
+      mrn: result.patient.mrn,
+      name: result.patient.name,
+      phone: result.patient.phone,
+      age: result.patient.age,
+      gender: result.patient.gender,
+    },
+    visit: {
+      id: result.visit.id,
+      token: result.visit.token,
+      status: result.visit.status,
+      department: department.name,
+      reasonForVisit: result.visit.reasonForVisit,
+    },
+    queueEntry: {
+      id: result.queueEntry.id,
+      tokenNumber: result.queueEntry.tokenNumber,
+      status: result.queueEntry.status,
+    },
+  });
+}
+
+export async function lookupPatient(req: AuthRequest, res: Response): Promise<void> {
+  const { query, type } = req.body as PatientLookupInput;
+
+  let patient;
+
+  switch (type) {
+    case 'PHONE':
+      patient = await prisma.patient.findFirst({
+        where: { phone: query },
+        include: {
+          allergies: { where: { status: 'ACTIVE' } },
+          medications: { where: { status: 'ACTIVE' } },
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: {
+              department: true,
+              summary: true,
+            },
+          },
+        },
+      });
+      break;
+
+    case 'MRN':
+      patient = await prisma.patient.findUnique({
+        where: { mrn: query },
+        include: {
+          allergies: { where: { status: 'ACTIVE' } },
+          medications: { where: { status: 'ACTIVE' } },
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: {
+              department: true,
+              summary: true,
+            },
+          },
+        },
+      });
+      break;
+
+    case 'ABHA':
+      patient = await prisma.patient.findUnique({
+        where: { abhaId: query },
+        include: {
+          allergies: { where: { status: 'ACTIVE' } },
+          medications: { where: { status: 'ACTIVE' } },
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: {
+              department: true,
+              summary: true,
+            },
+          },
+        },
+      });
+      break;
+
+    default:
+      res.status(400).json({ error: 'Invalid lookup type.' });
+      return;
+  }
+
+  if (!patient) {
+    res.status(404).json({ error: 'Patient not found.' });
+    return;
+  }
+
+  res.json({ patient });
+}
+
+export async function getPatient(req: AuthRequest, res: Response): Promise<void> {
+  const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+
+  const patient = await prisma.patient.findUnique({
+    where: { id },
+    include: {
+      allergies: { where: { status: 'ACTIVE' } },
+      medications: { where: { status: 'ACTIVE' } },
+      visits: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department: true,
+          clinicalHistory: true,
+          summary: true,
+          prescriptions: { include: { items: true } },
+          vitals: true,
+        },
+      },
+      documents: true,
+      labResults: true,
+    },
+  });
+
+  if (!patient) {
+    res.status(404).json({ error: 'Patient not found.' });
+    return;
+  }
+
+  res.json({ patient });
+}
+
+export async function getMyPatientRecord(req: AuthRequest, res: Response): Promise<void> {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const patient = await prisma.patient.findFirst({
+    where: { userId },
+    include: {
+      allergies: { where: { status: 'ACTIVE' } },
+      medications: { where: { status: 'ACTIVE' } },
+      visits: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department: true,
+          clinicalHistory: true,
+          summary: true,
+          prescriptions: { include: { items: true } },
+          vitals: true,
+        },
+      },
+      documents: true,
+      labResults: true,
+    },
+  });
+
+  if (!patient) {
+    res.status(404).json({ error: 'Patient record not found' });
+    return;
+  }
+
+  res.json({ patient });
+}
+
