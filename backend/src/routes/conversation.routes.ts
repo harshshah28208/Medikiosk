@@ -241,6 +241,11 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   // 2. Fact Extraction via General Clinical Engine
   const extractedFacts = await aiProvider.extractFacts(content, state, currentLang);
 
+  // Check if patient selected completion option or completed intake
+  const isFinalAnswer =
+    /covers all symptoms|complete intake|सब लक्षण बता दिए|इन्टेक पूरा|તમામ લક્ષણો જણાવી દીધા|ઇન્ટેક પૂર્ણ|no that covers|no further/i.test(content) ||
+    state.turnsCompleted >= 5;
+
   // 3. Update Clinical State & Increment Turn
   state = {
     ...state,
@@ -330,7 +335,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     aiMessage,
     nextQuestion: nextQ.question,
     touchOptions: nextQ.touchOptions,
-    isComplete: nextQ.isComplete,
+    isComplete: nextQ.isComplete || isFinalAnswer,
     hasRedFlag: detectedAlerts.length > 0,
     redFlagAlert: detectedAlerts[0] || null,
     clinicalState: state,

@@ -8,10 +8,13 @@ export function TriageDashboard() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+  const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
+
   const loadAlerts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/triage/alerts', {
+      const res = await fetch(`${cleanApiBase}/triage/alerts`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
         },
@@ -33,7 +36,7 @@ export function TriageDashboard() {
 
   const handleUpdateStatus = async (alertId: string, status: string) => {
     try {
-      await fetch(`http://localhost:5000/api/triage/alerts/${alertId}`, {
+      await fetch(`${cleanApiBase}/triage/alerts/${alertId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
