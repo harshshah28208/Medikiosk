@@ -9,38 +9,14 @@ import type { RegisterPatientInput, PatientLookupInput } from '../validators/pat
 export async function registerPatient(req: AuthRequest, res: Response): Promise<void> {
   const input = req.body as RegisterPatientInput;
 
-  const existing = await prisma.patient.findFirst({
+  let existing = await prisma.patient.findFirst({
     where: { phone: input.phone },
   });
 
-  if (existing) {
-    res.status(409).json({
-      error: 'A patient with this phone number already exists.',
-      patient: {
-        id: existing.id,
-        mrn: existing.mrn,
-        name: existing.name,
-        phone: existing.phone,
-      },
-    });
-    return;
-  }
-
-  if (input.abhaId) {
-    const existingAbha = await prisma.patient.findUnique({
+  if (!existing && input.abhaId) {
+    existing = await prisma.patient.findUnique({
       where: { abhaId: input.abhaId },
     });
-    if (existingAbha) {
-      res.status(409).json({
-        error: 'A patient with this ABHA ID already exists.',
-        patient: {
-          id: existingAbha.id,
-          mrn: existingAbha.mrn,
-          name: existingAbha.name,
-        },
-      });
-      return;
-    }
   }
 
   const department = await prisma.department.findUnique({
@@ -53,8 +29,75 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
     return;
   }
 
-  const mrn = await generateMRN();
   const token = await generateToken(department.code);
+
+  // If patient already exists, seamlessly attach a new Visit to their longitudinal profile
+  if (existing) {
+    const result = await prisma.$transaction(async (tx) => {
+      const visit = await tx.visit.create({
+        data: {
+          patientId: existing.id,
+          departmentId: department.id,
+          token,
+          reasonForVisit: input.reasonForVisit || 'Follow-up Consultation',
+          priority: 'NORMAL',
+          status: 'REGISTERED',
+          language: input.preferredLang,
+        },
+      });
+
+      const queueEntry = await tx.queueEntry.create({
+        data: {
+          visitId: visit.id,
+          patientId: existing.id,
+          departmentId: department.id,
+          tokenNumber: token,
+          priority: 'NORMAL',
+          status: 'WAITING',
+        },
+      });
+
+      return { patient: existing, visit, queueEntry };
+    });
+
+    await createAuditLog({
+      userId: req.user?.id,
+      role: req.user?.role,
+      action: AUDIT_ACTIONS.REGISTER_PATIENT,
+      resourceType: 'PATIENT',
+      resourceId: existing.id,
+      details: { mrn: existing.mrn, visitId: result.visit.id, department: department.name, isReturning: true },
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json({
+      message: 'Returning patient visit created successfully.',
+      isReturning: true,
+      patient: {
+        id: existing.id,
+        mrn: existing.mrn,
+        name: existing.name,
+        phone: existing.phone,
+        age: existing.age,
+        gender: existing.gender,
+      },
+      visit: {
+        id: result.visit.id,
+        token: result.visit.token,
+        status: result.visit.status,
+        department: department.name,
+        reasonForVisit: result.visit.reasonForVisit,
+      },
+      queueEntry: {
+        id: result.queueEntry.id,
+        tokenNumber: result.queueEntry.tokenNumber,
+        status: result.queueEntry.status,
+      },
+    });
+    return;
+  }
+
+  const mrn = await generateMRN();
 
   const result = await prisma.$transaction(async (tx) => {
     const patient = await tx.patient.create({
