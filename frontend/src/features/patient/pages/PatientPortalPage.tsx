@@ -12,10 +12,15 @@ export function PatientPortalPage() {
 
   useEffect(() => {
     const raw = localStorage.getItem('medikiosk_active_patient');
-    const p = raw ? JSON.parse(raw) : { id: '11111111-1111-1111-1111-111111111111', name: 'Rahul Sharma', mrn: 'MK-0001' };
+    const userRaw = localStorage.getItem('medikiosk_user');
+    const storedUser = userRaw ? JSON.parse(userRaw) : null;
+    const p = raw ? JSON.parse(raw) : (storedUser?.id ? storedUser : { id: '11111111-1111-1111-1111-111111111111', name: 'Rahul Sharma', mrn: 'MK-0001' });
     setPatient(p);
 
-    fetch(`http://localhost:5000/api/documents/timeline/${p.id}`, {
+    const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+    const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
+
+    fetch(`${cleanApiBase}/documents/timeline/${p.id}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
       },
