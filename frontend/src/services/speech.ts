@@ -105,7 +105,10 @@ export class SpeechProvider {
 
       const cleanText = text.replace(/[*_#`]/g, '').trim();
       const langParam = language === 'hi' ? 'hi' : language === 'gu' ? 'gu' : 'en';
-      const audioUrl = `http://localhost:5000/api/conversation/tts?text=${encodeURIComponent(cleanText)}&lang=${langParam}`;
+      
+      const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+      const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
+      const audioUrl = `${cleanApiBase}/conversation/tts?text=${encodeURIComponent(cleanText)}&lang=${langParam}`;
 
       const audio = new Audio(audioUrl);
       this.currentAudio = audio;
