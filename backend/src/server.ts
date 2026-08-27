@@ -64,7 +64,17 @@ app.use('/api/', generalLimiter);
 const uploadAbsolutePath = path.resolve(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadAbsolutePath));
 
-// Health Check
+// Root Home & Health Check
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'MediKiosk API Server',
+    status: 'ACTIVE',
+    version: '2.0.0',
+    documentation: '/api/health',
+    message: 'Backend server is running online and connected to database.',
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'OK',
