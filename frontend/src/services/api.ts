@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+// Clean up any accidental double slashes or trailing slashes
+const API_BASE = rawApiBase.trim().replace(/\/+$/, '');
 
 export function getToken(): string | null {
   return localStorage.getItem('medikiosk_token');
@@ -41,21 +43,31 @@ async function request<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const fullUrl = `${API_BASE}${cleanPath}`;
 
-  if (response.status === 401) {
-    clearAuthSession();
+  try {
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+
+    if (response.status === 401) {
+      clearAuthSession();
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      throw new Error(error.error || `Request failed (${response.status})`);
+    }
+
+    return response.json();
+  } catch (err: any) {
+    console.error(`❌ API Error [${fullUrl}]:`, err);
+    throw new Error(err.message?.includes('Failed to fetch') 
+      ? `Cannot connect to server at ${API_BASE}. Please ensure the backend is awake or check connection.`
+      : (err.message || 'Network error'));
   }
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(error.error || `Request failed (${response.status})`);
-  }
-
-  return response.json();
 }
 
 export const api = {
