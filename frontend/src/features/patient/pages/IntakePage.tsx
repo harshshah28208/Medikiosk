@@ -137,6 +137,13 @@ export function IntakePage() {
 
         if (res.isComplete) {
           setIsComplete(true);
+          // If the patient explicitly chosen completion option (No, covers all symptoms), proceed immediately to next step
+          if (/covers all symptoms|complete intake|सब लक्षण बता दिए|ઇન્ટેક પૂર્ણ|તમામ લક્ષણો જણાવી દીધા|no, that covers/i.test(textToSend)) {
+            setTimeout(() => {
+              handleCompleteIntake();
+            }, 800);
+            return;
+          }
         }
 
         if (audioEnabled) {
