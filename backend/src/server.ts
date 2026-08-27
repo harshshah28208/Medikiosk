@@ -39,17 +39,21 @@ const io = new Server(server, {
 
 app.set('io', io);
 
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+}));
+
+app.options('*', cors());
+
 // Configure helmet with relaxed frameguard and crossOrigin policies to allow PDF iframe rendering
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
   frameguard: false,
   contentSecurityPolicy: false,
-}));
-
-app.use(cors({
-  origin: '*',
-  credentials: true,
 }));
 
 app.use(express.json({ limit: '25mb' }));
