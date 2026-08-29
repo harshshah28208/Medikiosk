@@ -163,15 +163,73 @@ export function PatientReviewPage() {
           </div>
         </div>
 
+        {/* Assigned Nurse & Triage Next Steps Card */}
+        {(() => {
+          const nurse = activeVisit?.doctor?.nurses?.[0] || activeVisit?.department?.nurses?.[0];
+          const nurseName = nurse?.user?.name || (activeVisit?.department?.code === 'CARD' ? 'Nurse Preeti Patel' : activeVisit?.department?.code === 'PED' ? 'Nurse Sneha Desai' : activeVisit?.department?.code === 'ORTHO' ? 'Nurse Ritu Nair' : activeVisit?.department?.code === 'DERM' ? 'Nurse Sunita Yadav' : 'Nurse Priya Singh');
+          const docName = activeVisit?.doctor?.user?.name ? `Dr. ${activeVisit.doctor.user.name}` : (activeVisit?.department?.code === 'CARD' ? 'Dr. Yogesh Sharma' : 'Attending Physician');
+          const roomNumber = activeVisit?.doctor?.employeeId === 'DOC-YOGESH-101' ? 'Room 204 (Cardiology Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-VIKRAM-102' ? 'Room 101 (General OPD Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-RAJESH-103' ? 'Room 105 (Pediatrics Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-DESAI-104' ? 'Room 210 (Orthopedics Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-NEHA-105' ? 'Room 302 (Dermatology Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-ALOK-106' ? 'Room 208 (ENT Triage)' :
+                             activeVisit?.doctor?.employeeId === 'DOC-HARISH-201' ? 'Room 103 (Ayurveda Triage)' : 'Room 101 (OPD Triage Desk)';
+
+          return (
+            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-teal-700 text-white rounded-2xl p-5 sm:p-6 shadow-xl shadow-teal-700/20 space-y-3">
+              <div className="flex items-center justify-between pb-3 border-b border-white/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center font-bold text-white shadow-inner">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block">
+                      {language === 'hi' ? 'अगला कदम: वाइटल्स व नर्स डेस्क' : language === 'gu' ? 'આગળનું પગલું: વાઇટલ્સ અને નર્સ ડેસ્ક' : 'Immediate Next Step: Nurse Triage Station'}
+                    </span>
+                    <h3 className="text-base sm:text-lg font-extrabold">{nurseName}</h3>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-white/20 border border-white/30 rounded-xl text-xs font-bold font-mono">
+                  {roomNumber}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-emerald-100">
+                <div className="bg-white/10 p-3 rounded-xl border border-white/10 space-y-0.5">
+                  <span className="text-[10px] text-emerald-200 font-bold uppercase block">
+                    {language === 'hi' ? 'संबंधित डॉक्टर' : language === 'gu' ? 'ડૉક્ટર' : 'Assigned Doctor'}
+                  </span>
+                  <p className="font-bold text-white text-sm">{docName}</p>
+                  <span className="text-[11px] text-emerald-200">Dept: {activeVisit?.department?.name || 'General OPD'}</span>
+                </div>
+
+                <div className="bg-white/10 p-3 rounded-xl border border-white/10 space-y-0.5">
+                  <span className="text-[10px] text-emerald-200 font-bold uppercase block">
+                    {language === 'hi' ? 'मरीज के लिए निर्देश' : language === 'gu' ? 'દર્દી માટે સૂચના' : 'Instructions for Patient'}
+                  </span>
+                  <p className="text-white text-xs leading-relaxed">
+                    {language === 'hi'
+                      ? `कृपया डॉक्टर के केबिन से पहले ${nurseName} (${roomNumber}) के पास BP, पल्स और वजन जांच करवाएं।`
+                      : language === 'gu'
+                      ? `કૃપા કરીને ડૉક્ટરની કેબિનમાં જતાં પહેલાં ${nurseName} (${roomNumber}) પાસે બ્લડ પ્રેશર અને વજન તપાસ કરાવો.`
+                      : `Please proceed to ${nurseName} at ${roomNumber} for Blood Pressure, SpO2 & Temperature check.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Direction Notice */}
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs sm:text-sm">
           <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
           <p>
             {language === 'hi'
-              ? 'कृपया OPD प्रतीक्षालय या नर्स डेस्क पर पहुँचें। डिस्प्ले स्क्रीन पर आपका टोकन नंबर बुलाया जाएगा।'
+              ? 'आपकी AI केस हिस्ट्री डॉक्टर के डैशबोर्ड पर भेज दी गई है। वाइटल्स जांच के बाद डॉक्टर आपको बुलाएंगे।'
               : language === 'gu'
-              ? 'કૃપા કરીને OPD પ્રતીક્ષાલય અથવા નર્સ ડેસ્ક પર જાઓ. ડિસ્પ્લે સ્ક્રીન પર આપનો ટોકન નંબર બોલાવવામાં આવશે.'
-              : 'Please proceed to the OPD waiting area or nursing station. Your token number will be called on the queue display.'}
+              ? 'આપની AI કેસ હિસ્ટ્રી ડૉક્ટરના ડેશબોર્ડ પર મોકલી દેવાઈ છે. વાઇટલ્સ તપાસ પછી ડૉક્ટર આપને બોલાવશે.'
+              : 'Your AI clinical intake history is sent to the physician. Once vitals are recorded by the nurse, your token will be called.'}
           </p>
         </div>
 

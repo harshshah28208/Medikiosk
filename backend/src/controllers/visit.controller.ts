@@ -22,11 +22,33 @@ export async function getVisit(req: AuthRequest, res: Response): Promise<void> {
           },
         },
       },
-      department: { select: { id: true, name: true, code: true } },
+      department: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          nurses: {
+            select: {
+              id: true,
+              employeeId: true,
+              user: { select: { name: true, phone: true } },
+            },
+          },
+        },
+      },
       doctor: {
         select: {
-          id: true, specialization: true,
-          user: { select: { name: true } },
+          id: true,
+          specialization: true,
+          employeeId: true,
+          user: { select: { name: true, phone: true } },
+          nurses: {
+            select: {
+              id: true,
+              employeeId: true,
+              user: { select: { name: true, phone: true } },
+            },
+          },
         },
       },
       queueEntry: true,

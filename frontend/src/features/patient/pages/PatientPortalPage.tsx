@@ -125,25 +125,47 @@ export function PatientPortalPage() {
         </div>
 
         {activeVisit ? (
-          <div className="p-6 bg-emerald-950/30 border border-emerald-500/30 rounded-3xl space-y-3">
+          <div className="p-6 bg-gradient-to-br from-emerald-900 to-teal-950 text-white border border-emerald-500/40 rounded-3xl space-y-3 shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-                <CheckCircle2 className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Active OPD Token</span>
               </div>
-              <span className="text-xs px-2.5 py-1 bg-emerald-500/20 text-emerald-300 font-mono font-bold rounded-full">
+              <span className="text-xs px-3 py-1 bg-emerald-500/20 text-emerald-300 font-mono font-bold rounded-full border border-emerald-500/30">
                 {activeVisit.token || 'TOKEN-ACTIVE'}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-slate-800">
-              {activeVisit.department?.name || 'Assigned OPD Department'}
-            </h3>
-            <p className="text-xs text-slate-600">
-              Status: <span className="font-semibold text-emerald-600">{activeVisit.status || 'IN_QUEUE'}</span>
-            </p>
+            <div>
+              <h3 className="text-lg font-bold text-white">
+                {activeVisit.department?.name || 'Assigned OPD Department'}
+              </h3>
+              <p className="text-xs text-emerald-200 mt-0.5">
+                Doctor: <strong>{activeVisit.doctor?.user?.name ? `Dr. ${activeVisit.doctor.user.name}` : 'Assigned OPD Specialist'}</strong>
+              </p>
+            </div>
+
+            {/* Nurse Triage Guidance */}
+            <div className="p-3 bg-white/10 rounded-2xl border border-white/10 text-xs space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300">
+                <span>👩‍⚕️ Assigned Nurse Station:</span>
+                <span className="font-mono bg-emerald-500/20 px-2 py-0.5 rounded text-white">
+                  {activeVisit.doctor?.employeeId === 'DOC-YOGESH-101' ? 'Room 204' :
+                   activeVisit.doctor?.employeeId === 'DOC-VIKRAM-102' ? 'Room 101' :
+                   activeVisit.doctor?.employeeId === 'DOC-RAJESH-103' ? 'Room 105' :
+                   activeVisit.doctor?.employeeId === 'DOC-DESAI-104' ? 'Room 210' :
+                   activeVisit.doctor?.employeeId === 'DOC-NEHA-105' ? 'Room 302' :
+                   activeVisit.doctor?.employeeId === 'DOC-ALOK-106' ? 'Room 208' :
+                   activeVisit.doctor?.employeeId === 'DOC-HARISH-201' ? 'Room 103' : 'Room 101'}
+                </span>
+              </div>
+              <p className="text-slate-200 text-[11px] leading-relaxed">
+                {activeVisit.doctor?.nurses?.[0]?.user?.name || 'Nurse Preeti Patel'} • Please complete BP &amp; Vitals check before consultation.
+              </p>
+            </div>
+
             <button
               onClick={() => navigate(`/kiosk/intake/${activeVisit.id}`)}
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow"
+              className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow"
             >
               <span>Continue AI Clinical Intake</span>
               <ChevronRight className="w-4 h-4" />
