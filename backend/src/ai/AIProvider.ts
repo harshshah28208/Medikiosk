@@ -870,15 +870,24 @@ export class UniversalClinicalEngine implements AIProvider {
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
 
-    // Track answered clinical dimensions to guarantee NO repetition
+    // Track answered clinical dimensions from both state and conversation transcript to guarantee smooth stage progression
     const answeredDimensions = new Set<string>();
+    const historyText = (conversationHistory || []).map(m => m.content).join(' ').toLowerCase() + ' ' + (state.questionsAsked || []).join(' ').toLowerCase();
+
+    if (historyText.includes('how long') || historyText.includes('कब से') || historyText.includes('કેટલા સમયથી') || (state.symptoms || []).some(s => s.onset)) {
+      answeredDimensions.add('ONSET');
+    }
+    if (historyText.includes('severity') || historyText.includes('how many times') || historyText.includes('times have you') || historyText.includes('गंभीरता') || historyText.includes('તીવ્રતા') || (state.symptoms || []).some(s => s.severity || s.character)) {
+      answeredDimensions.add('CHARACTER');
+    }
+    if (historyText.includes('lifestyle') || historyText.includes('sleep') || historyText.includes('routine') || historyText.includes('diet') || historyText.includes('दिनचर्या') || historyText.includes('દિનચર્યા') || (state.lifestyle?.sleep && state.lifestyle.sleep.length > 2)) {
+      answeredDimensions.add('LIFESTYLE');
+    }
+    if (historyText.includes('medical conditions') || historyText.includes('ongoing') || historyText.includes('regular medicines') || historyText.includes('allergies') || historyText.includes('पुरानी बीमारी') || historyText.includes('જૂની બીમારી') || ((state.pastMedicalHistory || []).length > 0 && state.pastMedicalHistory[0] !== 'None reported')) {
+      answeredDimensions.add('PAST_HISTORY');
+    }
     if ((state.symptoms || []).some(s => s.progression)) answeredDimensions.add('PROGRESSION');
     if ((state.symptoms || []).some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
-    if ((state.symptoms || []).some(s => s.onset)) answeredDimensions.add('ONSET');
-    if ((state.symptoms || []).some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
-    if (state.lifestyle?.sleep || state.lifestyle?.diet || state.lifestyle?.activity) answeredDimensions.add('LIFESTYLE');
-    if ((state.lifestyle as any)?.followUpTriggers) answeredDimensions.add('LIFESTYLE_FOLLOWUP');
-    if ((state.pastMedicalHistory || []).length > 0) answeredDimensions.add('PAST_HISTORY');
     if ((state.medications || []).length > 0) answeredDimensions.add('MEDICATIONS');
     if ((state.allergies || []).length > 0) answeredDimensions.add('ALLERGIES');
 
@@ -1611,7 +1620,67 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 5: Final Wrap-Up Review (All dimensions covered)
+    // Step 4: Lifestyle & Daily Routine (Sleep, Diet, Physical Activity, Stress)
+    if (!answeredDimensions.has('LIFESTYLE')) {
+      const qText = {
+        EN: isCaregiver
+          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
+          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
+        HI: isCaregiver
+          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
+          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
+        GU: isCaregiver
+          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
+          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
+      };
+      const touchOpts = {
+        EN: ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high work stress', 'Oily / fast food & irregular meals', 'Sedentary desk routine & physical fatigue'],
+        HI: ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
+        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'LIFESTYLE',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and daily routine context',
+      };
+    }
+
+    // Step 5: Medical Background, Ongoing Medications & Drug Allergies
+    if (!answeredDimensions.has('PAST_HISTORY') && !answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES')) {
+      const qText = {
+        EN: isCaregiver
+          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
+          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
+        HI: isCaregiver
+          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
+          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
+        GU: isCaregiver
+          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
+          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
+      };
+      const touchOpts = {
+        EN: ['No chronic conditions & No known drug allergies (NKDA)', 'Taking regular BP / Diabetes medicines', 'Have Thyroid / Asthma / Breathing trouble', 'Known drug allergy to Penicillin / Sulfa drugs'],
+        HI: ['कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'थायराइड / अस्थमा / सांस की तकलीफ है', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है'],
+        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'થાયરોઇડ / અસ્થમા / શ્વાસની તકલીફ છે', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'PAST_HISTORY',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Screening chronic disease background, regular medications, and drug allergy safety profile',
+      };
+    }
+
+    // Step 6: Final Wrap-Up Review (All dimensions covered)
     const qFinal = {
       EN: isCaregiver
         ? `Thank you. Is there any other symptom or specific detail regarding the patient's condition that you would like the doctor to know?`
@@ -1903,31 +1972,25 @@ Turns Completed: ${state.turnsCompleted}
 CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
 
 1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Goal: Chief Complaint -> Complaint Characterization -> Daily Routine & Lifestyle -> Past Medical History & Allergies -> Closing Verification.
    - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
-   - CRITICAL RULE FOR LIFESTYLE, ROUTINE & PAST MEDICAL HISTORY:
-     * NEVER ASK LIFESTYLE, SLEEP, DIET, ROUTINE, PAST MEDICAL HISTORY, MEDICATIONS, OR ALLERGIES IF ALREADY ANSWERED OR PROVIDED IN CLINICAL CONTEXT.
-     * Once the patient states their chief complaint (e.g., vomiting, knee pain, fever, chest pain), FOCUS IMMEDIATELY ON THE ACTIVE COMPLAINT (onset, duration, severity 1-10, character, triggers, radiation, relieving factors).
-     * DO NOT interrupt symptom exploration to ask generic lifestyle/routine questions unless specifically relevant to the acute pathology (e.g. food poisoning diet).
-     * If the patient already answered a question about past history or lifestyle in a previous turn, NEVER ASK IT AGAIN.
-   - Adaptive Branching:
-     * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
-     * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
-     * If patient reports a condition, ask only useful follow-ups. If they say "No prior major illnesses", NEVER interrogate them with disease checklists.
-   - Completion: When chief complaint characteristics, duration, severity, and red flags are addressed, set "isComplete": true with a final closing verification question.
+   - Turn 1 (Onset & Specific Pathology): Explore when and how the chief complaint began (sudden vs gradual, duration) and specific pathology (severity 1-10, character, triggers, radiation, relieving factors).
+   - Turn 2 (Daily Routine & Lifestyle): If not yet answered in transcript or state, ask about daily routine, sleep hours/quality, diet, physical activity, and stress factors.
+   - Turn 3 (Past Medical History, Medications & Allergies): If not yet answered in transcript or state, ask about chronic conditions (BP, Sugar, Thyroid), prior surgeries, regular medications, or known drug allergies.
+   - Turn 4 (Closing Verification): When chief complaint, lifestyle baseline, and medical background are addressed, set "isComplete": true with a final closing verification question.
 
-2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
+2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
+   - Goal: Previous Disease Follow-Up -> Progression & Residual Symptoms -> Previous Medications & Treatment Response -> Closing Verification.
    - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
-   - Turn 0 (Change-First Opening): Welcome the patient back ("Welcome back. We have your previous record. What has changed since your last visit?") referencing previous diagnosis or medications if available.
-   - Dynamic Change Pathways:
-     * Sypmtom Progression: Ask if the previous condition improved, worsened, unchanged, or if a new problem appeared.
-     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment. NEVER re-ask if they have the symptom (e.g., if previous visit was headache, do NOT ask "Do you have a headache?").
-     * If Unchanged ("Everything is the same"): Confirm stability, ask if current meds need refills, and avoid forcing a long questionnaire.
-     * If Medication Changed ("Doctor increased Amlodipine from 5mg to 10mg" or "I stopped taking it"): Record the patient-reported change for clinician verification without overwriting historical records.
-     * If NEW COMPLAINT (e.g., previous visit was Diabetes follow-up, but today patient says "I have abdominal pain"): Immediately branch to investigate the *new* complaint adaptively. Incorporate existing context for safety, but DO NOT assume the new complaint is caused by their past condition.
-     * If Previous Documents / Labs Exist (e.g., past HbA1c): Do NOT ask "Have you ever had an HbA1c?", ask "Have you had a newer lab report since your last visit?".
-   - Completion: Set "isComplete": true with closing verification when changes, current complaint, and treatment response are clearly evaluated.
+   - Turn 0 (Previous Disease Follow-Up Opening): ALWAYS acknowledge their previous consultation/disease (referencing previous diagnosis or past medications from context) and ask how that specific condition has progressed since the last visit (improved, worsened, unchanged, or if a new problem appeared).
+   - Turn 1 (Progression & Residual Symptoms):
+     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment.
+     * If Partial Relief: Inquire specifically about what residual symptoms remain and during what daily activities/times.
+     * If NEW COMPLAINT: Immediately branch to investigate the onset, duration, and severity of the new complaint.
+   - Turn 2 (Previous Medications & Treatment Follow-Up):
+     * Inquire about compliance with previously prescribed medications, whether they experienced any side-effects, and if they need a prescription refill.
+   - Turn 3 (Closing Verification):
+     * Set "isComplete": true with closing verification when previous disease progression, current complaint, and treatment response are clearly evaluated.
 
 3. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
@@ -2164,31 +2227,25 @@ Turns Completed: ${state.turnsCompleted}
 CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
 
 1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Goal: Chief Complaint -> Complaint Characterization -> Daily Routine & Lifestyle -> Past Medical History & Allergies -> Closing Verification.
    - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
-   - CRITICAL RULE FOR LIFESTYLE, ROUTINE & PAST MEDICAL HISTORY:
-     * NEVER ASK LIFESTYLE, SLEEP, DIET, ROUTINE, PAST MEDICAL HISTORY, MEDICATIONS, OR ALLERGIES IF ALREADY ANSWERED OR PROVIDED IN CLINICAL CONTEXT.
-     * Once the patient states their chief complaint (e.g., vomiting, knee pain, fever, chest pain), FOCUS IMMEDIATELY ON THE ACTIVE COMPLAINT (onset, duration, severity 1-10, character, triggers, radiation, relieving factors).
-     * DO NOT interrupt symptom exploration to ask generic lifestyle/routine questions unless specifically relevant to the acute pathology (e.g. food poisoning diet).
-     * If the patient already answered a question about past history or lifestyle in a previous turn, NEVER ASK IT AGAIN.
-   - Adaptive Branching:
-     * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
-     * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
-     * If patient reports a condition, ask only useful follow-ups. If they say "No prior major illnesses", NEVER interrogate them with disease checklists.
-   - Completion: When chief complaint characteristics, duration, severity, and red flags are addressed, set "isComplete": true with a final closing verification question.
+   - Turn 1 (Onset & Specific Pathology): Explore when and how the chief complaint began (sudden vs gradual, duration) and specific pathology (severity 1-10, character, triggers, radiation, relieving factors).
+   - Turn 2 (Daily Routine & Lifestyle): If not yet answered in transcript or state, ask about daily routine, sleep hours/quality, diet, physical activity, and stress factors.
+   - Turn 3 (Past Medical History, Medications & Allergies): If not yet answered in transcript or state, ask about chronic conditions (BP, Sugar, Thyroid), prior surgeries, regular medications, or known drug allergies.
+   - Turn 4 (Closing Verification): When chief complaint, lifestyle baseline, and medical background are addressed, set "isComplete": true with a final closing verification question.
 
-2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
+2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
+   - Goal: Previous Disease Follow-Up -> Progression & Residual Symptoms -> Previous Medications & Treatment Response -> Closing Verification.
    - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
-   - Turn 0 (Change-First Opening): Welcome the patient back ("Welcome back. We have your previous record. What has changed since your last visit?") referencing previous diagnosis or medications if available.
-   - Dynamic Change Pathways:
-     * Sypmtom Progression: Ask if the previous condition improved, worsened, unchanged, or if a new problem appeared.
-     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment. NEVER re-ask if they have the symptom (e.g., if previous visit was headache, do NOT ask "Do you have a headache?").
-     * If Unchanged ("Everything is the same"): Confirm stability, ask if current meds need refills, and avoid forcing a long questionnaire.
-     * If Medication Changed ("Doctor increased Amlodipine from 5mg to 10mg" or "I stopped taking it"): Record the patient-reported change for clinician verification without overwriting historical records.
-     * If NEW COMPLAINT (e.g., previous visit was Diabetes follow-up, but today patient says "I have abdominal pain"): Immediately branch to investigate the *new* complaint adaptively. Incorporate existing context for safety, but DO NOT assume the new complaint is caused by their past condition.
-     * If Previous Documents / Labs Exist (e.g., past HbA1c): Do NOT ask "Have you ever had an HbA1c?", ask "Have you had a newer lab report since your last visit?".
-   - Completion: Set "isComplete": true with closing verification when changes, current complaint, and treatment response are clearly evaluated.
+   - Turn 0 (Previous Disease Follow-Up Opening): ALWAYS acknowledge their previous consultation/disease (referencing previous diagnosis or past medications from context) and ask how that specific condition has progressed since the last visit (improved, worsened, unchanged, or if a new problem appeared).
+   - Turn 1 (Progression & Residual Symptoms):
+     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment.
+     * If Partial Relief: Inquire specifically about what residual symptoms remain and during what daily activities/times.
+     * If NEW COMPLAINT: Immediately branch to investigate the onset, duration, and severity of the new complaint.
+   - Turn 2 (Previous Medications & Treatment Follow-Up):
+     * Inquire about compliance with previously prescribed medications, whether they experienced any side-effects, and if they need a prescription refill.
+   - Turn 3 (Closing Verification):
+     * Set "isComplete": true with closing verification when previous disease progression, current complaint, and treatment response are clearly evaluated.
 
 3. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
