@@ -543,6 +543,7 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // Track answered clinical dimensions to guarantee NO repetition
     const answeredDimensions = new Set<string>();
+    if (state.symptoms.some(s => s.progression)) answeredDimensions.add('PROGRESSION');
     if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
     if (state.symptoms.some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
     if (state.lifestyle?.sleep || state.lifestyle?.diet || state.lifestyle?.activity) answeredDimensions.add('LIFESTYLE');
@@ -554,7 +555,7 @@ export class UniversalClinicalEngine implements AIProvider {
     // WORKFLOW A: RETURNING PATIENT FOLLOW-UP
     // ==========================================
     if (!isNew) {
-      if (state.turnsCompleted === 1 || !answeredDimensions.has('PROGRESSION')) {
+      if (!answeredDimensions.has('PROGRESSION')) {
         const qText = {
           EN: isCaregiver
             ? `Compared to the previous visit, how has the patient's condition progressed? Have symptoms improved, worsened, or are they unchanged?`
@@ -583,7 +584,7 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      if (state.turnsCompleted === 2 || (!answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES'))) {
+      if (!answeredDimensions.has('MEDICATIONS')) {
         const qText = {
           EN: isCaregiver
             ? `Has the patient been taking their previously prescribed medicines regularly, and were there any side effects?`
