@@ -52,6 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.auth.login(email, password);
       setAuthSession(res.token, res.user);
+      if (res.user?.patient) {
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+        if (res.user.patient.visits?.[0]) {
+          localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.user.patient.visits[0]));
+          if (res.user.patient.visits[0].queueEntry) {
+            localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.user.patient.visits[0].queueEntry));
+          }
+        }
+      }
       setUser(res.user);
     } catch (err: any) {
       setError(err.message);
@@ -67,6 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.auth.register(data);
       setAuthSession(res.token, res.user);
+      if (res.user?.patient) {
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+      }
       setUser(res.user);
     } catch (err: any) {
       setError(err.message);
@@ -82,6 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.auth.demoLogin(role);
       setAuthSession(res.token, res.user);
+      if (res.user?.patient) {
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+        if (res.user.patient.visits?.[0]) {
+          localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.user.patient.visits[0]));
+        }
+      }
       setUser(res.user);
     } catch (err: any) {
       setError(err.message);

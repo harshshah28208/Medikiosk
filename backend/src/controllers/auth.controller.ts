@@ -190,6 +190,43 @@ export async function login(req: AuthRequest, res: Response): Promise<void> {
     userAgent: req.headers['user-agent'],
   });
 
+  let patientProfile = null;
+  if (user.role === 'PATIENT') {
+    patientProfile = await prisma.patient.findFirst({
+      where: { OR: [{ userId: user.id }, { email: user.email }, { phone: user.phone || '____' }] },
+      include: {
+        visits: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { department: true, summary: true, queueEntry: true },
+        },
+      },
+    });
+
+    if (!patientProfile) {
+      const mrn = `MK-${Math.floor(100000 + Math.random() * 900000)}`;
+      patientProfile = await prisma.patient.create({
+        data: {
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '9876543210',
+          mrn,
+          age: 30,
+          gender: 'MALE',
+          preferredLang: 'EN',
+        },
+        include: {
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: { department: true, summary: true, queueEntry: true },
+          },
+        },
+      });
+    }
+  }
+
   res.json({
     token,
     refreshToken,
@@ -199,6 +236,10 @@ export async function login(req: AuthRequest, res: Response): Promise<void> {
       name: user.name,
       role: user.role,
       phone: user.phone,
+      patient: patientProfile,
+      mrn: patientProfile?.mrn,
+      age: patientProfile?.age,
+      gender: patientProfile?.gender,
     },
   });
 }
@@ -229,13 +270,27 @@ export async function demoLogin(req: AuthRequest, res: Response): Promise<void> 
   const token = generateToken(user);
   const refreshToken = generateRefreshToken(user);
 
+  let patientProfile = null;
+  if (user.role === 'PATIENT') {
+    patientProfile = await prisma.patient.findFirst({
+      where: { OR: [{ userId: user.id }, { email: user.email }, { phone: user.phone || '____' }] },
+      include: {
+        visits: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { department: true, summary: true, queueEntry: true },
+        },
+      },
+    });
+  }
+
   await createAuditLog({
     userId: user.id,
     role: user.role,
     action: AUDIT_ACTIONS.LOGIN,
     resourceType: 'USER',
     resourceId: user.id,
-    details: { method: 'DEMO_LOGIN' },
+    details: { isDemo: true, role },
     ipAddress: req.ip,
     userAgent: req.headers['user-agent'],
   });
@@ -249,6 +304,10 @@ export async function demoLogin(req: AuthRequest, res: Response): Promise<void> 
       name: user.name,
       role: user.role,
       phone: user.phone,
+      patient: patientProfile,
+      mrn: patientProfile?.mrn,
+      age: patientProfile?.age,
+      gender: patientProfile?.gender,
     },
   });
 }

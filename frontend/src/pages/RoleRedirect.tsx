@@ -21,7 +21,7 @@ export function RoleRedirect() {
   }
 
   const roleRoutes: Record<string, string> = {
-    PATIENT: '/kiosk',
+    PATIENT: '/kiosk/portal',
     RECEPTION: '/reception',
     TRIAGE_STAFF: '/triage',
     NURSE: '/nurse',

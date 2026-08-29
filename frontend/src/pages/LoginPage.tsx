@@ -69,7 +69,7 @@ export function LoginPage() {
   const getTargetWorkspace = (role: string, spec?: string) => {
     switch (role) {
       case 'PATIENT':
-        return '/kiosk';
+        return '/kiosk/portal';
       case 'DOCTOR':
       case 'SPECIALIST_DOCTOR':
         return '/doctor';
