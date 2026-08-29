@@ -52,29 +52,41 @@ Chief Complaint: "${clinicalState.chiefComplaint || ''}"
 Latest Answer: "${clinicalState.latestAnswer || ''}"
 Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
 
-STAGE RULES FOR NEW PATIENT:
-1. Chief Complaint & Onset -> Explore what brings them in and how long symptoms lasted.
-2. Lifestyle & Daily Routine -> Ask about sleep hours/quality, diet, physical activity, and stress levels.
-3. Medications & Medical Background -> Ask about regular medications, chronic conditions (BP, Diabetes, Thyroid), or allergies.
-4. Closing Turn -> When symptoms, lifestyle, and medical background are addressed, set "isComplete": true and ask:
+STAGE PROTOCOL FOR NEW PATIENT:
+1. Chief Complaint & Onset (Turn 0-1) -> Explore primary symptoms, duration, severity (1-10), aggravating/relieving factors, and pain character.
+2. Symptom-Tailored Lifestyle & Diagnostic Inquiry (Turn 1-3) -> AS AN EXPERIENCED PHYSICIAN, YOU DECIDE IN REAL-TIME WHICH SPECIFIC LIFESTYLE, HABIT, OR ROUTINE DIMENSION PROVIDES THE HIGHEST DIAGNOSTIC VALUE BASED ON THE PATIENT'S RECENT ANSWERS:
+   - Back / Neck / Joint Pain -> Inquire about sitting hours, desk ergonomics, heavy lifting, or physical activity.
+   - Headache / Migraine / Dizziness -> Inquire about sleep hours/quality, screen time, work stress, and caffeine/tea intake.
+   - Acidity / Indigestion / Abdominal Pain -> Inquire about meal regularity, spicy/fried food, hydration, and late dinners.
+   - Cough / Breathlessness / Chest Tightness -> Inquire about smoke/dust exposure, smoking/tobacco, and physical exertion.
+   - Chest Pain / Hypertension / Palpitations -> Inquire about exertion triggers, dietary salt, sleep apnea, and mental stress.
+   - Skin Rash / Itching / Allergic Reactions -> Inquire about new soaps, detergents, cosmetics, pets, or dietary allergens.
+   - Fatigue / Weakness / Body Ache -> Inquire about sleep duration, dietary nutrition, and daily routine.
+3. Medical Background, Chronic Conditions & Medications (Turn 3-4) -> Check for regular medications, chronic conditions (BP, Diabetes, Thyroid, Asthma), and known drug allergies.
+4. Closing Turn (Turn 4+) -> When symptoms, targeted lifestyle factors, and medical background are addressed in the transcript, set "isComplete": true and formulate the final closing question:
    "Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?"
    with touchOptions: ["Proceed with Appointment", "Add One More Detail"].
 
-STAGE RULES FOR RETURNING PATIENT:
-1. Ground truth inquiry strictly about prior complaint ("${prevInfo?.lastComplaint || 'the previous condition'}").
-2. Progression & medication adherence.
-3. Closing turn with "Proceed with Appointment".
+STAGE PROTOCOL FOR RETURNING PATIENT:
+1. Focus 100% on the exact prior diagnosed complaint ("${prevInfo?.lastComplaint || 'the previous condition'}").
+2. Inquire about symptom progression (improved, worsened, unchanged, new issues).
+3. Check medication adherence, side-effects, and relevant lifestyle changes since last appointment.
+4. Closing Turn -> Set "isComplete": true and ask closing question with touchOptions: ["Proceed with Appointment", "Add One More Detail"].
+
+TOUCH OPTIONS GUIDELINES:
+- Provide 3-4 natural, clinically appropriate touch options for EVERY turn in pure ${language}.
+- Ensure touch options cover common realistic answers.
 
 Return ONLY valid JSON (no markdown):
 {
   "question": "Dynamic question in pure ${language}",
   "questionLanguage": "${language}",
-  "questionCategory": "ONSET | DURATION | SEVERITY | LIFESTYLE | MEDICATIONS | PAST_HISTORY | CLOSING",
+  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | HABITS | MEDICATIONS | PAST_HISTORY | CLOSING",
   "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
   "isRedFlag": false,
   "redFlagReason": null,
   "isComplete": false,
-  "clinicalRationale": "Diagnostic reasoning"
+  "clinicalRationale": "Diagnostic reasoning for this step"
 }`;
 
   try {
