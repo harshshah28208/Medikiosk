@@ -230,18 +230,38 @@ export const api = {
       }).catch(() => {
         const isRet = Boolean(options?.isReturningPatient && !options?.previousPatientInfo?.isNewPatient);
         const patientName = options?.previousPatientInfo?.name ? ` ${options.previousPatientInfo.name}` : '';
+        const langLower = (language || 'en').toLowerCase();
+
+        let content = `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`;
+        let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+
+        if (langLower === 'hi') {
+          content = isRet
+            ? `मेडीकियोस्क में आपका स्वागत है${patientName}। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है? क्या वे सुधरे हैं, बिगड़े हैं या वैसे ही हैं?`
+            : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
+          touchOptions = isRet
+            ? ['लक्षणों में सुधार हुआ है', 'लक्षण और बिगड़ गए हैं', 'कोई बदलाव नहीं हुआ', 'नई समस्या शुरू हुई है']
+            : ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
+        } else if (langLower === 'gu') {
+          content = isRet
+            ? `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે? સુધારો થયો છે, વધ્યા છે કે એવા જ છે?`
+            : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`;
+          touchOptions = isRet
+            ? ['લક્ષણોમાં સુધારો થયો છે', 'લક્ષણો વધ્યા છે', 'કોઈ ફેરફાર નથી', 'નવી તકલીફ શરૂ થઈ છે']
+            : ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
+        } else if (isRet) {
+          content = `Welcome back${patientName}. Since your last visit, how have your symptoms been? Have they improved, worsened, or stayed the same?`;
+          touchOptions = ['My symptoms have improved', 'My symptoms have worsened', 'There is no change', 'I have a new problem'];
+        }
+
         return {
           session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
           message: {
             id: 'msg-start',
             role: 'AI',
-            content: isRet
-              ? `Welcome back${patientName}. Since your last visit, how have your symptoms been? Have they improved, worsened, or stayed the same?`
-              : `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`,
+            content,
           },
-          touchOptions: isRet
-            ? ['My symptoms have improved', 'My symptoms have worsened', 'There is no change', 'I have a new problem']
-            : ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'],
+          touchOptions,
         };
       }),
     sendMessage: (sessionId: string, data: { content: string; inputMethod?: string; language?: string; rawTranscript?: string; isAyush?: boolean }) =>
@@ -249,12 +269,38 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }).catch(() => {
-        const text = data.content.toLowerCase();
-        const isClosing = /covers all symptoms|proceed|complete intake|no further|14 years old|taking them daily/i.test(text);
+        const text = (data.content || '').toLowerCase();
+        const langLower = (data.language || 'en').toLowerCase();
+        const isClosing = /covers all symptoms|proceed|complete intake|no further|14 years old|taking them daily|आगे बढ़ें|આગળ વધો|done|ਠੀਕ/i.test(text);
+
+        let aiMessageContent = 'Thank you. Could you share how long you have had this, and if you take any daily medications?';
+        let touchOptions = ['Started today', '1-3 days ago', 'More than a week ago', 'No medications taken'];
+
+        if (langLower === 'hi') {
+          if (isClosing) {
+            aiMessageContent = 'धन्यवाद। आपके मुख्य लक्षणों की जानकारी दर्ज हो चुकी है। क्या आप अब डॉक्टर से परामर्श के लिए आगे बढ़ना चाहते हैं?';
+            touchOptions = ['अपॉइंटमेंट के लिए आगे बढ़ें', 'एक और जानकारी जोड़ें'];
+          } else {
+            aiMessageContent = 'धन्यवाद। कृपया बताएं कि यह समस्या कितने समय से है, और क्या आप रोज़ाना कोई दवा ले रहे हैं?';
+            touchOptions = ['आज ही शुरू हुआ', '1-3 दिन से', 'एक हफ्ते से अधिक समय से', 'कोई दवा नहीं लेते'];
+          }
+        } else if (langLower === 'gu') {
+          if (isClosing) {
+            aiMessageContent = 'આભાર. તમારા મુખ્ય લક્ષણોની વિગતો પૂર્ણ થઈ ગઈ છે. શું તમે હવે ડૉક્ટરની મુલાકાત માટે આગળ વધવા માંગો છો?';
+            touchOptions = ['મુલાકાત માટે આગળ વધો', 'વધુ એક વિગત ઉમેરો'];
+          } else {
+            aiMessageContent = 'આભાર. કૃપા કરીને જણાવો કે આ તકલીફ કેટલા સમયથી છે, અને શું તમે નિયમિત કોઈ દવા લો છો?';
+            touchOptions = ['આજે જ શરૂ થયું', '૧-૩ દિવસથી', 'એક અઠવાડિયાથી વધુ સમયથી', 'કોઈ દવા લેતા નથી'];
+          }
+        } else if (isClosing) {
+          aiMessageContent = 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?';
+          touchOptions = ['Proceed with Appointment', 'Add One More Detail'];
+        }
+
         return {
-          aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: isClosing ? 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?' : 'Thank you. Could you share how long you have had this, and if you take any daily medications?' },
-          nextQuestion: isClosing ? 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?' : 'Thank you. Could you share how long you have had this, and if you take any daily medications?',
-          touchOptions: isClosing ? ['Proceed with Appointment', 'Add One More Detail'] : ['Started today', '1-3 days ago', 'More than a week ago', 'No medications taken'],
+          aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: aiMessageContent },
+          nextQuestion: aiMessageContent,
+          touchOptions,
           isComplete: isClosing,
         };
       }),
@@ -262,7 +308,33 @@ export const api = {
       request(`/conversation/${sessionId}/switch-language`, {
         method: 'POST',
         body: JSON.stringify({ targetLanguage, messages }),
-      }).catch(() => ({ language: targetLanguage, translatedMessages: messages })),
+      }).catch(() => {
+        const langLower = (targetLanguage || 'en').toLowerCase();
+        let latestQuestion = 'Welcome to MediKiosk. What main symptom or health concern brought you in today?';
+        let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+
+        if (langLower === 'hi') {
+          latestQuestion = 'मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?';
+          touchOptions = ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
+        } else if (langLower === 'gu') {
+          latestQuestion = 'મેડીકિયોસ્ક માં આપનું સ્વાગત છે। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?';
+          touchOptions = ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
+        }
+
+        const translatedMessages = messages.map((m: any, idx: number) => {
+          if (m.role === 'AI' && idx === messages.length - 1) {
+            return { ...m, content: latestQuestion };
+          }
+          return m;
+        });
+
+        return {
+          language: targetLanguage,
+          latestQuestion,
+          touchOptions,
+          translatedMessages,
+        };
+      }),
     complete: (sessionId: string) =>
       request(`/conversation/${sessionId}/complete`, {
         method: 'POST',
