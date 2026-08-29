@@ -81,10 +81,17 @@ export interface ClinicalState {
   missingFields: string[]; // Missing clinical dimensions (e.g., 'onset', 'severity', 'associated')
   confidence: number;
 
-  // Multilingual metadata
+  // Multilingual & Patient metadata
   currentLanguage: 'EN' | 'HI' | 'GU';
   languageHistory: Array<{ lang: string; switchedAt: string }>;
   respondentType?: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED';
+  isNewPatient?: boolean;
+  previousVisitInfo?: {
+    lastVisitDate?: string;
+    lastComplaint?: string;
+    lastDepartment?: string;
+    pastPrescriptions?: string[];
+  };
 }
 
 export interface QuestionOutput {

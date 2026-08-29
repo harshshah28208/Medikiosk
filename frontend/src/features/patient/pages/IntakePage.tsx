@@ -253,22 +253,8 @@ export function IntakePage() {
             </div>
           </div>
 
-          {/* Right Action Controls: Language Switcher, Done Intake Button & Mute toggle */}
+          {/* Right Action Controls: Language Switcher & Mute toggle */}
           <div className="flex items-center gap-2">
-            {/* Always Available Complete / Next Button */}
-            {messages.length > 2 && (
-              <button
-                onClick={handleCompleteIntake}
-                disabled={isProcessing}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all touch-target"
-                title="Finish intake early and generate appointment report"
-              >
-                <CheckSquare className="w-4 h-4" />
-                <span>
-                  {language === 'hi' ? 'रिपोर्ट व अपॉइंटमेंट' : language === 'gu' ? 'રિપોર્ટ અને એપોઇન્ટમેન્ટ' : 'Go to Next (Report)'}
-                </span>
-              </button>
-            )}
 
             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
               {(['en', 'hi', 'gu'] as const).map((l) => (
@@ -409,8 +395,35 @@ export function IntakePage() {
           <div ref={messagesEndRef} />
         </main>
 
+        {/* Prominent Intake Completion Card — Only shown when all clinical questions are completed */}
+        {isComplete && (
+          <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-t-2 border-emerald-500 shadow-md shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-600 text-white rounded-full flex items-center justify-center shrink-0 shadow-md">
+                <CheckSquare className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-emerald-950">
+                  {language === 'hi' ? 'क्लिनिकल इनटेक सफलतापूर्वक पूर्ण हुआ!' : language === 'gu' ? 'ક્લિનિકલ ઇન્ટેક સફળતાપૂર્વક પૂર્ણ થયું!' : 'Clinical Intake Successfully Completed!'}
+                </h3>
+                <p className="text-xs text-emerald-800">
+                  {language === 'hi' ? 'सभी आवश्यक लक्षण व क्लिनिकल विवरण रिकॉर्ड हो चुके हैं।' : language === 'gu' ? 'તમામ જરૂરી લક્ષણો અને વિગતો ડૉક્ટર માટે નોંધાઈ ચૂકી છે.' : 'All necessary clinical dimensions recorded. Proceed to report & prescription review.'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCompleteIntake}
+              disabled={isProcessing}
+              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 shrink-0 touch-target"
+            >
+              <span>{language === 'hi' ? 'रिपोर्ट व दस्तावेज़ देखें' : language === 'gu' ? 'રિપોર્ટ અને દસ્તાવેજ જુઓ' : 'Go to Report & Documents'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Quick Touch Options */}
-        {touchOptions.length > 0 && !isProcessing && (
+        {!isComplete && touchOptions.length > 0 && !isProcessing && (
           <div className="p-3 bg-slate-100/80 border-t border-slate-200 shrink-0">
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-blue-600" />

@@ -206,29 +206,114 @@ export class UniversalClinicalEngine implements AIProvider {
     const lang: 'EN' | 'HI' | 'GU' = (language?.toUpperCase() as 'EN' | 'HI' | 'GU') || (state.currentLanguage as 'EN' | 'HI' | 'GU') || 'EN';
     const complaintText = state.chiefComplaint || 'problem';
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
-    const turn = state.turnsCompleted || 1;
-
-    const cLower = `${state.chiefComplaint || ''} ${state.chiefComplaintOriginal || ''}`.toLowerCase();
-
-    const isSkin = /pimple|acne|rash|skin|itch|boil|eczema|allergy|फुंसी|मुँहासे|खुजली|ખીલ|ચકામા/i.test(cLower);
-    const isCardiacOrChest = /chest|heart|angina|palpitation|छाती|सीने|हृदय|છાતી/i.test(cLower);
-    const isCardiac = isCardiacOrChest;
-    const isRespiratory = /cough|breath|cold|wheez|asthma|throat|खांसी|सांस|गला|તાવ|ઉધરસ|શ્વાસ/i.test(cLower);
-    const isGIOrStomach = /stomach|abdom|vomit|diarrhea|acidity|gas|constipat|nausea|पेट|उल्टी|दस्त|પેટ|ઉલટી/i.test(cLower);
-    const isOrthoOrJoint = /joint|bone|knee|back|pain|fracture|leg|shoulder|कमर|घुटने|जोड़ों|કમર|ઘૂંટણ/i.test(cLower);
-
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
+    const isNew = state.isNewPatient !== false;
 
-    // Dynamic Adaptive Clinical Questioning — Evaluates patient answers and missing dimensions
+    // Track answered clinical dimensions to guarantee NO repetition
     const answeredDimensions = new Set<string>();
     if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
     if (state.symptoms.some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
+    if (state.lifestyle?.sleep || state.lifestyle?.diet || state.lifestyle?.activity) answeredDimensions.add('LIFESTYLE');
     if (state.pastMedicalHistory.length > 0) answeredDimensions.add('PAST_HISTORY');
     if (state.medications.length > 0) answeredDimensions.add('MEDICATIONS');
     if (state.allergies.length > 0) answeredDimensions.add('ALLERGIES');
-    if (state.lifestyle) answeredDimensions.add('LIFESTYLE');
 
-    // 1. Dynamic Symptom Follow-Up: If onset or character has not been explored for the primary complaint
+    // ==========================================
+    // WORKFLOW A: RETURNING PATIENT FOLLOW-UP
+    // ==========================================
+    if (!isNew) {
+      if (state.turnsCompleted === 1 || !answeredDimensions.has('PROGRESSION')) {
+        const qText = {
+          EN: isCaregiver
+            ? `Compared to the previous visit, how has the patient's condition progressed? Have symptoms improved, worsened, or are they unchanged?`
+            : `Compared to your previous visit, how has your condition progressed? Have your symptoms improved, worsened, or are they unchanged?`,
+          HI: isCaregiver
+            ? `पिछली मुलाकात की तुलना में मरीज की स्थिति में क्या बदलाव है? क्या तकलीफ में सुधार है, बढ़ी है, या वैसी ही है?`
+            : `पिछली मुलाकात की तुलना में आपकी सेहत में क्या बदलाव आया है? क्या तकलीफ में सुधार है, बढ़ी है, या वैसी ही है?`,
+          GU: isCaregiver
+            ? `છેલ્લી મુલાકાતની સરખામણીમાં દર્દીની તબિયતમાં શું ફેરફાર છે? શું તકલીફમાં રાહત છે, વધી છે, કે સરખી છે?`
+            : `છેલ્લી મુલાકાતની સરખામણીમાં આપની તબિયતમાં શું ફેરફાર થયો છે? શું તકલીફમાં રાહત છે, વધી છે, કે સરખી છે?`,
+        };
+        const touchOpts = {
+          EN: ['Symptoms significantly improved (>70% relief)', 'Partial relief but symptoms still persist', 'No relief / Symptoms worsening', 'Completely new problem today'],
+          HI: ['लक्षणों में काफी सुधार (70%+ आराम)', 'थोड़ा आराम है पर तकलीफ बाकी है', 'कोई आराम नहीं / तकलीफ बढ़ गई', 'आज पूरी तरह नई समस्या है'],
+          GU: ['લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)', 'થોડી રાહત છે પણ તકલીફ ચાલુ છે', 'કોઈ રાહત નથી / તકલીફ વધી ગઈ', 'આજે સાવ નવી જ સમસ્યા છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'DURATION',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing longitudinal symptom progression and therapeutic response since prior visit',
+        };
+      }
+
+      if (state.turnsCompleted === 2 || (!answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES'))) {
+        const qText = {
+          EN: isCaregiver
+            ? `Has the patient been taking their previously prescribed medicines regularly, and were there any side effects?`
+            : `Have you been taking your previously prescribed medicines regularly, and did you experience any side effects?`,
+          HI: isCaregiver
+            ? `क्या मरीज पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट या परेशानी हुई?`
+            : `क्या आप पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट या परेशानी हुई?`,
+          GU: isCaregiver
+            ? `શું દર્દી અગાઉ આપેલી દવાઓ સમયસર નિયમિત લેતા હતા, અને કોઈ આડઅસર જણાઈ?`
+            : `શું આપ અગાઉ આપેલી દવાઓ સમયસર નિયમિત લેતા હતા, અને કોઈ આડઅસર જણાઈ?`,
+        };
+        const touchOpts = {
+          EN: ['Taking all medicines regularly on time', 'Missed doses occasionally / Stopped early', 'Medicines finished / Need refill', 'Experienced gastric upset / Nausea from medicines'],
+          HI: ['सभी दवाइयां समय पर नियमित लीं', 'कभी-कभार दवा छूट गई / जल्दी बंद कर दी', 'दवा समाप्त हो गई / दोबारा चाहिए', 'दवा से पेट में गैस/उल्टी जैसा लगा'],
+          GU: ['બધી દવાઓ સમયસર નિયમિત લીધી', 'ક્યારેક દવા છૂટી ગઈ / વહેલી બંધ કરી', 'દવા પૂર્ણ થઈ ગઈ / ફરી તપાસ', 'દવાથી પેટમાં ગેસ/ઉબકા જેવું થયું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'MEDICATIONS',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Verifying pharmacotherapy compliance, refill needs, and adverse reactions',
+        };
+      }
+
+      // Final Returning Patient Wrap-Up
+      const qFinal = {
+        EN: isCaregiver
+          ? `Thank you. Is there any other detail regarding the patient's recovery that you would like the doctor to review?`
+          : `Thank you. Is there any other detail regarding your recovery that you would like your doctor to review?`,
+        HI: isCaregiver
+          ? `धन्यवाद। क्या मरीज की रिकवरी या फॉलो-अप के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`
+          : `धन्यवाद। क्या अपने स्वास्थ्य या फॉलो-अप के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`,
+        GU: isCaregiver
+          ? `આભાર. શું દર્દીના સ્વાસ્થ્ય કે ફોલો-અપ અંગે ડૉક્ટરને જણાવવા જેવી કોઈ અન્ય ખાસ વિગત છે?`
+          : `આભાર. શું આપના સ્વાસ્થ્ય કે ફોલો-અપ અંગે ડૉક્ટરને જણાવવા જેવી કોઈ અન્ય ખાસ વિગત છે?`,
+      };
+      const optFinal = {
+        EN: ['No, that covers all symptoms — complete intake', 'Yes, I want to add one more detail'],
+        HI: ['नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें', 'हाँ, मुझे एक और लक्षण बताना है'],
+        GU: ['ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો', 'હા, મારે બીજું એક લક્ષણ જણાવવું છે'],
+      };
+      return {
+        question: qFinal[lang],
+        questionLanguage: lang,
+        questionCategory: 'CLOSING',
+        touchOptions: optFinal[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: true,
+        clinicalRationale: 'Follow-up intake completed with progression and medication compliance recorded',
+      };
+    }
+
+    // ==========================================
+    // WORKFLOW B: NEW PATIENT INTAKE
+    // ==========================================
+
+    // Step 1: Dynamic Symptom Follow-Up (Onset & Character)
     if (!answeredDimensions.has('ONSET')) {
       let qText = {
         EN: isCaregiver
@@ -246,123 +331,65 @@ export class UniversalClinicalEngine implements AIProvider {
         HI: ['आज से / कुछ घंटों से', '2-3 दिनों से', '1-2 सप्ताह से', 'एक महीने से अधिक समय से'],
         GU: ['આજથી / થોડા કલાકોથી', '૨-૩ દિવસથી', '૧-૨ અઠવાડિયાથી', 'એક મહિનાથી વધુ સમયથી'],
       };
-
-      if (isCardiac) {
-        qText.EN = isCaregiver
-          ? `When did the patient's chest discomfort begin, and does it spread to their left arm, jaw, or back?`
-          : `When did this chest discomfort begin, and does it spread to your left arm, jaw, or back?`;
-        qText.HI = isCaregiver
-          ? `मरीज को सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`
-          : `यह सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`;
-        qText.GU = isCaregiver
-          ? `દર્દીને છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`
-          : `આ છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`;
-        touchOpts.EN = ['Just started (Severe / Heavy pressure)', 'Spreading to left arm / neck', 'Worse with walking / exertion', 'Mild discomfort only'];
-        touchOpts.HI = ['अभी शुरू हुआ (भारी दबाव/जकड़न)', 'बाएं हाथ/गर्दन में फैल रहा है', 'चलने-फिरने पर बढ़ता है', 'केवल हल्का दर्द'];
-        touchOpts.GU = ['હમણાં જ શરૂ થયો (ભારે દબાણ)', 'ડાબા હાથ/ગરદન તરફ ફેલાય છે', 'ચાલવાથી વધે છે', 'હળવો દુખાવો'];
-      }
-
       return {
         question: qText[lang],
         questionLanguage: lang,
         questionCategory: 'ONSET',
         touchOptions: touchOpts[lang],
-        isRedFlag: isCardiac,
-        redFlagReason: isCardiac ? 'Potential cardiac angina screening' : null,
+        isRedFlag: false,
+        redFlagReason: null,
         isComplete: false,
         clinicalRationale: 'Dynamically evaluating onset, timing, and radiating patterns for reported complaint',
       };
     }
 
-    // 2. Dynamic Character & Severity Exploration
-    if (!answeredDimensions.has('CHARACTER')) {
-      let qText = {
+    // Step 2: Daily Routine & Lifestyle (Sleep, Diet, Physical Activity, Stress)
+    if (!answeredDimensions.has('LIFESTYLE')) {
+      const qText = {
         EN: isCaregiver
-          ? `How would you describe the patient's ${localizedLabel}, and how severe is it on a scale of 1 to 10?`
-          : `How would you describe the sensation of your ${localizedLabel}, and how severe is it on a scale of 1 to 10?`,
+          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
+          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
         HI: isCaregiver
-          ? `मरीज को ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`
-          : `आपको ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`,
+          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
+          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
         GU: isCaregiver
-          ? `દર્દીને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`
-          : `તમને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`,
+          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
+          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
       };
-      let touchOpts = {
-        EN: ['1-3 (Mild / bearable)', '4-6 (Moderate / disturbing daily tasks)', '7-10 (Severe / sharp / unbearable)'],
-        HI: ['1-3 (हल्की तकलीफ / सहनीय)', '4-6 (मध्यम / दैनिक काम में रुकावट)', '7-10 (अत्यधिक तीव्र व असहनीय)'],
-        GU: ['૧-૩ (હળવી તકલીફ / સહન થાય તેવી)', '૪-૬ (મધ્યમ / કામમાં અડચણ)', '૭-૧૦ (અતિ તીવ્ર / અસહ્ય)'],
+      const touchOpts = {
+        EN: ['Normal 7-8 hrs sleep / Balanced home diet', 'Disturbed sleep & High work stress', 'Oily / Fast food & Irregular meals', 'Sedentary routine & Physical fatigue'],
+        HI: ['सामान्य 7-8 घंटे नींद / संतुलित घर का खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
+        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ / સારો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
       };
-
-      if (isGIOrStomach) {
-        qText.EN = isCaregiver
-          ? `Does the patient have burning acidity, sharp cramping, or fullness after eating?`
-          : `Is your abdominal symptom mostly burning acidity, sharp cramping, or fullness after eating?`;
-        qText.HI = isCaregiver
-          ? `क्या मरीज को पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`
-          : `क्या पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`;
-        qText.GU = isCaregiver
-          ? `શું દર્દીને પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`
-          : `શું પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`;
-        touchOpts.EN = ['Burning sensation (Acidity / GERD)', 'Sharp cramping pain', 'Fullness / Bloating after meals', 'Continuous dull ache'];
-        touchOpts.HI = ['जलन / एसिडिटी', 'तेज मरोड़ वाला दर्द', 'खाना खाने के बाद भारीपन', 'लगातार हल्का दर्द'];
-        touchOpts.GU = ['બળતરા / એસિડિટી', 'તીવ્ર ચૂંક આવવી', 'જમ્યા પછી ભારેપણું', 'સતત દુખાવો'];
-      } else if (isOrthoOrJoint) {
-        qText.EN = isCaregiver
-          ? `Is there morning stiffness, swelling, or difficulty in the patient's joint movement?`
-          : `Is there morning stiffness, swelling, or difficulty in joint movement?`;
-        qText.HI = isCaregiver
-          ? `क्या मरीज को सुबह जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`
-          : `क्या सुबह उठने पर जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`;
-        qText.GU = isCaregiver
-          ? `શું દર્દીને સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`
-          : `શું સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`;
-        touchOpts.EN = ['Morning stiffness > 30 mins', 'Swelling and warmth', 'Pain on climbing stairs / walking', 'Mild ache only'];
-        touchOpts.HI = ['सुबह 30 मिनट से ज्यादा अकड़न', 'सूजन और लाली', 'सीढ़ियां चढ़ने/चलने में दर्द', 'हल्का दर्द'];
-        touchOpts.GU = ['સવારે સાંધા જકડાઈ જવા', 'સોજો અને ગરમી', 'સીડી ચડવામાં દુખાવો', 'હળવો દુખાવો'];
-      } else if (isSkin) {
-        qText.EN = isCaregiver
-          ? `Is the patient's rash accompanied by intense itching, pain, or spreading to other parts?`
-          : `Is the skin rash accompanied by intense itching, pain, or spreading to other parts?`;
-        qText.HI = isCaregiver
-          ? `क्या मरीज को त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`
-          : `क्या त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`;
-        qText.GU = isCaregiver
-          ? `શું દર્દીને ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`
-          : `શું ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`;
-        touchOpts.EN = ['Severe itching without pain', 'Painful and red tender skin', 'Spreading to other body areas', 'Dry peeling / scaling'];
-        touchOpts.HI = ['तेज खुजली, दर्द नहीं', 'दर्दनाक और लाल त्वचा', 'शरीर के अन्य हिस्सों में फैल रहा है', 'सूखापन व पपड़ी'];
-        touchOpts.GU = ['તીવ્ર ખંજવાળ', 'દુખાવો અને લાલાશ', 'બીજા ભાગોમાં ફેલાવવું', 'શુષ્કતા'];
-      }
-
       return {
         question: qText[lang],
         questionLanguage: lang,
-        questionCategory: 'CHARACTER',
+        questionCategory: 'LIFESTYLE',
         touchOptions: touchOpts[lang],
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Dynamically tailoring symptom severity and qualitative sensation inquiry',
+        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and metabolic routine context',
       };
     }
 
-    // 3. Dynamic Chronic Medical History Check
-    if (!answeredDimensions.has('PAST_HISTORY')) {
+    // Step 3: Medical Background, Medications & Drug Allergies
+    if (!answeredDimensions.has('PAST_HISTORY') || !answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
       const qText = {
         EN: isCaregiver
-          ? `Does the patient have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`
-          : `Do you have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`,
+          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
+          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
         HI: isCaregiver
-          ? `क्या मरीज को पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`
-          : `क्या आपको पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`,
+          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
+          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
         GU: isCaregiver
-          ? `શું દર્દીને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`
-          : `શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`,
+          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
+          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
       };
       const touchOpts = {
-        EN: ['High Blood Pressure (Hypertension)', 'Diabetes (High Sugar)', 'Thyroid / Asthma', 'No ongoing chronic conditions'],
-        HI: ['हाई ब्लड प्रेशर (बीपी)', 'डायबिटीज (शुगर)', 'थायराइड / दमा (अस्थमा)', 'कोई पुरानी बीमारी नहीं है'],
-        GU: ['હાઈ બ્લડ પ્રેશર (બીપી)', 'ડાયાબિટીસ (સુગર)', 'થાયરોઇડ / અસ્થમા', 'કોઈ જૂની બીમારી નથી'],
+        EN: ['Taking regular BP / Diabetes medicines', 'No chronic conditions & No known allergies (NKDA)', 'Known Penicillin / Sulfa drug allergy', 'Occasional painkiller / antacid use'],
+        HI: ['नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है', 'कभी-कभार दर्द निवारक / एंटासिड लेते हैं'],
+        GU: ['નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)', 'ક્યારેક પેઇન કિલર / એસિડિટી દવા લઈએ છીએ'],
       };
       return {
         question: qText[lang],
@@ -372,41 +399,11 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Evaluating baseline chronic medical history',
+        clinicalRationale: 'Screening chronic disease background and pharmacotherapy safety profile',
       };
     }
 
-    // 4. Dynamic Medications & Allergies Check
-    if (!answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
-      const qText = {
-        EN: isCaregiver
-          ? `Is the patient currently taking any regular medications, or do they have any known drug/food allergies?`
-          : `Are you currently taking any regular medications, or do you have any known drug/food allergies?`,
-        HI: isCaregiver
-          ? `क्या मरीज नियमित रूप से कोई दवाईयां ले रहे हैं, या उन्हें किसी दवा या खाने से कोई एलर्जी है?`
-          : `क्या आप नियमित रूप से कोई दवाईयां ले रहे हैं, या आपको किसी दवा या खाने से एलर्जी है?`,
-        GU: isCaregiver
-          ? `શું દર્દી હાલ નિયમિત કોઈ દવા લે છે, કે તેમને કોઈ દવા કે ખોરાકની એલર્જી છે?`
-          : `શું તમે હાલ નિયમિત કોઈ દવા લો છો, કે તમને કોઈ દવા કે ખોરાકની એલર્જી છે?`,
-      };
-      const touchOpts = {
-        EN: ['Taking regular BP / Diabetes medicines', 'No regular medicines & No known allergies (NKDA)', 'Have known Penicillin / Drug allergy', 'Taking occasional painkillers / antacids'],
-        HI: ['नियमित बीपी/शुगर की दवाई ले रहे हैं', 'कोई नियमित दवा नहीं व कोई एलर्जी नहीं (NKDA)', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है', 'कभी-कभार दर्द निवारक लेते हैं'],
-        GU: ['નિયમિત બીપી/ડાયાબિટીસ દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ એલર્જી નથી (NKDA)', 'દવાની એલર્જી છે', 'ક્યારેક પેઇન કિલર લઈએ છીએ'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'MEDICATIONS',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Gathering active pharmacotherapy and allergy safety clearance',
-      };
-    }
-
-    // 5. Final Adaptive Wrap-Up Question
+    // Step 4: Final Wrap-Up Review (All dimensions covered)
     const qFinal = {
       EN: isCaregiver
         ? `Thank you. Is there any other symptom or specific detail regarding the patient's condition that you would like the doctor to know?`
@@ -432,7 +429,7 @@ export class UniversalClinicalEngine implements AIProvider {
       isRedFlag: false,
       redFlagReason: null,
       isComplete: true,
-      clinicalRationale: 'All critical clinical dimensions gathered; offering final patient review',
+      clinicalRationale: 'All critical clinical dimensions gathered; ready for clinical report generation',
     };
   }
 
@@ -444,7 +441,7 @@ export class UniversalClinicalEngine implements AIProvider {
 
     const vitalsStr = vitals
       ? `BP: ${vitals.bpSystolic || '--'}/${vitals.bpDiastolic || '--'} mmHg • Pulse: ${vitals.pulse || '--'} bpm • SpO2: ${vitals.spo2 || '--'}% • Temp: ${vitals.temperature || '--'}°F${vitals.weight && vitals.height ? ` • BMI: ${(vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)} kg/m²` : ''}`
-      : 'Vitals pending nursing triage station';
+      : 'Vitals pending nurse station assessment';
 
     const lifestyleStr = state.lifestyle
       ? [

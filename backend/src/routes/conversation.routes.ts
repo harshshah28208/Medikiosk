@@ -72,7 +72,33 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
 
   const initialLang = (language.toUpperCase() as 'EN' | 'HI' | 'GU') || 'EN';
   const respType = (respondentType as 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED') || 'PATIENT';
+  const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
+
+  // Check if patient is returning / has previous visits
+  const priorVisits = await prisma.visit.findMany({
+    where: { patientId: visit.patientId, id: { not: visit.id } },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    include: { summary: true, prescriptions: { include: { items: true } }, department: true },
+  });
+
+  const isExistingPatient = priorVisits.length > 0;
+  const isNewPatient = !isExistingPatient;
+
+  let previousVisitInfo = undefined;
+  if (isExistingPatient && priorVisits[0]) {
+    const pv = priorVisits[0];
+    previousVisitInfo = {
+      lastVisitDate: pv.createdAt.toLocaleDateString(),
+      lastComplaint: pv.reasonForVisit || (pv.summary?.summaryJson ? JSON.parse(pv.summary.summaryJson)?.chiefComplaint : null) || 'Prior Consultation',
+      lastDepartment: pv.department?.name || 'General OPD',
+      pastPrescriptions: pv.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || [],
+    };
+  }
+
   const initialState = createInitialClinicalState(initialLang, respType);
+  initialState.isNewPatient = isNewPatient;
+  initialState.previousVisitInfo = previousVisitInfo;
 
   const session = await prisma.conversationSession.create({
     data: {
@@ -90,24 +116,43 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     data: { status: 'IN_INTAKE' },
   });
 
-  const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
+  // Tailored greetings for New vs. Returning Patients
+  const lastComplaintStr = previousVisitInfo?.lastComplaint ? ` (${previousVisitInfo.lastComplaint})` : '';
 
   const initialGreetings = {
-    EN: isCaregiver
-      ? `Hello. I am MediKiosk. Since you are providing health information for the patient today, please tell me what symptoms or health concerns the patient is experiencing.`
-      : 'Hello. I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.',
-    HI: isCaregiver
-      ? `नमस्ते। मैं मेडीकियोस्क सहायक हूँ। चूंकि आप मरीज की ओर से विवरण दे रहे हैं, कृपया बताएं कि मरीज को आज क्या तकलीफ या मुख्य लक्षण महसूस हो रहे हैं?`
-      : 'नमस्ते। मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या लक्षण महसूस हो रहे हैं?',
-    GU: isCaregiver
-      ? `નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. આપ દર્દી વતી વિગત આપી રહ્યા છો, તો કૃપા કરીને જણાવો કે દર્દીને આજે કઈ તકલીફ કે મુખ્ય લક્ષણો થઈ રહ્યા છે?`
-      : 'નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે લક્ષણો થઈ રહ્યા છે?',
+    EN: isExistingPatient
+      ? (isCaregiver
+          ? `Welcome back. Compared to the patient's previous visit${lastComplaintStr}, what has changed with their health? Have their symptoms improved, worsened, or are you visiting for a new problem today?`
+          : `Welcome back to the hospital! Compared to your previous visit${lastComplaintStr}, what has changed with your health? Have your symptoms improved, worsened, or do you have a new problem today?`)
+      : (isCaregiver
+          ? `Hello and welcome. I am MediKiosk. Since you are providing health information for the patient today, please tell me what symptoms or health concerns the patient is experiencing.`
+          : `Hello and welcome! I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.`),
+    HI: isExistingPatient
+      ? (isCaregiver
+          ? `अस्पताल में पुनः स्वागत है। मरीज की पिछली मुलाकात${lastComplaintStr} के बाद से उनकी तबीयत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई परेशानी है?`
+          : `अस्पताल में आपका पुनः स्वागत है! आपकी पिछली मुलाकात${lastComplaintStr} के बाद से आपकी सेहत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई समस्या है?`)
+      : (isCaregiver
+          ? `नमस्ते और स्वागत है। मैं मेडीकियोस्क सहायक हूँ। चूंकि आप मरीज की ओर से विवरण दे रहे हैं, कृपया बताएं कि मरीज को आज क्या तकलीफ या लक्षण महसूस हो रहे हैं?`
+          : `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या मुख्य लक्षण महसूस हो रहे हैं?`),
+    GU: isExistingPatient
+      ? (isCaregiver
+          ? `હોસ્પિટલમાં ફરી સ્વાગત છે. દર્દીની છેલ્લી મુલાકાત${lastComplaintStr} પછી તેમની સ્થિતિમાં શું બદલાવ આવ્યો છે? શું જૂની તકલીફમાં સુધારો છે, તકલીફ વધી છે, કે નવી સમસ્યા છે?`
+          : `હોસ્પિટલમાં આપનું ફરી સ્વાગત છે! આપની છેલ્લી મુલાકાત${lastComplaintStr} પછી આપની તબિયતમાં શું ફેરફાર થયો છે? જૂની તકલીફમાં રાહત છે, તકલીફ વધી છે, કે આજે કોઈ નવી ફરિયાદ છે?`)
+      : (isCaregiver
+          ? `નમસ્તે અને સ્વાગત છે. હું મેડીકિયોસ્ક સહાયક છું. આપ દર્દી વતી વિગત આપી રહ્યા છો, તો કૃપા કરીને જણાવો કે દર્દીને આજે કઈ તકલીફ થઈ રહી છે?`
+          : `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે મુખ્ય લક્ષણો થઈ રહ્યા છે?`),
   };
 
   const initialOptions = {
-    EN: ['Fever & Cough', 'Pimples / Skin rash', 'Stomach / Abdominal discomfort', 'Chest heaviness', 'Unusual tiredness / Weakness', 'Joint or body pain'],
-    HI: ['बुखार और खांसी', 'मुँहासे / त्वचा में दाने', 'पेट में दर्द या भारीपन', 'सीने में तकलीफ', 'असामान्य कमजोरी व थकान', 'जोड़ों या शरीर में दर्द'],
-    GU: ['તાવ અને ઉધરસ', 'ખીલ / ચામડી પર ચકામા', 'પેટમાં દુખાવો', 'છાતીમાં ભારેપણું', 'અસામાન્ય થાક અને નબળાઈ', 'સાંધા કે શરીરમાં દુખાવો'],
+    EN: isExistingPatient
+      ? ['Previous symptoms improved / Routine review', 'Symptoms worsened / No significant relief', 'Completely new symptom/problem today', 'Medicines finished / Need refill & checkup']
+      : ['Fever & Cough', 'Pimples / Skin rash', 'Stomach / Abdominal discomfort', 'Chest heaviness', 'Unusual tiredness / Weakness', 'Joint or body pain'],
+    HI: isExistingPatient
+      ? ['पुरानी तकलीफ में काफी सुधार है / फॉलो-अप', 'तकलीफ बढ़ गई है / आराम नहीं मिला', 'आज पूरी तरह नई समस्या है', 'दवाइयां समाप्त / दोबारा जांच']
+      : ['बुखार और खांसी', 'मुँहासे / त्वचा में दाने', 'पेट में दर्द या भारीपन', 'सीने में तकलीफ', 'असामान्य कमजोरी व थकान', 'जोड़ों या शरीर में दर्द'],
+    GU: isExistingPatient
+      ? ['જૂની તકલીફમાં સારો સુધારો છે / ફોલો-અપ', 'તકલીફ વધી ગઈ છે / રાહત નથી', 'આજે સાવ નવી જ સમસ્યા છે', 'દવાઓ પૂર્ણ થઈ / ફરી તપાસ']
+      : ['તાવ અને ઉધરસ', 'ખીલ / ચામડી પર ચકામા', 'પેટમાં દુખાવો', 'છાતીમાં ભારેપણું', 'અસામાન્ય થાક અને નબળાઈ', 'સાંધા કે શરીરમાં દુખાવો'],
   };
 
   const welcomeMsg = await prisma.conversationMessage.create({
@@ -127,7 +172,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     action: AUDIT_ACTIONS.START_INTAKE,
     resourceType: 'CONVERSATION_SESSION',
     resourceId: session.id,
-    details: { visitId, language: initialLang },
+    details: { visitId, language: initialLang, isNewPatient },
   });
 
   res.status(201).json({
