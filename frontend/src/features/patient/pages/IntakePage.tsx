@@ -198,13 +198,16 @@ export function IntakePage() {
     }
   };
 
+  const isSwitchingLangRef = useRef(false);
+
   const handleLanguageSwitch = async (newLang: LanguageCode) => {
+    if (newLang === language || isSwitchingLangRef.current) return;
+    isSwitchingLangRef.current = true;
     setLanguage(newLang);
     activeLangRef.current = newLang;
     speechProvider.stopSpeaking();
 
     if (session?.id) {
-      setIsProcessing(true);
       try {
         const res = await api.conversation.switchLanguage(session.id, newLang.toUpperCase(), messages);
         
@@ -222,8 +225,10 @@ export function IntakePage() {
       } catch (err) {
         console.warn('Language switch translation fallback:', err);
       } finally {
-        setIsProcessing(false);
+        isSwitchingLangRef.current = false;
       }
+    } else {
+      isSwitchingLangRef.current = false;
     }
   };
 
