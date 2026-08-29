@@ -498,7 +498,7 @@ export class GeminiAIProvider implements AIProvider {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     this.model = this.genAI.getGenerativeModel({ model: modelName });
   }
 
@@ -574,30 +574,34 @@ Do NOT add extra conversational text or explanations. Return ONLY the translated
 
   async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false): Promise<QuestionOutput> {
     try {
+      const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
       const prompt = `You are MediKiosk Autonomous Clinical AI Intake Engine powered by Google Gemini.
-Patient Complaint: "${state.chiefComplaint || ''}"
+Patient Primary Complaint: "${state.chiefComplaint || ''}"
+Original Phrasing: "${state.chiefComplaintOriginal || ''}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
+Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of the patient (ask questions in 3rd person about the patient)' : 'Patient themselves'}
 Current Clinical State: ${JSON.stringify(state)}
 Questions already asked: ${JSON.stringify(state.questionsAsked)}
-Total turns completed so far: ${state.turnsCompleted}
+Total turns completed: ${state.turnsCompleted}
 
-CRITICAL RULES:
-1. NEVER repeat any question or clinical dimension already in questionsAsked.
-2. Advance to the next logical clinical dimension (Onset -> Severity/Character -> Associated Symptoms -> Medical History -> Closing).
-3. If you determine you have gathered all necessary information, provide a closing wrap-up question and set "isComplete": true.
-4. If more details are needed, set "isComplete": false and ask ONE precise follow-up question in pure ${language}.
-5. If ${language} is HI, use 100% natural Hindi. If ${language} is GU, use 100% natural Gujarati. If EN, use clinical English.
+CRITICAL CLINICAL INTAKE RULES:
+1. Generate an intelligent, highly relevant DISEASE-SPECIFIC follow-up question tailored directly to the patient's specific health complaint (e.g., if chest pain: ask about cardiac radiation, exertion, breathlessness; if headache: ask about unilateral/throbbing/aura/screen time; if joint pain: ask about morning stiffness/swelling; if rash: ask about itching/spreading/pus; if abdominal: ask about meal relationship/burning/bowels; if fever: ask about chills/cough/duration, etc.).
+2. NEVER repeat any question or topic already in questionsAsked.
+3. If ${isCaregiver ? 'true' : 'false'}, phrase the question in 3rd person about the patient (e.g. in EN: "How long has the patient had...", in HI: "मरीज को यह समस्या कब से है...", in GU: "દર્દીને આ તકલીફ ક્યારથી છે...").
+4. Provide 3-4 natural, one-tap touchOptions in ${language} for quick kiosk answering.
+5. If all critical clinical dimensions (onset, severity/character, chronic history, medications/allergies) have been adequately covered or turns >= 5, set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
+6. Language MUST be 100% natural, culturally fluent ${language} (Hindi, Gujarati, or English).
 
 Return ONLY valid JSON (no markdown fences):
 {
-  "question": "string in pure ${language}",
+  "question": "disease-specific question in pure ${language}",
   "questionLanguage": "${language}",
   "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | ASSOCIATED | MEDICATIONS | PAST_HISTORY | AYUSH | CLOSING",
   "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
   "isRedFlag": boolean,
   "redFlagReason": "string | null",
   "isComplete": boolean,
-  "clinicalRationale": "string explaining why this question was chosen or why intake is now complete"
+  "clinicalRationale": "Disease-specific rationale for this question"
 }`;
 
       const res = await this.model.generateContent(prompt);
