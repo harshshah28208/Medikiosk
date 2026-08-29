@@ -1,3 +1,4 @@
+import { Groq } from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ClinicalState, QuestionOutput } from './ClinicalState.js';
 import { RedFlagEngine } from './RedFlagEngine.js';
@@ -2110,7 +2111,236 @@ Return ONLY valid JSON with no markdown fences:
   }
 }
 
+
+export class GroqAIProvider implements AIProvider {
+  private groq: Groq;
+  private model: string;
+  private fallback = new UniversalClinicalEngine();
+
+  constructor(apiKey: string) {
+    this.groq = new Groq({ apiKey });
+    this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+  }
+
+  async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
+    try {
+      const prompt = `You are the clinical fact extraction engine of MediKiosk AI Clinical Intake.
+Patient Input: "${input}"
+Input Language: ${language}
+Current Clinical State: ${JSON.stringify(state)}
+
+Extract all clinical facts into English-normalized structured JSON with no markdown fences:
+{
+  "chiefComplaint": "string | null",
+  "newSymptoms": [
+    {
+      "name": "normalized english symptom name",
+      "originalText": "exact text from patient",
+      "onset": "duration or onset if mentioned or null",
+      "severity": 1-10 or null,
+      "character": "string describing quality/sensation or null"
+    }
+  ],
+  "pastConditions": ["string"],
+  "medications": ["string"]
+}`;
+
+      const res = await this.groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are a hospital medical fact extractor. Output valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        model: this.model,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      const text = res.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(text);
+
+      const update: Partial<ClinicalState> = {};
+      if (parsed.chiefComplaint && !state.chiefComplaint) {
+        update.chiefComplaint = parsed.chiefComplaint;
+        update.chiefComplaintOriginal = input;
+      }
+      if (parsed.newSymptoms && Array.isArray(parsed.newSymptoms) && parsed.newSymptoms.length > 0) {
+        update.symptoms = [...(state.symptoms || []), ...parsed.newSymptoms];
+      }
+      if (parsed.pastConditions && Array.isArray(parsed.pastConditions) && parsed.pastConditions.length > 0) {
+        update.pastMedicalHistory = [...(state.pastMedicalHistory || []), ...parsed.pastConditions];
+      }
+      if (parsed.medications && Array.isArray(parsed.medications) && parsed.medications.length > 0) {
+        const newMeds = parsed.medications.map((m: string) => ({ name: m }));
+        update.medications = [...(state.medications || []), ...newMeds];
+      }
+      const fallbackResult = await this.fallback.extractFacts(input, state, language);
+      return { ...fallbackResult, ...update };
+    } catch (e) {
+      return this.fallback.extractFacts(input, state, language);
+    }
+  }
+
+  async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
+    try {
+      const direct = await this.fallback.translateText(text, targetLanguage);
+      if (direct && direct !== text) {
+        return direct;
+      }
+
+      const prompt = `Translate into pure, natural ${targetLanguage}: "${text}"`;
+      const res = await this.groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are a clinical intake translator. Return ONLY the direct translation.' },
+          { role: 'user', content: prompt }
+        ],
+        model: this.model,
+        temperature: 0.1
+      });
+      return res.choices[0]?.message?.content?.trim() || direct;
+    } catch (e) {
+      return this.fallback.translateText(text, targetLanguage);
+    }
+  }
+
+  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
+    try {
+      const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
+      const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
+      const prevInfo = state.previousVisitInfo;
+
+      const historyFormatted = conversationHistory && conversationHistory.length > 0
+        ? conversationHistory.map(m => `${m.role === 'AI' ? 'Doctor AI' : 'Patient'}: "${m.content}"`).join('\n')
+        : (state.questionsAsked || []).map((q, idx) => `Turn ${idx + 1} Question: "${q}"`).join('\n');
+
+      const prompt = `You are MediKiosk Autonomous Clinical AI Intake Doctor.
+Your mission is to conduct an empathetic, comprehensive, multi-turn clinical intake interview with the patient (or caregiver).
+
+CONVERSATION TRANSCRIPT SO FAR:
+${historyFormatted}
+
+ACTIVE CLINICAL CONTEXT:
+Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
+${!isNew && prevInfo ? `Previous Visit Record: Last visit date: ${prevInfo.lastVisitDate}, Last complaint: ${prevInfo.lastComplaint}, Last department: ${prevInfo.lastDepartment}, Past medications: ${prevInfo.pastPrescriptions.join(', ') || 'None'}` : ''}
+Current Chief Complaint / Symptoms: "${state.chiefComplaint || ''}"
+Patient Just Answered / Stated: "${state.latestAnswer || ''}"
+Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
+Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of the patient' : 'Patient themselves'}
+Clinical History Gathered So Far: ${JSON.stringify(state)}
+Turns Completed: ${state.turnsCompleted}
+
+CLINICAL DOCTOR RULES:
+1. DYNAMIC CONTEXTUAL FOLLOW-UP FOR ALL DISEASES:
+   - Formulate EVERY follow-up question 100% dynamically based strictly on the patient's latest answer, what specific symptoms or changes they just stated, past history, and previous chat history.
+   - For ANY symptom or condition (vomiting, headache, chest pain, knee pain, rash, vertigo, ear discharge, asthma, etc.), immediately investigate the clinical characteristics, timing, severity, triggers, and functional limits of THAT specific complaint.
+2. AUTONOMOUS CLINICAL COMPLETION:
+   - If sufficient clinical details have been gathered (usually after 3-5 comprehensive turns), set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
+3. TOUCH OPTIONS:
+   - Generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} answering this specific follow-up question.
+4. ANTI-REPETITION:
+   - NEVER re-ask any question already answered in previous turns.
+5. LANGUAGE:
+   - Return question, touchOptions, and rationale in pure natural ${language}.
+
+Return ONLY valid JSON:
+{
+  "question": "dynamic follow-up question in pure ${language}",
+  "questionLanguage": "${language}",
+  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | CLOSING",
+  "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
+  "isRedFlag": boolean,
+  "redFlagReason": "string | null",
+  "isComplete": boolean,
+  "clinicalRationale": "Diagnostic reasoning for this follow-up inquiry"
+}`;
+
+      const res = await this.groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are MediKiosk Autonomous Clinical AI Intake Doctor. Return ONLY valid JSON with no markdown.' },
+          { role: 'user', content: prompt }
+        ],
+        model: this.model,
+        temperature: 0.2,
+        response_format: { type: 'json_object' }
+      });
+
+      const text = res.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+        parsed.touchOptions = fallbackQ.touchOptions;
+      }
+      return parsed;
+    } catch (e: any) {
+      console.log(`[Groq AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
+      return this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+    }
+  }
+
+  async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
+    try {
+      const prompt = `You are a clinical documentation AI. Generate an exhaustive, professional, structured clinical intake summary based on:
+Patient: ${JSON.stringify(patient)}
+Clinical State: ${JSON.stringify(state)}
+Vitals: ${JSON.stringify(vitals || {})}
+Uploaded Documents / OCR Findings: ${JSON.stringify(documents || [])}
+
+Return ONLY valid JSON:
+{
+  "overview": "Brief clinical overview of the patient presentation",
+  "chiefComplaint": "Chief complaint statement",
+  "historyOfPresentIllness": "Comprehensive narrative History of Present Illness (HPI) including onset, location, severity, character, radiation, triggers, aggravating/relieving factors, and clinically relevant negative findings",
+  "lifestyle": "Daily routine, sleep hours/quality, diet, physical activity, and occupation factors",
+  "pastMedicalHistory": "Summary of prior chronic conditions or 'None reported'",
+  "pastSurgicalHistory": "Summary of prior surgeries or 'No prior surgeries reported'",
+  "medications": "Current regular medications with dosages and frequencies",
+  "allergies": "Known drug/environmental allergies or NKDA (No Known Drug Allergies)",
+  "familyHistory": "Family medical history or 'Non-contributory'",
+  "socialHistory": "Social habits (smoking/alcohol/stress) or 'Non-contributory'",
+  "vitalHighlights": "Summary of vitals if present with source attribution",
+  "extractedDocumentFindings": [],
+  "changesSincePreviousVisit": "string | null",
+  "contradictions": [],
+  "medicationReconciliation": {
+    "patientReported": [],
+    "previouslyPrescribed": [],
+    "documentExtracted": []
+  },
+  "clinicianVerificationRequired": false,
+  "redFlags": [],
+  "completenessScore": 95,
+  "confidenceScore": 98,
+  "sourceMap": {}
+}`;
+
+      const res = await this.groq.chat.completions.create({
+        messages: [
+          { role: 'system', content: 'You are a hospital clinical documentation AI. Return valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        model: this.model,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      const text = res.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(text);
+      if (!parsed.historyOfPresentIllness) {
+        return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
+      }
+      return parsed;
+    } catch (e) {
+      return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
+    }
+  }
+}
+
 export function getAIProvider(): AIProvider {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey && groqKey.startsWith('gsk_')) {
+    console.log('⚡ Using GroqAIProvider (Llama / Qwen / GPT-OSS Ultra-Fast Autonomous AI)');
+    return new GroqAIProvider(groqKey);
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey && apiKey.length > 10) {
     console.log('🤖 Using GeminiAIProvider (Autonomous Gemini 3.6 Flash)');
