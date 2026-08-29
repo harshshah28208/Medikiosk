@@ -23,6 +23,7 @@ import triageRoutes from './routes/triage.routes.js';
 import ayushRoutes from './routes/ayush.routes.js';
 import documentRoutes from './routes/document.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import integrationRoutes from './routes/integration.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -97,6 +98,7 @@ app.use('/api/triage', triageRoutes);
 app.use('/api/ayush', ayushRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 app.use('/api/*', (_req, res) => {
   res.status(404).json({ error: 'API endpoint not found.' });

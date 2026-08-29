@@ -528,28 +528,43 @@ model DocumentExtraction {
 // ─────────────────────────────────────────────
 
 model AYUSHAssessment {
-  id          String   @id @default(uuid())
-  visitId     String   @unique
-  patientId   String
-  prakriti    String?
-  vikriti     String?
-  agni        String?
-  koshtha     String?
-  ahara       String?
-  vihara      String?
-  nadi        String?
-  mutra       String?
-  mala        String?
-  jihva       String?
-  shabda      String?
-  sparsha     String?
-  drik        String?
-  akriti      String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                      String   @id @default(uuid())
+  visitId                 String   @unique
+  patientId               String
+  prakriti                String?
+  vikriti                 String?
+  agni                    String?
+  koshtha                 String?
+  ahara                   String?
+  vihara                  String?
+  nadi                    String?
+  mutra                   String?
+  mala                    String?
+  jihva                   String?
+  shabda                  String?
+  sparsha                 String?
+  drik                    String?
+  akriti                  String?
+  // Dashavidha Pariksha Additions
+  sara                    String?
+  samhanana               String?
+  pramana                 String?
+  satmya                  String?
+  sattva                  String?
+  aharaShakti             String?
+  vyayamaShakti           String?
+  vaya                    String?
+  // Homeopathy Clinical Assessment
+  homeopathyMiasm         String?
+  homeopathyThermal       String?
+  homeopathyThirst        String?
+  homeopathyModalities    String?
+  homeopathyRepertoryNotes String?
+  notes                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  visit       Visit    @relation(fields: [visitId], references: [id])
+  visit                   Visit    @relation(fields: [visitId], references: [id])
 
   @@index([visitId])
 }
