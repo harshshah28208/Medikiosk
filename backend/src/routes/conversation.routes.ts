@@ -378,7 +378,36 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     select: { role: true, content: true },
   });
 
-  const nextQ = await aiProvider.generateNextQuestion(state, currentLang, isAyush, pastMessages);
+  // Query prior visit's conversation messages for complete historical context
+  let priorVisitChatHistory: Array<{ role: string; content: string }> = [];
+  try {
+    const priorSession = await prisma.conversationSession.findFirst({
+      where: {
+        visit: {
+          patientId: session.visit.patientId,
+          id: { not: session.visitId },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { timestamp: 'asc' },
+          select: { role: true, content: true },
+        },
+      },
+    });
+    if (priorSession?.messages?.length) {
+      priorVisitChatHistory = priorSession.messages.map(m => ({
+        role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
+        content: m.content,
+      }));
+    }
+  } catch (e) {
+    console.warn('Prior chat history fetch notice:', e);
+  }
+
+  const combinedHistory = [...priorVisitChatHistory, ...pastMessages];
+  const nextQ = await aiProvider.generateNextQuestion(state, currentLang, isAyush, combinedHistory);
   state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
 
   // 6. Save Updated State back to DB

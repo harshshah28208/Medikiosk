@@ -544,17 +544,20 @@ export class UniversalClinicalEngine implements AIProvider {
     // Track answered clinical dimensions to guarantee NO repetition
     const answeredDimensions = new Set<string>();
     if (state.symptoms.some(s => s.progression)) answeredDimensions.add('PROGRESSION');
+    if (state.symptoms.some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
     if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
     if (state.symptoms.some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
     if (state.lifestyle?.sleep || state.lifestyle?.diet || state.lifestyle?.activity) answeredDimensions.add('LIFESTYLE');
+    if ((state.lifestyle as any)?.followUpTriggers) answeredDimensions.add('LIFESTYLE_FOLLOWUP');
     if (state.pastMedicalHistory.length > 0) answeredDimensions.add('PAST_HISTORY');
     if (state.medications.length > 0) answeredDimensions.add('MEDICATIONS');
     if (state.allergies.length > 0) answeredDimensions.add('ALLERGIES');
 
     // ==========================================
-    // WORKFLOW A: RETURNING PATIENT FOLLOW-UP
+    // WORKFLOW A: RETURNING PATIENT DYNAMIC AI FOLLOW-UP
     // ==========================================
     if (!isNew) {
+      // Turn 0: Progression Inquiry
       if (!answeredDimensions.has('PROGRESSION')) {
         const qText = {
           EN: isCaregiver
@@ -584,10 +587,102 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
+      // Turn 1: Dynamic Deep-Dive into Progression Answer
+      if (!answeredDimensions.has('RESIDUAL_SYMPTOMS')) {
+        const latest = (state.latestAnswer || '').toLowerCase();
+        const isWorse = /worsen|no relief|severe|बढ़|खराब|નથી|વધી|pain|दर्द|દુખાવો|swelling/i.test(latest);
+        const isNewProb = /new problem|नई समस्या|નવી સમસ્યા/i.test(latest);
+
+        if (isWorse) {
+          const qText = {
+            EN: isCaregiver
+              ? `Since the symptoms have intensified or not improved, please describe the changes: has the pain radiated, is there new swelling, fever, or difficulty in daily routine?`
+              : `Since your symptoms have intensified or not improved, please describe the changes: has the pain radiated, is there new swelling, fever, or difficulty in daily routine?`,
+            HI: isCaregiver
+              ? `चूँकि मरीज को आराम नहीं है या तकलीफ बढ़ी है, कृपया बताएं कि क्या दर्द फैल रहा है, नई सूजन या बुखार आया है, या दैनिक कामकाज में रुकावट हो रही है?`
+              : `चूँकि आपको आराम नहीं है या तकलीफ बढ़ी है, कृपया बताएं कि क्या दर्द फैल रहा है, नई सूजन या बुखार आया है, या दैनिक कामकाज में रुकावट हो रही है?`,
+            GU: isCaregiver
+              ? `જ્યારે દર્દીને રાહત નથી કે તકલીફ વધી છે, તો કૃપા કરીને જણાવો કે શું દુખાવો ફેલાય છે, નવી સોજો કે તાવ આવ્યો છે, કે રોજિંદા કામમાં મુશ્કેલી છે?`
+              : `જ્યારે આપને રાહત નથી કે તકલીફ વધી છે, તો કૃપા કરીને જણાવો કે શું દુખાવો ફેલાય છે, નવી સોજો કે તાવ આવ્યો છે, કે રોજિંદા કામમાં મુશ્કેલી છે?`,
+          };
+          const touchOpts = {
+            EN: ['Pain increased with persistent stiffness', 'New swelling & redness noticed', 'Unable to sleep due to discomfort', 'Developed fever & weakness'],
+            HI: ['दर्द बढ़ गया व लगातार जकड़न है', 'नई सूजन व लाली आ गई है', 'तकलीफ के कारण नींद नहीं आ रही', 'बुखार और कमजोरी शुरू हो गई है'],
+            GU: ['દુખાવો વધી ગયો અને સતત જકડન છે', 'નવી સોજો અને લાલાશ જણાય છે', 'તકલીફના લીધે ઊંઘ આવતી નથી', 'તાવ અને નબળાઈ શરૂ થઈ ગઈ છે'],
+          };
+          return {
+            question: qText[lang],
+            questionLanguage: lang,
+            questionCategory: 'CHARACTER',
+            touchOptions: touchOpts[lang],
+            isRedFlag: false,
+            redFlagReason: null,
+            isComplete: false,
+            clinicalRationale: 'Dynamically evaluating symptom intensification and potential disease exacerbation',
+          };
+        } else if (isNewProb) {
+          const qText = {
+            EN: isCaregiver
+              ? `Please tell us about the patient's new complaint: how many days ago did it start, and how severe is it?`
+              : `Please tell us about your new complaint: how many days ago did it start, and how severe is it?`,
+            HI: isCaregiver
+              ? `कृपया मरीज की इस नई समस्या के बारे में बताएं: यह कितने दिनों पहले शुरू हुई, और कितनी तीव्र है?`
+              : `कृपया अपनी इस नई समस्या के बारे में बताएं: यह कितने दिनों पहले शुरू हुई, और कितनी तीव्र है?`,
+            GU: isCaregiver
+              ? `કૃપા કરીને દર્દીની આ નવી સમસ્યા વિશે જણાવો: આ કેટલા દિવસ પહેલા શરૂ થઈ, અને કેટલી તીવ્ર છે?`
+              : `કૃપા કરીને આપની આ નવી સમસ્યા વિશે જણાવો: આ કેટલા દિવસ પહેલા શરૂ થઈ, અને કેટલી તીવ્ર છે?`,
+          };
+          const touchOpts = {
+            EN: ['Started in last 1-2 days', 'Severe acute onset today', 'Mild gradual discomfort', 'Intermittent episodes'],
+            HI: ['पिछले 1-2 दिनों में शुरू हुई', 'आज अचानक तेज दर्द उठा', 'हल्की धीरे-धीरे बढ़ती तकलीफ', 'रुक-रुक कर होने वाले दौरे'],
+            GU: ['છેલ્લા ૧-૨ દિવસમાં શરૂ થઈ', 'આજે અચાનક તીવ્ર દુખાવો થયો', 'હળવી ધીમે-ધીમે વધતી તકલીફ', 'અવારનવાર થતો દુખાવો'],
+          };
+          return {
+            question: qText[lang],
+            questionLanguage: lang,
+            questionCategory: 'ONSET',
+            touchOptions: touchOpts[lang],
+            isRedFlag: false,
+            redFlagReason: null,
+            isComplete: false,
+            clinicalRationale: 'Exploring secondary chief complaint presenting in follow-up encounter',
+          };
+        } else {
+          // Improved / Partial relief follow-up
+          const qText = {
+            EN: isCaregiver
+              ? `Which specific residual symptoms still remain for the patient, and during what activities or times do they feel them?`
+              : `Which specific residual symptoms still remain, and during what activities or times do you feel them?`,
+            HI: isCaregiver
+              ? `मरीज को अब कौन सी बची हुई तकलीफ अभी भी महसूस हो रही है, और किस समय या काम के दौरान यह ज्यादा होती है?`
+              : `आपको अब कौन सी बची हुई तकलीफ अभी भी महसूस हो रही है, और किस समय या काम के दौरान यह ज्यादा होती है?`,
+            GU: isCaregiver
+              ? `દર્દીને હવે કઈ બાકી રહેલી તકલીફ હજુ પણ જણાય છે, અને કયા સમયે કે પ્રવૃત્તિ દરમિયાન તે વધુ થાય છે?`
+              : `આપને હવે કઈ બાકી રહેલી તકલીફ હજુ પણ જણાય છે, અને કયા સમયે કે પ્રવૃત્તિ દરમિયાન તે વધુ થાય છે?`,
+          };
+          const touchOpts = {
+            EN: ['Mild lingering ache during exertion', 'Occasional morning stiffness', 'Discomfort returns after medicine stops', 'Almost back to normal, routine checkup'],
+            HI: ['काम/मेहनत करने पर हल्का दर्द', 'सुबह उठने पर हल्की जकड़न', 'दवा बंद करने पर तकलीफ लौट आती है', 'काफी आराम है, सामान्य फॉलो-अप जांच'],
+            GU: ['કામ/શ્રમ કરતી વખતે હળવો દુખાવો', 'સવારે જાગતી વખતે હળવી જકડન', 'દવા બંધ થતાં તકલીફ પાછી આવે છે', 'ઘણી રાહત છે, સામાન્ય ફોલો-અપ તપાસ'],
+          };
+          return {
+            question: qText[lang],
+            questionLanguage: lang,
+            questionCategory: 'CHARACTER',
+            touchOptions: touchOpts[lang],
+            isRedFlag: false,
+            redFlagReason: null,
+            isComplete: false,
+            clinicalRationale: 'Characterizing residual symptom burden and triggers post-therapy',
+          };
+        }
+      }
+
+      // Turn 2: Pharmacotherapy Compliance & Adverse Reactions
       if (!answeredDimensions.has('MEDICATIONS')) {
         const qText = {
           EN: isCaregiver
-            ? `Has the patient been taking their previously prescribed medicines regularly, and were there any side effects?`
+            ? `Has the patient been taking their previously prescribed medicines regularly, and did they experience any side effects?`
             : `Have you been taking your previously prescribed medicines regularly, and did you experience any side effects?`,
           HI: isCaregiver
             ? `क्या मरीज पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट या परेशानी हुई?`
@@ -613,7 +708,37 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // Final Returning Patient Wrap-Up
+      // Turn 3: Lifestyle & Trigger Management Follow-Up
+      if (!answeredDimensions.has('LIFESTYLE_FOLLOWUP')) {
+        const qText = {
+          EN: isCaregiver
+            ? `Have you noticed any triggers that worsen the patient's condition, and have they been able to follow the recommended diet, rest, or exercise routine?`
+            : `Have you noticed any triggers that worsen your symptoms, and have you been able to follow the recommended diet, rest, or exercise routine?`,
+          HI: isCaregiver
+            ? `क्या आपने किसी ऐसी चीज पर गौर किया जिससे मरीज की तकलीफ बढ़ती है, और क्या वे बताई गई दिनचर्या, खान-पान और आराम का पालन कर पा रहे हैं?`
+            : `क्या आपने किसी ऐसी चीज पर गौर किया जिससे आपकी तकलीफ बढ़ती है, और क्या आप बताई गई दिनचर्या, खान-पान और आराम का पालन कर पा रहे हैं?`,
+          GU: isCaregiver
+            ? `શું આપે કોઈ એવી બાબત નોંધી જેનાથી દર્દીની તકલીફ વધે છે, અને શું તેઓ જણાવેલ દિનચર્યા, ખોરાક અને આરામનું પાલન કરી રહ્યા છે?`
+            : `શું આપે કોઈ એવી બાબત નોંધી જેનાથી આપની તકલીફ વધે છે, અને શું આપ જણાવેલ દિનચર્યા, ખોરાક અને આરામનું પાલન કરી રહ્યા છો?`,
+        };
+        const touchOpts = {
+          EN: ['Following diet & rest recommendations well', 'Aggravated by physical strain / stress', 'Irregular sleep & routine continues', 'No specific triggers identified'],
+          HI: ['खान-पान व आराम का अच्छा पालन हो रहा है', 'अधिक मेहनत या तनाव से दर्द बढ़ता है', 'अनियमित नींद व दिनचर्या जारी है', 'कोई खास कारण समझ नहीं आया'],
+          GU: ['ખોરાક અને આરામનું સારું પાલન થાય છે', 'વધુ શ્રમ કે તણાવથી દુખાવો વધે છે', 'અનિયમિત ઊંઘ અને દિનચર્યા ચાલુ છે', 'કોઈ ચોક્કસ કારણ સમજાયું નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'LIFESTYLE',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing lifestyle modifications, trigger factors, and recovery regimen',
+        };
+      }
+
+      // Turn 4: Final Returning Patient Wrap-Up
       const qFinal = {
         EN: isCaregiver
           ? `Thank you. Is there any other detail regarding the patient's recovery that you would like the doctor to review?`
@@ -638,7 +763,7 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: true,
-        clinicalRationale: 'Follow-up intake completed with progression and medication compliance recorded',
+        clinicalRationale: 'Follow-up intake completed with multi-turn progression, symptom details, medication adherence, and lifestyle triggers recorded',
       };
     }
 
