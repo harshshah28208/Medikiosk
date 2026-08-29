@@ -132,34 +132,34 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
           ? `Welcome back. Compared to the patient's previous visit${lastComplaintStr}, what has changed with their health? Have their symptoms improved, worsened, or are you visiting for a new problem today?`
           : `Welcome back to the hospital! Compared to your previous visit${lastComplaintStr}, what has changed with your health? Have your symptoms improved, worsened, or do you have a new problem today?`)
       : (isCaregiver
-          ? `Hello and welcome. I am MediKiosk. Since you are providing health information for the patient today, please tell me what symptoms or health concerns the patient is experiencing.`
-          : `Hello and welcome! I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.`),
+          ? `Hello and welcome! I am MediKiosk Clinical AI. To help the doctor understand the patient thoroughly, let's start with their lifestyle and daily routine. How is their sleep schedule (hours per night), dietary habits, and daily stress?`
+          : `Hello and welcome! I am MediKiosk Clinical AI. To help your doctor understand you thoroughly, let's start with your lifestyle and daily routine. How is your sleep schedule (hours per night), dietary habits, and daily stress?`),
     HI: isExistingPatient
       ? (isCaregiver
           ? `अस्पताल में पुनः स्वागत है। मरीज की पिछली मुलाकात${lastComplaintStr} के बाद से उनकी तबीयत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई परेशानी है?`
           : `अस्पताल में आपका पुनः स्वागत है! आपकी पिछली मुलाकात${lastComplaintStr} के बाद से आपकी सेहत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई समस्या है?`)
       : (isCaregiver
-          ? `नमस्ते और स्वागत है। मैं मेडीकियोस्क सहायक हूँ। चूंकि आप मरीज की ओर से विवरण दे रहे हैं, कृपया बताएं कि मरीज को आज क्या तकलीफ या लक्षण महसूस हो रहे हैं?`
-          : `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या मुख्य लक्षण महसूस हो रहे हैं?`),
+          ? `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल AI सहायक हूँ। डॉक्टर को पूरी जानकारी देने के लिए, शुरुआत मरीज की जीवनशैली और दिनचर्या से करते हैं। मरीज की नींद (कितने घंटे), खान-पान की आदतें और दिनचर्या कैसी रहती है?`
+          : `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल AI सहायक हूँ। डॉक्टर को पूरी जानकारी देने के लिए, शुरुआत आपकी जीवनशैली और दिनचर्या से करते हैं। आपकी नींद (कितने घंटे), खान-पान की आदतें और तनाव कैसा रहता है?`),
     GU: isExistingPatient
       ? (isCaregiver
           ? `હોસ્પિટલમાં ફરી સ્વાગત છે. દર્દીની છેલ્લી મુલાકાત${lastComplaintStr} પછી તેમની સ્થિતિમાં શું બદલાવ આવ્યો છે? શું જૂની તકલીફમાં સુધારો છે, તકલીફ વધી છે, કે નવી સમસ્યા છે?`
           : `હોસ્પિટલમાં આપનું ફરી સ્વાગત છે! આપની છેલ્લી મુલાકાત${lastComplaintStr} પછી આપની તબિયતમાં શું ફેરફાર થયો છે? જૂની તકલીફમાં રાહત છે, તકલીફ વધી છે, કે આજે કોઈ નવી ફરિયાદ છે?`)
       : (isCaregiver
-          ? `નમસ્તે અને સ્વાગત છે. હું મેડીકિયોસ્ક સહાયક છું. આપ દર્દી વતી વિગત આપી રહ્યા છો, તો કૃપા કરીને જણાવો કે દર્દીને આજે કઈ તકલીફ થઈ રહી છે?`
-          : `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે મુખ્ય લક્ષણો થઈ રહ્યા છે?`),
+          ? `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક ક્લિનિકલ AI સહાયક છું. ડૉક્ટરને સંપૂર્ણ વિગત આપવા માટે, શરૂઆત દર્દીની જીવનશૈલી અને દિનચર્યાથી કરીએ. દર્દીની ઊંઘ (કેટલા કલાક), ખોરાકની ટેવો અને દિનચર્યા કેવી છે?`
+          : `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક ક્લિનિકલ AI સહાયક છું. ડૉક્ટરને સંપૂર્ણ વિગત આપવા માટે, શરૂઆત તમારી જીવનશૈલી અને દિનચર્યાથી કરીએ. તમારી ઊંઘ (કેટલા કલાક), ખોરાકની આદતો અને તણાવ કેવો રહે છે?`),
   };
 
   const initialOptions = {
     EN: isExistingPatient
       ? ['Previous symptoms improved / Routine review', 'Symptoms worsened / No significant relief', 'Completely new symptom/problem today', 'Medicines finished / Need refill & checkup']
-      : ['Fever & Cough', 'Pimples / Skin rash', 'Stomach / Abdominal discomfort', 'Chest heaviness', 'Unusual tiredness / Weakness', 'Joint or body pain'],
+      : ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high stress routine', 'Oily / fast food & irregular meal timing', 'Sedentary desk routine & physical fatigue'],
     HI: isExistingPatient
       ? ['पुरानी तकलीफ में काफी सुधार है / फॉलो-अप', 'तकलीफ बढ़ गई है / आराम नहीं मिला', 'आज पूरी तरह नई समस्या है', 'दवाइयां समाप्त / दोबारा जांच']
-      : ['बुखार और खांसी', 'मुँहासे / त्वचा में दाने', 'पेट में दर्द या भारीपन', 'सीने में तकलीफ', 'असामान्य कमजोरी व थकान', 'जोड़ों या शरीर में दर्द'],
+      : ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'कम नींद (<5 घंटे) और अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'बैठे रहने की दिनचर्या और कमजोरी'],
     GU: isExistingPatient
       ? ['જૂની તકલીફમાં સારો સુધારો છે / ફોલો-અપ', 'તકલીફ વધી ગઈ છે / રાહત નથી', 'આજે સાવ નવી જ સમસ્યા છે', 'દવાઓ પૂર્ણ થઈ / ફરી તપાસ']
-      : ['તાવ અને ઉધરસ', 'ખીલ / ચામડી પર ચકામા', 'પેટમાં દુખાવો', 'છાતીમાં ભારેપણું', 'અસામાન્ય થાક અને નબળાઈ', 'સાંધા કે શરીરમાં દુખાવો'],
+      : ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઓછી ઊંઘ (<૫ કલાક) અને વધુ માનસિક તણાવ', 'તળેલું/બહારનું ભોજન અને અનિયમિત સમય', 'બેઠાડુ દિનચર્યા અને શારીરિક થાક'],
   };
 
   const welcomeMsg = await prisma.conversationMessage.create({

@@ -311,9 +311,68 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // ==========================================
     // WORKFLOW B: NEW PATIENT INTAKE
+    // Step 1: Lifestyle & Daily Routine (Sleep, Diet, Physical Activity, Stress) FIRST
     // ==========================================
+    if (!answeredDimensions.has('LIFESTYLE')) {
+      const qText = {
+        EN: isCaregiver
+          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
+          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
+        HI: isCaregiver
+          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
+          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
+        GU: isCaregiver
+          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
+          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
+      };
+      const touchOpts = {
+        EN: ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high work stress', 'Oily / fast food & irregular meals', 'Sedentary desk routine & physical fatigue'],
+        HI: ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
+        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'LIFESTYLE',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and metabolic routine context',
+      };
+    }
 
-    // Step 1: Dynamic Symptom Follow-Up (Onset & Character)
+    // Step 2: Medical Background, Medications & Drug Allergies SECOND
+    if (!answeredDimensions.has('PAST_HISTORY') || !answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
+      const qText = {
+        EN: isCaregiver
+          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
+          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
+        HI: isCaregiver
+          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
+          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
+        GU: isCaregiver
+          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
+          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
+      };
+      const touchOpts = {
+        EN: ['No chronic conditions & No known drug allergies (NKDA)', 'Taking regular BP / Diabetes medicines', 'Have Thyroid / Asthma / Breathing trouble', 'Known drug allergy to Penicillin / Sulfa drugs'],
+        HI: ['कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'थायराइड / अस्थमा / सांस की तकलीफ है', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है'],
+        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'થાયરોઇડ / અસ્થમા / શ્વાસની તકલીફ છે', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'PAST_HISTORY',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Screening chronic disease background and pharmacotherapy safety profile',
+      };
+    }
+
+    // Step 3: Clinical Symptoms & Primary Complaint Exploration THIRD
     if (!answeredDimensions.has('ONSET')) {
       let qText = {
         EN: isCaregiver
@@ -343,67 +402,37 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 2: Daily Routine & Lifestyle (Sleep, Diet, Physical Activity, Stress)
-    if (!answeredDimensions.has('LIFESTYLE')) {
+    // Step 4: Clinical Character & Disease Severity Exploration FOURTH
+    if (!answeredDimensions.has('CHARACTER')) {
       const qText = {
         EN: isCaregiver
-          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
-          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
+          ? `How would you describe the severity and nature of the patient's ${localizedLabel}?`
+          : `How would you describe the severity and nature of your ${localizedLabel}?`,
         HI: isCaregiver
-          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
-          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
+          ? `मरीज की ${localizedLabel} की गंभीरता और प्रकार कैसा है?`
+          : `आपकी ${localizedLabel} की गंभीरता और प्रकार कैसा है?`,
         GU: isCaregiver
-          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
-          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
+          ? `દર્દીની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે?`
+          : `આપની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે?`,
       };
       const touchOpts = {
-        EN: ['Normal 7-8 hrs sleep / Balanced home diet', 'Disturbed sleep & High work stress', 'Oily / Fast food & Irregular meals', 'Sedentary routine & Physical fatigue'],
-        HI: ['सामान्य 7-8 घंटे नींद / संतुलित घर का खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
-        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ / સારો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
+        EN: ['Mild discomfort / Manageable', 'Moderate pain / Limits daily activities', 'Severe throbbing / Burning pain', 'Intermittent episodes coming and going'],
+        HI: ['हल्की तकलीफ / सामान्य काम कर पा रहे हैं', 'मध्यम दर्द / दैनिक काम में परेशानी', 'तेज दर्द / जलन / असहनीय', 'रुक-रुक कर होने वाली तकलीफ'],
+        GU: ['હળવી તકલીફ / સામાન્ય કામ થઈ શકે છે', 'મધ્યમ દુખાવો / રોજિંદા કામમાં તકલીફ', 'તીવ્ર દુખાવો / બળતરા / અસહ્ય', 'વારંવાર આવતી-જતી તકલીફ'],
       };
       return {
         question: qText[lang],
         questionLanguage: lang,
-        questionCategory: 'LIFESTYLE',
+        questionCategory: 'CHARACTER',
         touchOptions: touchOpts[lang],
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and metabolic routine context',
+        clinicalRationale: 'Evaluating disease severity and symptomatic character for clinical triage',
       };
     }
 
-    // Step 3: Medical Background, Medications & Drug Allergies
-    if (!answeredDimensions.has('PAST_HISTORY') || !answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
-      const qText = {
-        EN: isCaregiver
-          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
-          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
-        HI: isCaregiver
-          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
-          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
-        GU: isCaregiver
-          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
-          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
-      };
-      const touchOpts = {
-        EN: ['Taking regular BP / Diabetes medicines', 'No chronic conditions & No known allergies (NKDA)', 'Known Penicillin / Sulfa drug allergy', 'Occasional painkiller / antacid use'],
-        HI: ['नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है', 'कभी-कभार दर्द निवारक / एंटासिड लेते हैं'],
-        GU: ['નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)', 'ક્યારેક પેઇન કિલર / એસિડિટી દવા લઈએ છીએ'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'PAST_HISTORY',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Screening chronic disease background and pharmacotherapy safety profile',
-      };
-    }
-
-    // Step 4: Final Wrap-Up Review (All dimensions covered)
+    // Step 5: Final Wrap-Up Review (All dimensions covered)
     const qFinal = {
       EN: isCaregiver
         ? `Thank you. Is there any other symptom or specific detail regarding the patient's condition that you would like the doctor to know?`
