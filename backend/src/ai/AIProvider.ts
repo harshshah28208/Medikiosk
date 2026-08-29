@@ -13,47 +13,35 @@ export interface AIProvider {
  * Direct Comprehensive Clinical Dictionary for 100% Guaranteed Native Phrasing
  */
 const CLINICAL_TRANSLATIONS: Record<string, { HI: string; GU: string; EN: string }> = {
-  // Greetings
-  welcome: {
-    EN: 'Hello. I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.',
-    HI: 'नमस्ते। मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या लक्षण महसूस हो रहे हैं?',
-    GU: 'નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે લક્ષણો થઈ રહ્યા છે?',
+  // Lifestyle (Stage 1)
+  lifestyle: {
+    EN: "Hello and welcome! I am MediKiosk Clinical AI. To help your doctor understand you thoroughly, let's start with your lifestyle and daily routine. How is your sleep schedule (hours per night), dietary habits, and daily stress?",
+    HI: "नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल AI सहायक हूँ। डॉक्टर को पूरी जानकारी देने के लिए, शुरुआत आपकी जीवनशैली और दिनचर्या से करते हैं। आपकी नींद (कितने घंटे), खान-पान की आदतें और तनाव कैसा रहता है?",
+    GU: "નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક ક્લિનિકલ AI સહાયક છું. ડૉક્ટરને સંપૂર્ણ વિગત આપવા માટે, શરૂઆત તમારી જીવનશૈલી અને દિનચર્યાથી કરીએ. તમારી ઊંઘ (કેટલા કલાક), ખોરાકની આદતો અને તણાવ કેવો રહે છે?",
   },
-  // Onset Skin
-  skin_onset: {
-    EN: 'How many days have you had these pimples / skin spots, and are they spreading to other areas?',
-    HI: 'आपको ये मुँहासे / दाने कितने दिनों से निकल रहे हैं, और क्या ये चेहरे या शरीर के अन्य हिस्सों में भी फैल रहे हैं?',
-    GU: 'તમને આ ખીલ / ચામડી પરના દાણા કેટલા દિવસથી નીકળી રહ્યા છે, અને શું તે ચહેરા કે શરીરના અન્ય ભાગોમાં ફેલાઈ રહ્યા છે?',
+  // Medical Background & Allergies (Stage 2)
+  medical_history: {
+    EN: "Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?",
+    HI: "क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?",
+    GU: "શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?",
   },
-  // Character Skin
-  skin_character: {
-    EN: 'Is there any pain, itching, redness, or pus discharge with the pimples / skin spots?',
-    HI: 'क्या इन मुँहासे / दानों में दर्द, तेज खुजली, लालिमा, या पस/मवाद जैसा कुछ बन रहा है?',
-    GU: 'શું આ ખીલમાં દુખાવો, ખંજવાળ, લાલાશ, કે પરુ (પસ) જેવું જણાય છે?',
+  // Progression (Returning Patient Stage 1)
+  progression: {
+    EN: "Compared to your previous visit, how has your condition progressed? Have your symptoms improved, worsened, or are they unchanged?",
+    HI: "पिछली मुलाकात की तुलना में आपकी सेहत में क्या बदलाव आया है? क्या तकलीफ में सुधार है, बढ़ी है, या वैसी ही है?",
+    GU: "છેલ્લી મુલાકાતની સરખામણીમાં આપની તબિયતમાં શું ફેરફાર થયો છે? શું તકલીફમાં રાહત છે, વધી છે, કે સરખી છે?",
   },
-  // Onset Generic
-  generic_onset: {
-    EN: 'When did your symptoms begin, and does anything make it better or worse?',
-    HI: 'आपको इस समस्या की शुरुआत कब से हुई, और क्या किसी विशेष स्थिति में यह कम या ज्यादा होता है?',
-    GU: 'તમને આ તકલીફની શરૂઆત ક્યારથી થઈ છે, અને કોઈ ચોક્કસ સમયે તે વધે કે ઘટે છે?',
+  // Medication Adherence (Returning Patient Stage 2)
+  medication_adherence: {
+    EN: "Have you been taking your previously prescribed medicines regularly, and did you experience any side effects?",
+    HI: "क्या आप पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट या परेशानी हुई?",
+    GU: "શું આપ અગાઉ આપેલી દવાઓ સમયસર નિયમિત લેતા હતા, અને કોઈ આડઅસર જણાઈ?",
   },
-  // Severity Generic
-  generic_severity: {
-    EN: 'How does your discomfort feel, and what is the severity on a scale of 1 to 10?',
-    HI: 'आपको इस परेशानी में किस तरह की तकलीफ महसूस हो रही है, और 1 से 10 के पैमाने पर कितनी गंभीरता है?',
-    GU: 'તમને આમાં કેવા પ્રકારની તકલીફ જણાય છે, અને 1 થી 10 ના માપ પર કેટલી ગંભીરતા છે?',
-  },
-  // Associated Generic
-  generic_associated: {
-    EN: 'Have you noticed any other symptoms (like fever, nausea, dizziness, or unusual weakness)?',
-    HI: 'क्या आपको इसके अलावा कोई अन्य समस्या जैसे बुखार, जी मिचलाना, चक्कर या असामान्य कमजोरी भी लग रही है?',
-    GU: 'શું તમને આ સિવાય તાવ, ઉબકા, ચક્કર આવવા કે અસામાન્ય નબળાઈ જેવી કોઈ તકલીફ જણાય છે?',
-  },
-  // Background Generic
-  generic_background: {
-    EN: 'Do you have any existing chronic conditions (High BP, Diabetes, Thyroid) or known drug allergies?',
-    HI: 'क्या आपको पहले से कोई पुरानी बीमारी (जैसे बीपी, शुगर, थायराइड) या किसी दवा से एलर्जी है?',
-    GU: 'શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ) કે કોઈ દવાની એલર્જી છે?',
+  // Closing
+  closing: {
+    EN: "Thank you. Is there any other symptom or specific detail you would like to share with your doctor?",
+    HI: "धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कोई अन्य लक्षण या जरूरी बात बताना चाहते हैं?",
+    GU: "આભાર. ડૉક્ટરને મળતા પહેલાં શું આપ કોઈ અન્ય લક્ષણ કે ખાસ વિગત જણાવવા માંગો છો?",
   },
 };
 
@@ -166,37 +154,29 @@ export class UniversalClinicalEngine implements AIProvider {
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
     const tLower = text.toLowerCase();
 
-    // Check Welcome
-    if (tLower.includes('welcome') || tLower.includes('assistant') || tLower.includes('नमस्ते') || tLower.includes('નમસ્તે')) {
-      return CLINICAL_TRANSLATIONS.welcome[targetLanguage];
+    // Check Stage 1: Lifestyle & Daily Routine
+    if (tLower.includes('lifestyle') || tLower.includes('sleep') || tLower.includes('routine') || tLower.includes('diet') || tLower.includes('जीवनशैली') || tLower.includes('नींद') || tLower.includes('दिनचर्या') || tLower.includes('खान-पान') || tLower.includes('દિનચર્યા') || tLower.includes('ઊંઘ') || tLower.includes('ખોરાક')) {
+      return CLINICAL_TRANSLATIONS.lifestyle[targetLanguage];
     }
 
-    // Check Skin Questions
-    if (tLower.includes('pimple') || tLower.includes('दाने') || tLower.includes('ખીલ') || tLower.includes('spreading')) {
-      if (tLower.includes('pain') || tLower.includes('itching') || tLower.includes('खुजली') || tLower.includes('ખંજવાળ') || tLower.includes('pus')) {
-        return CLINICAL_TRANSLATIONS.skin_character[targetLanguage];
-      }
-      return CLINICAL_TRANSLATIONS.skin_onset[targetLanguage];
+    // Check Stage 2: Medical History & Allergies
+    if (tLower.includes('medical conditions') || tLower.includes('allergy') || tLower.includes('allergies') || tLower.includes('chronic') || tLower.includes('thyroid') || tLower.includes('diabetes') || tLower.includes('पुरानी बीमारी') || tLower.includes('एलर्जी') || tLower.includes('थायराइड') || tLower.includes('જૂની બીમારી') || tLower.includes('એલર્જી') || tLower.includes('ડાયાબિટીસ')) {
+      return CLINICAL_TRANSLATIONS.medical_history[targetLanguage];
     }
 
-    // Check Generic Onset
-    if (tLower.includes('begin') || tLower.includes('start') || tLower.includes('शुरुआत') || tLower.includes('શરૂઆત')) {
-      return CLINICAL_TRANSLATIONS.generic_onset[targetLanguage];
+    // Check Progression (Returning patient)
+    if (tLower.includes('previous visit') || tLower.includes('progress') || tLower.includes('पिछली मुलाकात') || tLower.includes('છેલ્લી મુલાકાત')) {
+      return CLINICAL_TRANSLATIONS.progression[targetLanguage];
     }
 
-    // Check Severity
-    if (tLower.includes('severity') || tLower.includes('scale') || tLower.includes('पैमाने') || tLower.includes('માપ')) {
-      return CLINICAL_TRANSLATIONS.generic_severity[targetLanguage];
+    // Check Medication Adherence (Returning patient)
+    if (tLower.includes('prescribed') || tLower.includes('side effects') || tLower.includes('दवाइयां') || tLower.includes('दवा') || tLower.includes('દવાઓ') || tLower.includes('દવા')) {
+      return CLINICAL_TRANSLATIONS.medication_adherence[targetLanguage];
     }
 
-    // Check Associated
-    if (tLower.includes('other symptoms') || tLower.includes('fever') || tLower.includes('बुखार') || tLower.includes('તાવ')) {
-      return CLINICAL_TRANSLATIONS.generic_associated[targetLanguage];
-    }
-
-    // Check Chronic / Background
-    if (tLower.includes('chronic') || tLower.includes('diabetes') || tLower.includes('पुरानी') || tLower.includes('જૂની')) {
-      return CLINICAL_TRANSLATIONS.generic_background[targetLanguage];
+    // Check Closing
+    if (tLower.includes('covers all symptoms') || tLower.includes('thank you') || tLower.includes('धन्यवाद') || tLower.includes('આભાર')) {
+      return CLINICAL_TRANSLATIONS.closing[targetLanguage];
     }
 
     return text;
@@ -583,16 +563,24 @@ Extract all clinical facts into English-normalized structured JSON with no markd
 
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
     try {
-      const prompt = `Translate the following hospital clinical intake sentence into natural, grammatically correct ${targetLanguage}.
-Do NOT add extra conversational text or explanations. Return ONLY the translated sentence in pure ${targetLanguage}:
+      // First check direct dictionary match for 100% stage consistency and zero latency
+      const direct = await this.fallback.translateText(text, targetLanguage);
+      if (direct && direct !== text) {
+        return direct;
+      }
+
+      const prompt = `You are a clinical intake translator.
+Translate the following medical sentence, question, or option into natural, grammatically correct ${targetLanguage} (EN = English, HI = Hindi, GU = Gujarati).
+Preserve the EXACT clinical meaning and topic. Do NOT add explanations or change the question.
+Return ONLY the direct translated sentence:
 "${text}"`;
 
       const res = await this.model.generateContent(prompt);
-      const result = res.response.text().trim();
-      if (result && result.length > 2) {
+      const result = res.response.text().trim().replace(/^["']|["']$/g, '');
+      if (result && result.length > 1) {
         return result;
       }
-      return this.fallback.translateText(text, targetLanguage);
+      return direct;
     } catch (e) {
       return this.fallback.translateText(text, targetLanguage);
     }
