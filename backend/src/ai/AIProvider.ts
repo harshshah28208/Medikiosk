@@ -627,6 +627,7 @@ Return ONLY valid JSON (no markdown fences):
   }
 
   async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
+    try {
       const prompt = `You are a clinical documentation AI. Generate a professional structured clinical intake summary based on:
 Patient: ${JSON.stringify(patient)}
 Clinical State: ${JSON.stringify(state)}
