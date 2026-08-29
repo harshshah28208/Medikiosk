@@ -19,10 +19,28 @@ export function PatientPortalPage() {
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem('medikiosk_active_patient');
     const userRaw = localStorage.getItem('medikiosk_user');
     const storedUser = userRaw ? JSON.parse(userRaw) : null;
-    const p = raw ? JSON.parse(raw) : (storedUser?.patient || storedUser || { id: '11111111-1111-1111-1111-111111111111', name: 'Rudra Patel', mrn: 'MK-0001' });
+    const raw = localStorage.getItem('medikiosk_active_patient');
+    const parsedRaw = raw ? JSON.parse(raw) : null;
+
+    let p = parsedRaw;
+    if (storedUser?.role === 'PATIENT') {
+      p = storedUser.patient || {
+        id: storedUser.id,
+        name: storedUser.name,
+        email: storedUser.email,
+        phone: storedUser.phone || '9876543210',
+        mrn: storedUser.mrn || 'MK-1001',
+        age: storedUser.age || 28,
+        gender: storedUser.gender || 'MALE',
+        bloodGroup: storedUser.bloodGroup || 'B+',
+        abhaId: storedUser.abhaId || '91-8822-1923-0019',
+      };
+      localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
+    } else if (!p) {
+      p = { id: 'pat-default', name: 'Rahul Sharma', mrn: 'MK-1001', phone: '9876543210', bloodGroup: 'B+', abhaId: '91-8822-1923-0019', age: 28, gender: 'MALE' };
+    }
     setPatient(p);
 
     const activeVisitRaw = localStorage.getItem('medikiosk_active_visit');

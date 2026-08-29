@@ -8,6 +8,9 @@ interface User {
   name: string;
   role: string;
   phone?: string;
+  patient?: any;
+  doctorProfile?: any;
+  nurseProfile?: any;
 }
 
 interface AuthContextType {
@@ -38,8 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       api.auth.me()
         .then((res) => setUser(res.user))
         .catch(() => {
-          clearAuthSession();
-          setUser(null);
+          // Keep local fallback session if backend is offline on Vercel
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -64,25 +66,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(res.user);
     } catch (err: any) {
-      // Instant standalone fallback for Vercel deployment
+      // Instant standalone fallback for Vercel deployment & registered local users
       const cleanEmail = email.trim().toLowerCase();
-      const fallbackUser = DEMO_USERS[cleanEmail] || Object.values(DEMO_USERS).find((u: any) => u.email?.toLowerCase() === cleanEmail);
+      const localUsers = JSON.parse(localStorage.getItem('medikiosk_registered_users') || '[]');
+      const registeredUser = localUsers.find((u: any) => u.email?.toLowerCase() === cleanEmail);
+
+      const fallbackUser = registeredUser || DEMO_USERS[cleanEmail] || Object.values(DEMO_USERS).find((u: any) => u.email?.toLowerCase() === cleanEmail);
       if (fallbackUser) {
         const dummyToken = `demo-token-${Date.now()}`;
-        setAuthSession(dummyToken, fallbackUser);
-        if (fallbackUser.patient) {
-          localStorage.setItem('medikiosk_active_patient', JSON.stringify(fallbackUser.patient));
-          if (fallbackUser.patient.visits?.[0]) {
+        const userWithRole = { ...fallbackUser };
+
+        if (userWithRole.role === 'PATIENT' || fallbackUser.patient) {
+          const patientObj = fallbackUser.patient || {
+            id: fallbackUser.id || `pat-${Date.now()}`,
+            mrn: fallbackUser.mrn || `MK-${Math.floor(1000 + Math.random() * 9000)}`,
+            name: fallbackUser.name || 'Patient',
+            age: fallbackUser.age || 28,
+            gender: fallbackUser.gender || 'MALE',
+            phone: fallbackUser.phone || '9876543210',
+            bloodGroup: fallbackUser.bloodGroup || 'B+',
+            abhaId: fallbackUser.abhaId || '91-8822-1923-0019',
+          };
+          userWithRole.patient = patientObj;
+          localStorage.setItem('medikiosk_active_patient', JSON.stringify(patientObj));
+
+          // Ensure in registered patients list for doctor queue
+          const regPatients = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
+          if (!regPatients.some((p: any) => p.id === patientObj.id || p.mrn === patientObj.mrn)) {
+            regPatients.unshift(patientObj);
+            localStorage.setItem('medikiosk_registered_patients', JSON.stringify(regPatients));
+          }
+
+          if (fallbackUser.patient?.visits?.[0]) {
             localStorage.setItem('medikiosk_active_visit', JSON.stringify(fallbackUser.patient.visits[0]));
-            if (fallbackUser.patient.visits[0].queueEntry) {
-              localStorage.setItem('medikiosk_active_queue', JSON.stringify(fallbackUser.patient.visits[0].queueEntry));
-            }
+          } else {
+            const activeV = {
+              id: `vis-${Date.now()}`,
+              patientId: patientObj.id,
+              token: 'P-101',
+              status: 'READY_FOR_DOCTOR',
+              createdAt: new Date().toISOString(),
+              department: { name: 'General Medicine', code: 'GEN' },
+              doctor: { user: { name: 'Dr. Yogesh Sharma' }, specialization: 'General Medicine' },
+              patient: patientObj,
+              reasonForVisit: 'General OPD Consultation',
+              vitals: [{ bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99, recordedAt: new Date().toISOString() }],
+              summary: {
+                chiefComplaint: 'General OPD Consultation',
+                historyOfPresentIllness: 'Logged in patient ready for consultation.',
+                lifestyle: 'Regular daily habits.',
+              }
+            };
+            localStorage.setItem('medikiosk_active_visit', JSON.stringify(activeV));
           }
         }
-        setUser(fallbackUser);
+
+        setAuthSession(dummyToken, userWithRole);
+        setUser(userWithRole);
         return;
       }
-      setError(err.message);
+      setError(err.message || 'Invalid email or password');
       throw err;
     } finally {
       setIsLoading(false);
@@ -101,13 +144,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(res.user);
     } catch (err: any) {
       // Standalone registration fallback
-      const dummyUser = {
-        id: `user-${Date.now()}`,
+      const newId = `user-${Date.now()}`;
+      const dummyUser: any = {
+        id: newId,
         email: data.email || 'user@medikiosk.com',
         name: data.name || 'MediKiosk User',
         role: data.role || 'PATIENT',
         phone: data.phone || '9876543210',
+        age: data.age || 28,
+        gender: data.gender || 'MALE',
+        abhaId: data.abhaId || '91-8822-1923-0019',
       };
+
+      if (dummyUser.role === 'PATIENT') {
+        const patientObj = {
+          id: `pat-${newId}`,
+          mrn: `MK-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: dummyUser.name,
+          age: dummyUser.age,
+          gender: dummyUser.gender,
+          phone: dummyUser.phone,
+          bloodGroup: data.bloodGroup || 'B+',
+          abhaId: dummyUser.abhaId,
+        };
+        dummyUser.patient = patientObj;
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify(patientObj));
+
+        // Add to registered patients for Doctor Dashboard queue
+        const regPats = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
+        regPats.unshift(patientObj);
+        localStorage.setItem('medikiosk_registered_patients', JSON.stringify(regPats));
+
+        const activeV = {
+          id: `vis-${Date.now()}`,
+          patientId: patientObj.id,
+          token: 'P-101',
+          status: 'READY_FOR_DOCTOR',
+          createdAt: new Date().toISOString(),
+          department: { name: 'General Medicine', code: 'GEN' },
+          doctor: { user: { name: 'Dr. Yogesh Sharma' }, specialization: 'General Medicine' },
+          patient: patientObj,
+          reasonForVisit: 'General OPD Consultation',
+          vitals: [{ bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99, recordedAt: new Date().toISOString() }],
+          summary: {
+            chiefComplaint: 'General OPD Consultation',
+            historyOfPresentIllness: 'Registered new patient.',
+            lifestyle: 'Baseline recorded.',
+          }
+        };
+        localStorage.setItem('medikiosk_active_visit', JSON.stringify(activeV));
+      }
+
+      // Store in registered users list
+      const localUsers = JSON.parse(localStorage.getItem('medikiosk_registered_users') || '[]');
+      localUsers.push(dummyUser);
+      localStorage.setItem('medikiosk_registered_users', JSON.stringify(localUsers));
+
       setAuthSession(`demo-token-${Date.now()}`, dummyUser);
       setUser(dummyUser);
     } finally {
@@ -130,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(res.user);
     } catch (err: any) {
       // Instant standalone fallback matching the selected role
-      const fallbackUser = Object.values(DEMO_USERS).find((u: any) => u.role === role) || DEMO_USERS['doctor@demo.com'];
+      const fallbackUser = Object.values(DEMO_USERS).find((u: any) => u.role === role) || DEMO_USERS['patient@demo.com'];
       const dummyToken = `demo-token-${Date.now()}`;
       setAuthSession(dummyToken, fallbackUser);
       if (fallbackUser.patient) {
