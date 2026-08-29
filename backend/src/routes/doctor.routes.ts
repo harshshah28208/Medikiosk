@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { createHash } from 'crypto';
 import prisma from '../config/db.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { requireClinicalRole, requireDoctorRole } from '../middleware/rbac.js';
@@ -248,6 +249,7 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
 
   const doctorProfile = await prisma.doctorProfile.findFirst({
     where: { userId: req.user?.id },
+    include: { user: true },
   });
 
   const docId = doctorProfile?.id || (await prisma.doctorProfile.findFirst())?.id;
@@ -256,12 +258,21 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
     return;
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const diagnosisStr = Array.isArray(diagnosis)
-      ? diagnosis.join(', ')
-      : (typeof diagnosis === 'string' ? diagnosis : (impression || ''));
+  const signerName = doctorProfile?.user?.name || req.user?.name || 'Treating Physician';
 
-    // 1. Create Consultation
+  const diagnosisStr = Array.isArray(diagnosis)
+    ? diagnosis.join(', ')
+    : (typeof diagnosis === 'string' ? diagnosis : (impression || ''));
+
+  // Document hash for electronic signature sealing
+  const documentHash = createHash('sha256')
+    .update(JSON.stringify({ visitId, patientId, docId, diagnosis: diagnosisStr, clinicalNotes, prescriptions }))
+    .digest('hex');
+
+  const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip || '127.0.0.1';
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Create / Update Consultation
     const consultation = await tx.consultation.upsert({
       where: { visitId },
       update: {
@@ -284,7 +295,19 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
       },
     });
 
-    // 2. Create Prescription & Items if prescribed
+    // 2. Prevent duplicate prescriptions by clearing prior ones for this visit
+    await tx.prescriptionItem.deleteMany({
+      where: {
+        prescription: {
+          visitId,
+        },
+      },
+    });
+    await tx.prescription.deleteMany({
+      where: { visitId },
+    });
+
+    // 3. Create fresh Prescription & Items if prescribed
     let prescription = null;
     if (prescriptions && prescriptions.length > 0) {
       prescription = await tx.prescription.create({
@@ -294,8 +317,8 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
           doctorId: docId,
           notes: treatmentPlan || null,
           items: {
-            create: prescriptions.map((item: any) => ({
-              medicineName: item.medicineName,
+            create: prescriptions.filter((item: any) => item.medicineName?.trim()).map((item: any) => ({
+              medicineName: item.medicineName.trim(),
               dosage: item.dosage || '1 tab',
               route: item.route || 'ORAL',
               frequency: item.frequency || 'Twice daily',
@@ -308,7 +331,29 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
       });
     }
 
-    // 3. Complete Visit & Queue
+    // 4. Create / Update Digital Signature audit record
+    const digitalSignature = await tx.digitalSignature.upsert({
+      where: { consultationId: consultation.id },
+      update: {
+        documentHash,
+        signedAt: new Date(),
+        signerName,
+        ipAddress,
+      },
+      create: {
+        consultationId: consultation.id,
+        visitId,
+        doctorId: docId,
+        signerName,
+        signerRole: req.user?.role || 'DOCTOR',
+        signatureMethod: 'ELECTRONIC_SYSTEM_STAMP',
+        documentHash,
+        signedAt: new Date(),
+        ipAddress,
+      },
+    });
+
+    // 5. Complete Visit & Queue
     await tx.visit.update({
       where: { id: visitId },
       data: { status: 'COMPLETED' },
@@ -319,7 +364,7 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
 
-    return { consultation, prescription };
+    return { consultation, prescription, digitalSignature };
   });
 
   const io = req.app.get('io');
@@ -337,13 +382,19 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
     action: AUDIT_ACTIONS.CREATE_CONSULTATION,
     resourceType: 'CONSULTATION',
     resourceId: result.consultation.id,
-    details: { visitId, prescribedCount: prescriptions.length },
+    details: {
+      visitId,
+      prescribedCount: prescriptions.length,
+      digitalSignatureId: result.digitalSignature.id,
+      documentHash: result.digitalSignature.documentHash,
+    },
   });
 
   res.status(201).json({
-    message: 'Consultation & prescription saved successfully.',
+    message: 'Consultation & prescription digitally signed and saved successfully.',
     consultation: result.consultation,
     prescription: result.prescription,
+    digitalSignature: result.digitalSignature,
   });
 });
 
@@ -364,12 +415,11 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
           user: { select: { name: true, email: true } },
         },
       },
-      consultations: {
+      consultation: {
         include: {
           doctor: { include: { user: { select: { name: true } } } },
+          digitalSignature: true,
         },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
       },
       summary: { select: { summaryJson: true, status: true } },
       ayushAssessment: true,
@@ -392,7 +442,7 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
       } catch {}
     }
 
-    const consult = v.consultations?.[0];
+    const consult = v.consultation;
     const doctorName = v.doctor?.user?.name || consult?.doctor?.user?.name || (v.department?.name?.includes('AYUSH') ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma');
     const doctorSpecialization = v.doctor?.specialization || (v.department?.name?.includes('AYUSH') ? 'Classical Homeopathy & AYUSH' : 'Internal Medicine & Cardiology');
 
@@ -412,6 +462,12 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
         clinicalNotes: consult?.clinicalNotes || null,
         treatmentPlan: consult?.treatmentPlan || null,
       },
+      digitalSignature: consult?.digitalSignature ? {
+        signerName: consult.digitalSignature.signerName,
+        signedAt: consult.digitalSignature.signedAt,
+        signatureMethod: consult.digitalSignature.signatureMethod,
+        documentHash: consult.digitalSignature.documentHash,
+      } : null,
       aiSummary: aiSummaryParsed || {
         chiefComplaint: v.clinicalHistory?.chiefComplaint || v.reasonForVisit || 'OPD Intake Completed',
         historyOfPresentIllness: 'Completed multi-turn AI clinical intake at Kiosk.',

@@ -367,8 +367,28 @@ model Consultation {
 
   visit           Visit         @relation(fields: [visitId], references: [id])
   doctor          DoctorProfile @relation(fields: [doctorId], references: [id])
+  digitalSignature DigitalSignature?
 
   @@index([visitId])
+}
+
+model DigitalSignature {
+  id              String        @id @default(uuid())
+  consultationId  String        @unique
+  visitId         String
+  doctorId        String
+  signerName      String
+  signerRole      String        @default("DOCTOR")
+  signatureMethod String        @default("ELECTRONIC_SYSTEM_STAMP")
+  documentHash    String?
+  signedAt        DateTime      @default(now())
+  ipAddress       String?
+
+  consultation    Consultation  @relation(fields: [consultationId], references: [id])
+
+  @@index([consultationId])
+  @@index([visitId])
+  @@index([doctorId])
 }
 
 model Prescription {

@@ -22,6 +22,9 @@ export function DoctorDashboard() {
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [signatureData, setSignatureData] = useState<any | null>(null);
+
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [impression, setImpression] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
@@ -83,6 +86,8 @@ export function DoctorDashboard() {
     setTreatmentPlan('');
     setSoapObjective('');
     setSoapPlan('');
+    setIsCompleted(visit.status === 'COMPLETED' || visit.consultation?.status === 'COMPLETED');
+    setSignatureData(visit.consultation?.digitalSignature || null);
     setPrescriptions([
       { medicineName: '', dosage: '', frequency: 'Once daily (OD)', duration: '5 days', instructions: 'After food' },
     ]);
@@ -90,6 +95,10 @@ export function DoctorDashboard() {
       const res = await api.visits.get(visit.id);
       if (res?.visit) {
         setSelectedVisit(res.visit);
+        setIsCompleted(res.visit.status === 'COMPLETED' || res.visit.consultation?.status === 'COMPLETED');
+        if (res.visit.consultation?.digitalSignature) {
+          setSignatureData(res.visit.consultation.digitalSignature);
+        }
         if (res.visit.summary) {
           const sJson = typeof res.visit.summary.summaryJson === 'string'
             ? JSON.parse(res.visit.summary.summaryJson)
@@ -146,19 +155,28 @@ export function DoctorDashboard() {
   };
 
   const handleSaveConsultation = async () => {
-    if (!selectedVisit) return;
+    if (!selectedVisit || isSaving || isCompleted) return;
     setIsSaving(true);
     try {
-      await api.doctor.consultation({
+      const res = await api.doctor.consultation({
         visitId: selectedVisit.id,
         patientId: selectedVisit.patientId || selectedVisit.patient?.id,
         clinicalNotes: `${soapSubjective ? `S: ${soapSubjective}\n` : ''}${soapObjective ? `O: ${soapObjective}\n` : ''}${clinicalNotes}`.trim(),
         impression: soapAssessment || impression,
         diagnosis: soapAssessment || impression,
         treatmentPlan: soapPlan || treatmentPlan,
-        prescriptions: prescriptions.filter((p) => p.medicineName.trim()),
+        prescriptions: prescriptions.filter((p) => p.medicineName?.trim()),
       });
-      alert('✅ Consultation & E-Prescription signed and saved successfully! Patient timeline updated.');
+
+      if (res?.digitalSignature) {
+        setSignatureData(res.digitalSignature);
+      }
+      setIsCompleted(true);
+
+      // Auto-trigger HIS / EMR synchronization in background
+      api.integrations.exportToHIS(selectedVisit.id).catch(() => {});
+
+      alert('✅ Consultation digitally signed, sealed, and completed! Patient marked COMPLETED and timeline updated.');
       loadPatients();
     } catch (e: any) {
       console.error('Consultation save error:', e);
@@ -168,7 +186,24 @@ export function DoctorDashboard() {
     }
   };
 
-  
+  const handleDownloadFHIRBundle = async () => {
+    if (!selectedVisit) return;
+    try {
+      const bundle = await api.integrations.getFHIRBundle(selectedVisit.id);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FHIR_R4_Bundle_${selectedVisit.patient?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(`FHIR Bundle Error: ${e.message}`);
+    }
+  };
+
   const handleDownloadTimeline = () => {
     if (!selectedVisit || timeline.length === 0) return;
     const p = selectedVisit.patient;
@@ -783,6 +818,15 @@ MediKiosk Autonomous Clinical Intake System
                       </button>
                       <button
                         type="button"
+                        onClick={handleDownloadFHIRBundle}
+                        className="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white text-xs rounded-xl font-semibold border border-blue-500/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Download HL7 FHIR R4 Bundle JSON"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-blue-300" />
+                        <span>FHIR R4 Bundle</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => window.print()}
                         className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-medium border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
@@ -1080,16 +1124,73 @@ MediKiosk Autonomous Clinical Intake System
                 </div>
               </div>
 
+              {/* Digital Signature Audit Seal Banner */}
+              {(isCompleted || signatureData) && (
+                <div className="p-4 bg-emerald-950/50 border border-emerald-500/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-bold shrink-0">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-300 text-sm">Consultation Digitally Signed &amp; Sealed</span>
+                        <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-200 rounded font-mono text-[10px]">ENCOUNTER COMPLETED</span>
+                      </div>
+                      <p className="text-slate-300 text-[11px] mt-0.5">
+                        Signer: <strong>{signatureData?.signerName || selectedVisit?.doctor?.user?.name || 'Treating Physician'}</strong> • Signed at: {new Date(signatureData?.signedAt || Date.now()).toLocaleString()}
+                      </p>
+                      {signatureData?.documentHash && (
+                        <p className="text-slate-400 font-mono text-[10px] truncate max-w-md mt-0.5">
+                          SHA-256 Seal: {signatureData.documentHash}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={handleDownloadFHIRBundle}
+                      className="px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white rounded-xl font-bold flex items-center gap-1.5 border border-emerald-500/40 transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Export FHIR R4</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Submission Action */}
-              <div className="pt-4 border-t border-slate-800 flex justify-end">
+              <div className="pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                <div className="text-xs text-slate-400">
+                  {isCompleted ? (
+                    <span className="text-emerald-400 font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Encounter is finalized. Record is locked in patient longitudinal timeline.
+                    </span>
+                  ) : (
+                    <span>Clicking Complete &amp; Sign will seal clinical notes, finalize e-prescription, and update patient history.</span>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={handleSaveConsultation}
-                  disabled={isSaving}
-                  className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all touch-target-lg"
+                  disabled={isSaving || isCompleted}
+                  className={`px-8 py-3.5 font-bold rounded-2xl shadow-lg flex items-center gap-2 transition-all touch-target-lg cursor-pointer ${
+                    isCompleted
+                      ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30 hover:scale-[1.02]'
+                  }`}
                 >
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>{isSaving ? 'Finalizing...' : 'Confirm Assessment & Sign Digital Rx'}</span>
+                  <span>
+                    {isSaving
+                      ? 'Signing & Finalizing...'
+                      : isCompleted
+                      ? 'Consultation Digitally Signed & Locked'
+                      : 'Complete & Sign Digitally'}
+                  </span>
                 </button>
               </div>
             </div>

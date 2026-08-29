@@ -30,12 +30,12 @@ export function PatientPortalPage() {
         id: storedUser.id,
         name: storedUser.name,
         email: storedUser.email,
-        phone: storedUser.phone || '9876543210',
+        phone: storedUser.phone || '',
         mrn: storedUser.mrn || 'MK-1001',
         age: storedUser.age || 28,
         gender: storedUser.gender || 'MALE',
         bloodGroup: storedUser.bloodGroup || 'B+',
-        abhaId: storedUser.abhaId || '91-8822-1923-0019',
+        abhaId: storedUser.abhaId || undefined,
       };
       localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
     } else if (!p) {
@@ -44,7 +44,7 @@ export function PatientPortalPage() {
     setPatient(p);
 
     const activeVisitRaw = localStorage.getItem('medikiosk_active_visit');
-    const parsedVisit = activeVisitRaw ? JSON.parse(activeVisitRaw) : (p.visits?.[0] || null);
+    const parsedVisit = activeVisitRaw ? JSON.parse(activeVisitRaw) : (p?.visits?.[0] || null);
     if (parsedVisit) setActiveVisit(parsedVisit);
 
     // Fetch full visit from API to get the complete AI summary
@@ -71,14 +71,18 @@ export function PatientPortalPage() {
     };
     loadFull();
 
-    api.doctor.timeline(p.id)
-      .then((data: any) => {
-        if (data?.timeline && Array.isArray(data.timeline)) {
-          setTimeline(data.timeline);
-        }
-      })
-      .catch((e: any) => console.error('Timeline error:', e))
-      .finally(() => setIsLoading(false));
+    if (p?.id) {
+      api.doctor.timeline(p.id)
+        .then((data: any) => {
+          if (data?.timeline && Array.isArray(data.timeline)) {
+            setTimeline(data.timeline);
+          }
+        })
+        .catch((e: any) => console.error('Timeline error:', e))
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
   // Parse summary from the active visit - handles both flat and nested summaryJson
@@ -96,6 +100,45 @@ export function PatientPortalPage() {
 
   const latestSummary = parseSummaryFromVisit(activeVisit) || timeline[0]?.aiSummary || null;
 
+  const handleDownloadFHIRBundle = async () => {
+    const vId = activeVisit?.id || timeline[0]?.visitId;
+    let bundle = null;
+    if (vId) {
+      try {
+        bundle = await api.integrations.getFHIRBundle(vId);
+      } catch {}
+    }
+    if (!bundle) {
+      bundle = {
+        resourceType: 'Bundle',
+        type: 'document',
+        id: `bundle-${patient?.mrn || 'pat'}-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        entry: [
+          {
+            resource: {
+              resourceType: 'Patient',
+              id: patient?.id || 'pat-1',
+              identifier: [{ system: 'https://medikiosk.in/mrn', value: patient?.mrn || 'MK-0001' }],
+              name: [{ text: patient?.name || 'Patient' }],
+              telecom: [{ system: 'phone', value: patient?.phone || '' }],
+              gender: (patient?.gender || 'unknown').toLowerCase(),
+            }
+          }
+        ]
+      };
+    }
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FHIR_R4_Bundle_${patient?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadIntakeSummary = () => {
     const p = patient;
     const s = latestSummary;
@@ -110,9 +153,9 @@ Generated: ${new Date().toLocaleString()}
 Name:        ${p?.name || 'Patient'}
 MRN:         ${p?.mrn || 'MK-0001'}
 Age/Gender:  ${p?.age || '24'} Yrs / ${p?.gender || 'MALE'}
-Phone:       ${p?.phone || '9876543210'}
-Blood Group: ${p?.bloodGroup || 'B+'}
-ABHA ID:     ${p?.abhaId || '91-8822-1923-0019'}
+Phone:       ${p?.phone || 'N/A'}
+Blood Group: ${p?.bloodGroup || 'N/A'}
+ABHA ID:     ${p?.abhaId || 'Not Linked'}
 
 2. ACTIVE ENCOUNTER & APPOINTMENT:
 ----------------------------------
@@ -417,6 +460,15 @@ Prescription: ${item.lastPrescription || 'None'}
             >
               <Download className="w-4 h-4" />
               <span>Download Whole Summary (.txt)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadFHIRBundle}
+              className="px-3.5 py-2 bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white rounded-xl text-xs font-semibold border border-blue-500/40 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Export official HL7 FHIR R4 JSON Bundle for ABDM/EMR interoperability"
+            >
+              <FileText className="w-4 h-4 text-blue-300" />
+              <span>FHIR R4 Bundle</span>
             </button>
             <button
               type="button"

@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             gender: fallbackUser.gender || 'MALE',
             phone: fallbackUser.phone || '9876543210',
             bloodGroup: fallbackUser.bloodGroup || 'B+',
-            abhaId: fallbackUser.abhaId || '91-8822-1923-0019',
+            abhaId: fallbackUser.abhaId || undefined,
           };
           userWithRole.patient = patientObj;
           localStorage.setItem('medikiosk_active_patient', JSON.stringify(patientObj));
@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: data.phone || '9876543210',
         age: data.age || 28,
         gender: data.gender || 'MALE',
-        abhaId: data.abhaId || '91-8822-1923-0019',
+        abhaId: data.abhaId || undefined,
       };
 
       if (dummyUser.role === 'PATIENT') {
