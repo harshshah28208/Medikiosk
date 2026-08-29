@@ -332,6 +332,17 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
       phone: true,
       lastLoginAt: true,
       createdAt: true,
+      doctorProfile: { include: { department: true } },
+      nurseProfile: { include: { department: true, assignedDoctor: { include: { user: true } } } },
+      patient: {
+        include: {
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: { department: true, summary: true, queueEntry: true },
+          },
+        },
+      },
     },
   });
 
@@ -340,5 +351,11 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
     return;
   }
 
-  res.json({ user });
+  res.json({
+    user: {
+      ...user,
+      patient: user.patient,
+      specialization: user.doctorProfile?.specialization || user.nurseProfile?.department?.name,
+    },
+  });
 }
