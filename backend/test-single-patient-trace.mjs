@@ -153,7 +153,7 @@ async function testSinglePatientTrace() {
 
   // 8. Admin Analytics
   const adminDash = await get('/api/admin/dashboard', adminToken);
-  console.log('8. Admin Analytics -> Patients Today:', adminDash.data?.metrics?.totalPatientsToday, '| Active Visits:', adminDash.data?.metrics?.activeVisitsCount);
+  console.log('8. Admin Analytics -> Patients Today:', adminDash.data?.metrics?.patientsToday, '| Visits Today:', adminDash.data?.metrics?.visitsToday);
 }
 
 testSinglePatientTrace().catch(console.error);

@@ -425,7 +425,12 @@ router.post('/:sessionId/complete', async (req: AuthRequest, res: Response): Pro
     where: { id: sessionId },
     include: {
       visit: {
-        include: { patient: true, vitals: true, documents: true, department: true },
+        include: {
+          patient: true,
+          vitals: { orderBy: { recordedAt: 'desc' } },
+          documents: { include: { extractions: true } },
+          department: true,
+        },
       },
       messages: { orderBy: { timestamp: 'asc' } },
     },

@@ -88,6 +88,7 @@ export interface ClinicalState {
   respondentType?: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED';
   isNewPatient?: boolean;
   previousVisitInfo?: {
+    lastDoctor?: string;
     lastVisitDate?: string;
     lastComplaint?: string;
     lastDepartment?: string;

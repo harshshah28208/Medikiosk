@@ -6,6 +6,7 @@ import { createAuditLog } from '../middleware/audit.js';
 import { AUDIT_ACTIONS, SOCKET_EVENTS } from '../config/constants.js';
 import { validateBody } from '../middleware/validate.js';
 import { recordVitalsSchema } from '../validators/vitals.schema.js';
+import { RedFlagEngine } from '../ai/RedFlagEngine.js';
 import type { AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -51,6 +52,48 @@ router.post(
       },
     });
 
+    // Evaluate Vitals-Based Red Flags (Hypoxemia, Hypertensive Crisis, Tachycardia, Severe Fever)
+    const vitalsAlerts = RedFlagEngine.evaluateVitals(data);
+    const io = req.app.get('io');
+
+    if (vitalsAlerts.length > 0) {
+      for (const alert of vitalsAlerts) {
+        const createdAlert = await prisma.emergencyAlert.create({
+          data: {
+            visitId: data.visitId,
+            patientId: data.patientId,
+            alertType: alert.type,
+            severity: alert.severity,
+            description: `${alert.symptoms} — ${alert.description}`,
+            triggerSource: 'VITALS_MONITOR',
+            status: 'UNACKNOWLEDGED',
+          },
+        });
+
+        await prisma.visit.update({
+          where: { id: data.visitId },
+          data: { priority: alert.severity === 'CRITICAL' ? 'EMERGENCY' : 'URGENT' },
+        });
+
+        await prisma.queueEntry.updateMany({
+          where: { visitId: data.visitId },
+          data: { priority: alert.severity === 'CRITICAL' ? 'EMERGENCY' : 'URGENT' },
+        });
+
+        if (io) {
+          io.emit(SOCKET_EVENTS.RED_FLAG_ALERT, {
+            alertId: createdAlert.id,
+            visitId: data.visitId,
+            patientName: vital.patient.name,
+            mrn: vital.patient.mrn,
+            symptoms: alert.symptoms,
+            severity: alert.severity,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     // Update visit status to VITALS_RECORDED
     await prisma.visit.update({
       where: { id: data.visitId },
@@ -58,7 +101,6 @@ router.post(
     });
 
     // Realtime broadcast to doctor dashboard
-    const io = req.app.get('io');
     if (io) {
       io.emit(SOCKET_EVENTS.VITALS_RECORDED, {
         vitalId: vital.id,
@@ -77,10 +119,10 @@ router.post(
       action: AUDIT_ACTIONS.RECORD_VITALS,
       resourceType: 'VITAL',
       resourceId: vital.id,
-      details: { visitId: data.visitId, bp: `${data.bpSystolic}/${data.bpDiastolic}`, spo2: data.spo2 },
+      details: { visitId: data.visitId, bp: `${data.bpSystolic}/${data.bpDiastolic}`, spo2: data.spo2, alertsCount: vitalsAlerts.length },
     });
 
-    res.status(201).json({ vital });
+    res.status(201).json({ vital, alerts: vitalsAlerts });
   }
 );
 

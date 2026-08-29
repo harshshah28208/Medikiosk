@@ -1040,14 +1040,40 @@ export class UniversalClinicalEngine implements AIProvider {
 
   async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
     const chief = state.chiefComplaint || 'Patient presented for OPD consultation';
-    const symptomsList = state.symptoms.length > 0
-      ? state.symptoms.map((s) => `${s.name} (Onset: ${s.onset || 'Reported'}, Severity: ${s.severity ? `${s.severity}/10` : 'Moderate'}, Character: ${s.character || 'Standard'}, Duration: ${s.duration || 'Reported'})`).join('; ')
-      : `${chief} reported during adaptive multilingual intake.`;
+    
+    // 1. Comprehensive HPI Narrative
+    let hpiNarrative = '';
+    if (state.symptoms && state.symptoms.length > 0) {
+      const parts = state.symptoms.map((s) => {
+        let desc = `${s.name}`;
+        if (s.onset || s.duration) desc += ` (onset: ${s.onset || s.duration})`;
+        if (s.severity) desc += ` with severity ${s.severity}/10`;
+        if (s.character) desc += `, described as ${s.character}`;
+        if (s.radiation) desc += `, radiating to ${s.radiation}`;
+        if (s.aggravatingFactors?.length) desc += `, aggravated by ${s.aggravatingFactors.join(', ')}`;
+        if (s.relievingFactors?.length) desc += `, relieved by ${s.relievingFactors.join(', ')}`;
+        if (s.progression) desc += ` [Progression: ${s.progression}]`;
+        return desc;
+      });
+      hpiNarrative = parts.join('. ') + '.';
+    } else {
+      hpiNarrative = `${chief} reported during adaptive multilingual intake.`;
+    }
 
+    // Include clinically relevant negative symptoms
+    if (state.associatedSymptoms && state.associatedSymptoms.length > 0) {
+      const negatives = state.associatedSymptoms.filter(a => a.present === false).map(a => a.name);
+      if (negatives.length > 0) {
+        hpiNarrative += ` Patient denies ${negatives.join(', ')}.`;
+      }
+    }
+
+    // 2. Vitals Highlights with Source Attribution
     const vitalsStr = vitals
-      ? `BP: ${vitals.bpSystolic || '--'}/${vitals.bpDiastolic || '--'} mmHg • Pulse: ${vitals.pulse || '--'} bpm • SpO2: ${vitals.spo2 || '--'}% • Temp: ${vitals.temperature || '--'}°F${vitals.weight && vitals.height ? ` • BMI: ${(vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)} kg/m²` : ''}`
+      ? `BP: ${vitals.bpSystolic || '--'}/${vitals.bpDiastolic || '--'} mmHg • Pulse: ${vitals.pulse || '--'} bpm • SpO2: ${vitals.spo2 || '--'}% • Temp: ${vitals.temperature || '--'}°F${vitals.weight && vitals.height ? ` • Height: ${vitals.height}cm • Weight: ${vitals.weight}kg • BMI: ${(vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)} kg/m²` : ''}`
       : 'Vitals pending nurse station assessment';
 
+    // 3. Lifestyle & Daily Routine
     const lifestyleStr = state.lifestyle
       ? [
           state.lifestyle.sleep ? `Sleep: ${state.lifestyle.sleep}` : null,
@@ -1059,35 +1085,97 @@ export class UniversalClinicalEngine implements AIProvider {
         ].filter(Boolean).join(' • ') || 'Standard daily routine reported'
       : 'Standard daily routine reported';
 
+    // 4. Extracted Document Findings
+    const docFindings: Array<{ documentTitle: string; documentType: string; findings: string[]; labResults: any[]; medications: any[] }> = [];
+    if (documents && documents.length > 0) {
+      for (const d of documents) {
+        if (d.extractions && d.extractions.length > 0) {
+          for (const ext of d.extractions) {
+            const rawExt = typeof ext.extractedData === 'string' ? JSON.parse(ext.extractedData) : ext.extractedData;
+            docFindings.push({
+              documentTitle: d.title,
+              documentType: d.fileType || 'REPORT',
+              findings: rawExt?.keyFindings || [rawExt?.summary || 'Attached document record'],
+              labResults: rawExt?.labResults || [],
+              medications: rawExt?.medications || [],
+            });
+          }
+        } else {
+          docFindings.push({
+            documentTitle: d.title,
+            documentType: d.fileType || 'RECORD',
+            findings: [`Uploaded ${d.title} attached for clinician review`],
+            labResults: [],
+            medications: [],
+          });
+        }
+      }
+    }
+
+    // 5. Returning Patient Intelligence & Changes Since Previous Visit
+    let changesSincePreviousVisit: string | null = null;
+    if (state.previousVisitInfo) {
+      const pv = state.previousVisitInfo;
+      const progressionAnswer = state.symptoms?.find(s => s.progression)?.progression || state.latestAnswer || 'Follow-up consultation';
+      changesSincePreviousVisit = `Previous Visit: ${pv.lastVisitDate || 'Prior'} (${pv.lastComplaint || 'Consultation'} with ${pv.lastDoctor || 'Attending Physician'}). Progression: ${progressionAnswer}.`;
+    }
+
+    // 6. Contradiction Detection
+    const contradictions: string[] = [];
+    if (state.previousVisitInfo?.pastPrescriptions?.length) {
+      const currentMedNames = state.medications.map(m => m.name.toLowerCase());
+      const missingPastMeds = state.previousVisitInfo.pastPrescriptions.filter(pm => !currentMedNames.some(cm => cm.includes(pm.toLowerCase())));
+      if (missingPastMeds.length > 0) {
+        contradictions.push(`Previously prescribed medications (${missingPastMeds.join(', ')}) not explicitly reported in current intake. Clinician verification recommended.`);
+      }
+    }
+
+    // 7. Medication Reconciliation
+    const medicationReconciliation = {
+      patientReported: state.medications.map(m => `${m.name}${m.dose ? ` (${m.dose})` : ''}`),
+      previouslyPrescribed: state.previousVisitInfo?.pastPrescriptions || [],
+      documentExtracted: docFindings.flatMap(df => df.medications.map(m => `${m.name} ${m.dosage || ''}`.trim())),
+    };
+
     const completeness = Math.min(100, Math.round(
-      (state.turnsCompleted / 8) * 80 +
-      (state.symptoms.length > 0 ? 10 : 0) +
-      (state.pastMedicalHistory.length > 0 ? 5 : 0) +
-      (vitals ? 5 : 0)
+      (state.turnsCompleted / 8) * 60 +
+      (state.symptoms.length > 0 ? 15 : 0) +
+      (state.pastMedicalHistory.length > 0 ? 10 : 0) +
+      (state.lifestyle?.sleep ? 5 : 0) +
+      (vitals ? 5 : 0) +
+      (documents?.length ? 5 : 0)
     ));
 
     return {
       overview: `Patient ${patient?.name || 'Patient'} (${patient?.age || '45'}Y/${patient?.gender || 'M'}) presented with primary complaint of ${chief}. Intake conducted in ${state.currentLanguage || 'EN'}.`,
       chiefComplaint: chief,
-      historyOfPresentIllness: symptomsList,
+      historyOfPresentIllness: hpiNarrative,
       lifestyle: lifestyleStr,
       pastMedicalHistory: state.pastMedicalHistory.length > 0 ? state.pastMedicalHistory.join(', ') : 'None reported during kiosk intake',
+      pastSurgicalHistory: state.pastSurgicalHistory?.length > 0 ? state.pastSurgicalHistory.join(', ') : 'No prior surgeries reported',
       medications: state.medications.length > 0 ? state.medications.map((m) => m.name + (m.dose ? ` (${m.dose})` : '')).join(', ') : 'No regular medications reported',
       allergies: state.allergies.length > 0 ? state.allergies.map((a) => a.allergen + (a.reaction ? ` [${a.reaction}]` : '')).join(', ') : 'No known drug allergies reported (NKDA)',
+      familyHistory: state.familyHistory?.length > 0 ? state.familyHistory.join(', ') : 'Non-contributory / None reported',
+      socialHistory: state.socialHistory?.smoking || state.socialHistory?.alcohol ? `Smoking: ${state.socialHistory.smoking || 'None'} • Alcohol: ${state.socialHistory.alcohol || 'None'}` : 'Non-contributory',
       vitalHighlights: vitalsStr,
-      documentReferences: documents && documents.length > 0 ? documents.map((d) => d.title).join(', ') : 'No uploaded reports',
+      extractedDocumentFindings: docFindings,
+      changesSincePreviousVisit,
+      contradictions,
+      medicationReconciliation,
+      clinicianVerificationRequired: contradictions.length > 0,
       redFlags: state.redFlags.map((r) => `${r.severity}: ${r.description}`),
       completenessScore: completeness,
       confidenceScore: 98,
       sourceMap: {
-        chiefComplaint: 'Patient Voice / Multilingual Speech NLU',
-        historyOfPresentIllness: 'Universal Adaptive Clinical Engine (Gemini 3.6)',
-        lifestyle: 'Patient Lifestyle Pre-Assessment',
-        pastMedicalHistory: 'Patient Kiosk Self-Declaration',
-        medications: 'Patient Current Medications Module',
-        allergies: 'Clinical Allergy Safety Check',
-        vitals: vitals ? 'Nurse Station Biometrics' : 'Pending Intake',
-        documents: documents?.length ? 'OCR Document Extractor' : 'None',
+        chiefComplaint: 'Patient Reported (Multilingual Speech NLU)',
+        historyOfPresentIllness: 'Universal Adaptive Clinical Engine (Gemini 3.5)',
+        lifestyle: 'Patient Reported (Lifestyle Pre-Assessment)',
+        pastMedicalHistory: 'Patient Reported (Kiosk Self-Declaration)',
+        pastSurgicalHistory: 'Patient Reported',
+        medications: 'Patient Reported (Current Medications Module)',
+        allergies: 'Patient Reported (Clinical Allergy Safety Check)',
+        vitals: vitals ? 'Nurse Measured (Biometric Station)' : 'Pending Nurse Intake',
+        documents: documents?.length ? 'Uploaded Document (OCR Extractor)' : 'None Uploaded',
       },
     };
   }
@@ -1252,38 +1340,71 @@ Return ONLY valid JSON (no markdown fences):
 
   async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
     try {
-      const prompt = `You are a clinical documentation AI. Generate a professional structured clinical intake summary based on:
+      const prompt = `You are a clinical documentation AI. Generate an exhaustive, professional, structured clinical intake summary based on:
 Patient: ${JSON.stringify(patient)}
 Clinical State: ${JSON.stringify(state)}
 Vitals: ${JSON.stringify(vitals || {})}
+Uploaded Documents / OCR Findings: ${JSON.stringify(documents || [])}
 
-Return valid JSON with no markdown fences:
+STRICT CLINICAL RULES:
+1. NEVER hallucinate or invent diagnoses, medications, lab values, or vitals.
+2. If patient reported negative symptoms (e.g. no vomiting, no fever), preserve them in HPI as "Patient denies ...".
+3. If returning patient, summarize changes since previous visit.
+4. Detect any contradictions between past records and current answers.
+5. Perform medication reconciliation comparing previous prescribed meds vs patient-reported meds.
+
+Return ONLY valid JSON with no markdown fences:
 {
   "overview": "Brief clinical overview of the patient presentation",
   "chiefComplaint": "Chief complaint statement",
-  "historyOfPresentIllness": "Comprehensive narrative History of Present Illness (HPI) including onset, progression, aggravating/relieving factors, and character",
-  "lifestyle": "Daily routine, sleep, diet, physical activity, and occupation factors",
-  "pastMedicalHistory": "Summary of prior chronic conditions",
-  "medications": "Current regular medications with dosages if mentioned",
-  "allergies": "Known drug/environmental allergies or NKDA",
-  "vitalHighlights": "Summary of vitals if present",
+  "historyOfPresentIllness": "Comprehensive narrative History of Present Illness (HPI) including onset, location, severity, character, radiation, triggers, aggravating/relieving factors, and clinically relevant negative findings",
+  "lifestyle": "Daily routine, sleep hours/quality, diet, physical activity, and occupation factors",
+  "pastMedicalHistory": "Summary of prior chronic conditions or 'None reported'",
+  "pastSurgicalHistory": "Summary of prior surgeries or 'No prior surgeries reported'",
+  "medications": "Current regular medications with dosages and frequencies",
+  "allergies": "Known drug/environmental allergies or NKDA (No Known Drug Allergies)",
+  "familyHistory": "Family medical history or 'Non-contributory'",
+  "socialHistory": "Social habits (smoking/alcohol/stress) or 'Non-contributory'",
+  "vitalHighlights": "Summary of vitals if present with source attribution",
+  "extractedDocumentFindings": [
+    {
+      "documentTitle": "title",
+      "documentType": "type",
+      "findings": ["finding 1"],
+      "labResults": []
+    }
+  ],
+  "changesSincePreviousVisit": "string | null",
+  "contradictions": ["string describing any conflicting information requiring clinician verification"],
+  "medicationReconciliation": {
+    "patientReported": ["med 1"],
+    "previouslyPrescribed": ["med 2"],
+    "documentExtracted": []
+  },
+  "clinicianVerificationRequired": boolean,
   "redFlags": ["List of any detected clinical red flags"],
   "completenessScore": 95,
   "confidenceScore": 98,
   "sourceMap": {
-    "chiefComplaint": "Patient Multilingual Voice Intake",
-    "historyOfPresentIllness": "Gemini 3.6 Multilingual Clinical Intake",
-    "lifestyle": "Patient Lifestyle Assessment",
-    "pastMedicalHistory": "Patient Kiosk Self-Declaration",
-    "medications": "Patient Current Medications Module",
-    "allergies": "Clinical Allergy Safety Check",
-    "vitals": "Nurse Station Biometrics"
+    "chiefComplaint": "Patient Reported (Multilingual Speech NLU)",
+    "historyOfPresentIllness": "Gemini Multilingual Clinical Engine",
+    "lifestyle": "Patient Reported (Lifestyle Pre-Assessment)",
+    "pastMedicalHistory": "Patient Reported (Kiosk Self-Declaration)",
+    "pastSurgicalHistory": "Patient Reported",
+    "medications": "Patient Reported (Current Medications Module)",
+    "allergies": "Patient Reported (Clinical Allergy Safety Check)",
+    "vitals": "Nurse Measured (Biometric Station)",
+    "documents": "Uploaded Document (OCR Extractor)"
   }
 }`;
 
       const res = await this.model.generateContent(prompt);
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      if (!parsed.historyOfPresentIllness) {
+        return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
+      }
+      return parsed;
     } catch (e) {
       return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
     }

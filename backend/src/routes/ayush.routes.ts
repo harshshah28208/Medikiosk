@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import prisma from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireRole } from '../middleware/rbac.js';
+import { requireClinicalRole, requireRole } from '../middleware/rbac.js';
 import { createAuditLog } from '../middleware/audit.js';
 import { AUDIT_ACTIONS } from '../config/constants.js';
 import type { AuthRequest } from '../middleware/auth.js';
@@ -13,7 +13,7 @@ router.use(authenticateToken);
  * GET /api/ayush/assessment/:visitId
  * Fetch existing AYUSH assessment for a patient visit.
  */
-router.get('/assessment/:visitId', requireRole('AYUSH_DOCTOR', 'HOSPITAL_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/assessment/:visitId', requireClinicalRole(), async (req: AuthRequest, res: Response): Promise<void> => {
   const visitId = typeof req.params.visitId === 'string' ? req.params.visitId : req.params.visitId[0];
 
   const assessment = await prisma.aYUSHAssessment.findUnique({
@@ -36,7 +36,7 @@ router.get('/assessment/:visitId', requireRole('AYUSH_DOCTOR', 'HOSPITAL_ADMIN',
  * POST /api/ayush/assessment
  * Record full Ashtavidha Pariksha, Prakriti, Vikriti, Agni, and Ayurvedic treatment plan.
  */
-router.post('/assessment', requireRole('AYUSH_DOCTOR', 'HOSPITAL_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/assessment', requireClinicalRole(), async (req: AuthRequest, res: Response): Promise<void> => {
   const {
     visitId,
     patientId,
@@ -65,12 +65,12 @@ router.post('/assessment', requireRole('AYUSH_DOCTOR', 'HOSPITAL_ADMIN', 'SUPER_
   const assessment = await prisma.aYUSHAssessment.upsert({
     where: { visitId },
     update: {
-      prakriti: prakriti || undefined,
-      vikriti: vikriti || undefined,
+      prakriti: typeof prakriti === 'object' ? JSON.stringify(prakriti) : (prakriti || undefined),
+      vikriti: typeof vikriti === 'object' ? JSON.stringify(vikriti) : (vikriti || undefined),
       agni: agni || null,
       koshtha: koshtha || null,
-      ahara: ahara || undefined,
-      vihara: vihara || undefined,
+      ahara: typeof ahara === 'object' ? JSON.stringify(ahara) : (ahara || undefined),
+      vihara: typeof vihara === 'object' ? JSON.stringify(vihara) : (vihara || undefined),
       nadi: nadi || null,
       mutra: mutra || null,
       mala: mala || null,
@@ -84,12 +84,12 @@ router.post('/assessment', requireRole('AYUSH_DOCTOR', 'HOSPITAL_ADMIN', 'SUPER_
     create: {
       visitId,
       patientId,
-      prakriti: prakriti || undefined,
-      vikriti: vikriti || undefined,
+      prakriti: typeof prakriti === 'object' ? JSON.stringify(prakriti) : (prakriti || null),
+      vikriti: typeof vikriti === 'object' ? JSON.stringify(vikriti) : (vikriti || null),
       agni: agni || null,
       koshtha: koshtha || null,
-      ahara: ahara || undefined,
-      vihara: vihara || undefined,
+      ahara: typeof ahara === 'object' ? JSON.stringify(ahara) : (ahara || null),
+      vihara: typeof vihara === 'object' ? JSON.stringify(vihara) : (vihara || null),
       nadi: nadi || null,
       mutra: mutra || null,
       mala: mala || null,

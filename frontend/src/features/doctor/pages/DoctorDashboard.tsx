@@ -420,9 +420,20 @@ export function DoctorDashboard() {
                     <div className="md:col-span-2 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase text-slate-400 block">Daily Routine & Lifestyle Factors</span>
-                        <span className="text-[9px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded font-mono">Kiosk Stage 6</span>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded font-mono">Patient Reported</span>
                       </div>
                       <p className="text-slate-200 leading-relaxed">{summaryData.lifestyle}</p>
+                    </div>
+                  )}
+
+                  {/* Changes Since Previous Visit (Returning Patient Intelligence) */}
+                  {summaryData?.changesSincePreviousVisit && (
+                    <div className="md:col-span-2 bg-indigo-950/30 border border-indigo-500/40 p-3.5 rounded-xl space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-indigo-300 block">🔄 Changes Since Previous Consultation</span>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-200 rounded font-mono">Longitudinal Delta</span>
+                      </div>
+                      <p className="text-slate-100 font-medium leading-relaxed">{summaryData.changesSincePreviousVisit}</p>
                     </div>
                   )}
 
@@ -435,6 +446,15 @@ export function DoctorDashboard() {
                     <p className="text-slate-200">{summaryData?.pastMedicalHistory || 'None reported'}</p>
                   </div>
 
+                  {/* Past Surgical History */}
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block">Past Surgical History</span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-indigo-900/40 text-indigo-300 rounded font-mono">Self-Declared</span>
+                    </div>
+                    <p className="text-slate-200">{summaryData?.pastSurgicalHistory || 'No prior surgeries reported'}</p>
+                  </div>
+
                   {/* Current Medications */}
                   <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
                     <div className="flex items-center justify-between">
@@ -445,7 +465,7 @@ export function DoctorDashboard() {
                   </div>
 
                   {/* Allergies */}
-                  <div className="md:col-span-2 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Allergies & Sensitivities</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-300 rounded font-mono">Safety Check</span>
@@ -453,7 +473,46 @@ export function DoctorDashboard() {
                     <p className="text-slate-200">{summaryData?.allergies || 'No known drug allergies (NKDA)'}</p>
                   </div>
 
-                  {/* Uploaded Past PDF Documents / Prescriptions */}
+                  {/* Family & Social History */}
+                  {(summaryData?.familyHistory || summaryData?.socialHistory) && (
+                    <div className="md:col-span-2 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Family & Social History</span>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded font-mono">Background</span>
+                      </div>
+                      <p className="text-slate-200">
+                        {summaryData.familyHistory ? `Family: ${summaryData.familyHistory}` : ''}
+                        {summaryData.familyHistory && summaryData.socialHistory ? ' • ' : ''}
+                        {summaryData.socialHistory ? `Social: ${summaryData.socialHistory}` : ''}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Medication Reconciliation Card */}
+                  {summaryData?.medicationReconciliation && (
+                    <div className="md:col-span-2 bg-slate-900/80 border border-slate-700 p-3.5 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-blue-300 block">💊 Medication Reconciliation</span>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded font-mono">Reconciliation</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                          <span className="text-slate-400 font-bold block mb-1">Patient Reported:</span>
+                          <span className="text-slate-200">{summaryData.medicationReconciliation.patientReported?.join(', ') || 'None'}</span>
+                        </div>
+                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                          <span className="text-slate-400 font-bold block mb-1">Past Prescribed:</span>
+                          <span className="text-slate-200">{summaryData.medicationReconciliation.previouslyPrescribed?.join(', ') || 'None'}</span>
+                        </div>
+                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                          <span className="text-slate-400 font-bold block mb-1">Document Extracted:</span>
+                          <span className="text-slate-200">{summaryData.medicationReconciliation.documentExtracted?.join(', ') || 'None'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Uploaded Past PDF Documents & Extracted Findings */}
                   {((selectedVisit.documents && selectedVisit.documents.length > 0) || (selectedVisit.patient?.documents && selectedVisit.patient.documents.length > 0)) && (
                     <div className="md:col-span-2 bg-blue-950/20 border border-blue-500/30 p-3.5 rounded-xl space-y-2">
                       <div className="flex items-center justify-between">

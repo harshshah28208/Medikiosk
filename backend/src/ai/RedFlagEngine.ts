@@ -144,4 +144,121 @@ export class RedFlagEngine {
 
     return alerts;
   }
+
+  /**
+   * Evaluates measured vitals for abnormal thresholds / hemodynamic instability.
+   */
+  static evaluateVitals(vitals: any): RedFlagAlert[] {
+    const alerts: RedFlagAlert[] = [];
+    if (!vitals) return alerts;
+
+    // 1. Oxygen Saturation (SpO2)
+    if (vitals.spo2 !== undefined && vitals.spo2 !== null && vitals.spo2 > 0) {
+      if (vitals.spo2 < 90) {
+        alerts.push({
+          type: 'SEVERE_HYPOXIA',
+          severity: 'CRITICAL',
+          symptoms: `Critically low oxygen saturation (SpO2: ${vitals.spo2}%)`,
+          description: `Severe hypoxemia detected (SpO2 < 90%). Immediate supplemental oxygen and respiratory evaluation required.`,
+          patientNotice: {
+            EN: `Oxygen saturation is low (${vitals.spo2}%). Nursing team will assist with oxygen support.`,
+            HI: `ऑक्सीजन स्तर कम (${vitals.spo2}%) पाया गया है। नर्सिंग स्टाफ तुरंत सहायता करेगा।`,
+            GU: `ઓક્સિજન સ્તર ઓછું (${vitals.spo2}%) છે. નર્સિંગ સ્ટાફ તાત્કાલિક મદદ કરશે.`,
+          },
+        });
+      } else if (vitals.spo2 < 94) {
+        alerts.push({
+          type: 'HYPOXIA_WARNING',
+          severity: 'HIGH',
+          symptoms: `Borderline low oxygen saturation (SpO2: ${vitals.spo2}%)`,
+          description: `Suboptimal oxygenation (SpO2 < 94%). Monitor respiratory status closely.`,
+          patientNotice: {
+            EN: `Oxygen level is slightly low (${vitals.spo2}%). Please rest while triage evaluates.`,
+            HI: `ऑक्सीजन का स्तर थोड़ा कम है (${vitals.spo2}%)। कृपया आराम से बैठें।`,
+            GU: `ઓક્સિજન સ્તર થોડું ઓછું છે (${vitals.spo2}%). કૃપા કરીને આરામ કરો.`,
+          },
+        });
+      }
+    }
+
+    // 2. Blood Pressure (Hypertensive Crisis / Hypotension Shock)
+    if (vitals.bpSystolic || vitals.bpDiastolic) {
+      const sys = vitals.bpSystolic || 0;
+      const dia = vitals.bpDiastolic || 0;
+
+      if (sys >= 180 || dia >= 120) {
+        alerts.push({
+          type: 'HYPERTENSIVE_CRISIS',
+          severity: 'CRITICAL',
+          symptoms: `Hypertensive crisis reading (BP: ${sys}/${dia} mmHg)`,
+          description: `Severe blood pressure elevation (Systolic >= 180 or Diastolic >= 120 mmHg). Risk of acute end-organ damage.`,
+          patientNotice: {
+            EN: `Blood pressure reading is significantly elevated (${sys}/${dia} mmHg). Doctor review is prioritized.`,
+            HI: `रक्तचाप बहुत अधिक (${sys}/${dia} mmHg) है। डॉक्टर की जांच को प्राथमिकता दी गई है।`,
+            GU: `બ્લડ પ્રેશર ઘણું ઊંચું (${sys}/${dia} mmHg) છે. ડૉક્ટર તાત્કાલિક તપાસ કરશે.`,
+          },
+        });
+      } else if (sys > 0 && sys < 90) {
+        alerts.push({
+          type: 'HYPOTENSION_ALERT',
+          severity: 'HIGH',
+          symptoms: `Severe hypotension (BP: ${sys}/${dia} mmHg)`,
+          description: `Hypotension detected (Systolic < 90 mmHg). Screen for hemodynamic instability, dehydration, or septic etiology.`,
+          patientNotice: {
+            EN: `Blood pressure is low (${sys}/${dia} mmHg). Clinical staff will evaluate your hydration status.`,
+            HI: `रक्तचाप कम (${sys}/${dia} mmHg) पाया गया है। स्टाफ आपकी स्थिति की जांच करेगा।`,
+            GU: `બ્લડ પ્રેશર ઓછું (${sys}/${dia} mmHg) છે. સ્ટાફ યોગ્ય તપાસ કરશે.`,
+          },
+        });
+      }
+    }
+
+    // 3. Heart Rate (Severe Tachycardia / Bradycardia)
+    if (vitals.pulse !== undefined && vitals.pulse !== null && vitals.pulse > 0) {
+      if (vitals.pulse > 130) {
+        alerts.push({
+          type: 'SEVERE_TACHYCARDIA',
+          severity: 'HIGH',
+          symptoms: `Severe tachycardia (Pulse: ${vitals.pulse} bpm)`,
+          description: `Marked tachycardia (> 130 bpm). Assess for arrhythmia, fever, pain, or hemodynamic compensation.`,
+          patientNotice: {
+            EN: `Heart rate is elevated (${vitals.pulse} bpm). Resting ECG may be performed.`,
+            HI: `हार्ट रेट अधिक (${vitals.pulse} bpm) है। डॉक्टर तुरंत जांच करेंगे।`,
+            GU: `ધબકારા વધુ (${vitals.pulse} bpm) છે. ડૉક્ટર તરત તપાસ કરશે.`,
+          },
+        });
+      } else if (vitals.pulse < 45) {
+        alerts.push({
+          type: 'SEVERE_BRADYCARDIA',
+          severity: 'HIGH',
+          symptoms: `Marked bradycardia (Pulse: ${vitals.pulse} bpm)`,
+          description: `Severe bradycardia (< 45 bpm). Assess for heart block, conduction defects, or medication effect.`,
+          patientNotice: {
+            EN: `Heart rate is very slow (${vitals.pulse} bpm). Clinical team is notified.`,
+            HI: `हार्ट रेट बहुत धीमी (${vitals.pulse} bpm) है। क्लिनिकल टीम को सूचित किया गया है।`,
+            GU: `ધબકારા ઘણા ધીમા (${vitals.pulse} bpm) છે. સ્ટાફને જાણ કરવામાં આવી છે.`,
+          },
+        });
+      }
+    }
+
+    // 4. Body Temperature (Hyperpyrexia)
+    if (vitals.temperature !== undefined && vitals.temperature !== null && vitals.temperature > 0) {
+      if (vitals.temperature >= 103.5) {
+        alerts.push({
+          type: 'HYPERPYREXIA_ALERT',
+          severity: 'HIGH',
+          symptoms: `Severe high grade fever (Temp: ${vitals.temperature}°F)`,
+          description: `High-grade pyrexia (>= 103.5°F). Immediate antipyresis and septic screening indicated.`,
+          patientNotice: {
+            EN: `High fever recorded (${vitals.temperature}°F). Triage is preparing antipyretic evaluation.`,
+            HI: `तेज बुखार (${vitals.temperature}°F) दर्ज हुआ है। तुरंत बुखार कम करने की दवा दी जाएगी।`,
+            GU: `વધુ તાવ (${vitals.temperature}°F) નોંધાયો છે. યોગ્ય દવા આપવાની વ્યવસ્થા કરાશે.`,
+          },
+        });
+      }
+    }
+
+    return alerts;
+  }
 }
