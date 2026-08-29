@@ -831,22 +831,22 @@ export class UniversalClinicalEngine implements AIProvider {
 
   async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     const lang: 'EN' | 'HI' | 'GU' = (language?.toUpperCase() as 'EN' | 'HI' | 'GU') || (state.currentLanguage as 'EN' | 'HI' | 'GU') || 'EN';
-    const isNew = state.isNewPatient === true || state.isNewPatient === undefined || !state.previousVisitInfo;
+    const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
     const complaintText = state.chiefComplaint || 'problem';
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
 
     // Track answered clinical dimensions to guarantee NO repetition
     const answeredDimensions = new Set<string>();
-    if (state.symptoms.some(s => s.progression)) answeredDimensions.add('PROGRESSION');
-    if (state.symptoms.some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
-    if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
-    if (state.symptoms.some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
+    if ((state.symptoms || []).some(s => s.progression)) answeredDimensions.add('PROGRESSION');
+    if ((state.symptoms || []).some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
+    if ((state.symptoms || []).some(s => s.onset)) answeredDimensions.add('ONSET');
+    if ((state.symptoms || []).some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
     if (state.lifestyle?.sleep || state.lifestyle?.diet || state.lifestyle?.activity) answeredDimensions.add('LIFESTYLE');
     if ((state.lifestyle as any)?.followUpTriggers) answeredDimensions.add('LIFESTYLE_FOLLOWUP');
-    if (state.pastMedicalHistory.length > 0) answeredDimensions.add('PAST_HISTORY');
-    if (state.medications.length > 0) answeredDimensions.add('MEDICATIONS');
-    if (state.allergies.length > 0) answeredDimensions.add('ALLERGIES');
+    if ((state.pastMedicalHistory || []).length > 0) answeredDimensions.add('PAST_HISTORY');
+    if ((state.medications || []).length > 0) answeredDimensions.add('MEDICATIONS');
+    if ((state.allergies || []).length > 0) answeredDimensions.add('ALLERGIES');
 
     // ==========================================
     // WORKFLOW A: RETURNING PATIENT 100% DYNAMIC ANSWER-DRIVEN INTAKE
@@ -854,8 +854,11 @@ export class UniversalClinicalEngine implements AIProvider {
     if (!isNew) {
       const turns = state.turnsCompleted || 0;
       const latest = (state.latestAnswer || '').toLowerCase();
+      const askedCount = (state.questionsAsked || []).length;
 
-      // Opening Turn: If no answers yet or turn 0, ask baseline progression compared to previous visit
+      // ----------------------------------------------------
+      // TURN 0: INITIAL OPENING QUESTION (If 0 turns or no answer yet)
+      // ----------------------------------------------------
       if (turns === 0 && !state.latestAnswer) {
         const qText = {
           EN: isCaregiver
@@ -885,117 +888,31 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // Dynamic Branch 1: Patient reports significant improvement / relief / feeling normal
-      const isRelief = /significantly improved|relief|normal|better|cure|काफी सुधार|आराम|ठीक|રાહત|સુધારો|સારું|સામાન્ય/i.test(latest) && !/no relief|worse|दर्द|તકલીફ/i.test(latest);
-      if (isRelief) {
-        const qText = {
-          EN: isCaregiver
-            ? `That is good to hear. Does the patient need a prescription refill or have any remaining questions for the doctor?`
-            : `Glad to hear about your recovery. Do you need a prescription refill or have any remaining questions for your doctor?`,
-          HI: isCaregiver
-            ? `यह जानकर अच्छा लगा। क्या मरीज को पिछली दवाइयां दोबारा चाहिए या डॉक्टर से कोई अन्य सवाल पूछना है?`
-            : `यह जानकर खुशी हुई। क्या आपको दवाइयों का रीफिल चाहिए या डॉक्टर से कोई अन्य सवाल पूछना है?`,
-          GU: isCaregiver
-            ? `આ જાણીને આનંદ થયો. શું દર્દીને અગાઉની દવાઓ ફરી જોઈએ છે કે ડૉક્ટરને કોઈ સવાલ પૂછવો છે?`
-            : `આ જાણીને ઘણો આનંદ થયો. શું આપને દવાઓ ફરીથી જોઈએ છે કે ડૉક્ટરને કોઈ અન્ય પ્રશ્ન પૂછવો છે?`,
-        };
-        const touchOpts = {
-          EN: ['Need prescription refill & final checkup', 'No remaining issues — ready for doctor consultation'],
-          HI: ['दवाइयों का रीफिल चाहिए और सामान्य जांच', 'कोई अन्य तकलीफ नहीं — परामर्श हेतु तैयार'],
-          GU: ['દવાઓ ફરી જોઈએ છે અને સામાન્ય તપાસ', 'કોઈ અન્ય તકલીફ નથી — ડૉક્ટરને મળવા તૈયાર'],
-        };
-        return {
-          question: qText[lang],
-          questionLanguage: lang,
-          questionCategory: 'CLOSING',
-          touchOptions: touchOpts[lang],
-          isRedFlag: false,
-          redFlagReason: null,
-          isComplete: true,
-          clinicalRationale: 'Patient reports significant recovery; offering medication refill inquiry and completing intake',
-        };
-      }
+      // Check if user is on Turn >= 3 OR selected final closing options
+      const isExplicitClosing = /covers all symptoms|complete intake|सब लक्षण बता दिए|ઇન્ટેક પૂર્ણ|તમામ લક્ષણો જણાવી દીધા|no, that covers|ready for doctor|ready for consultation|परामर्श हेतु तैयार|મળવા તૈયાર/i.test(latest);
 
-      // Dynamic Branch 2: Patient reports a new problem or distinct secondary symptom
-      const isNewProb = /new problem|नई समस्या|નવી સમસ્યા|headache|cough|rash|vomit|stomach|सिरदर्द|खांसी|दाने|ઉધરસ|દાણા/i.test(latest);
-      if (isNewProb && turns <= 2) {
-        const qText = {
-          EN: isCaregiver
-            ? `Please describe the patient's new symptoms: when did they begin, and how intense are they?`
-            : `Please describe this new complaint: how many days ago did it begin, and how severe is it?`,
-          HI: isCaregiver
-            ? `कृपया मरीज की इस नई समस्या के बारे में बताएं: यह कब शुरू हुई, और कितनी तीव्र है?`
-            : `कृपया इस नई समस्या के बारे में बताएं: यह कितने समय पहले शुरू हुई, और कितनी गंभीर है?`,
-          GU: isCaregiver
-            ? `કૃપા કરીને આ નવી સમસ્યા વિશે જણાવો: આ કેટલા સમય પહેલા શરૂ થઈ, અને કેટલી તીવ્ર છે?`
-            : `કૃપા કરીને આપની આ નવી તકલીફ વિશે જણાવો: આ કેટલા દિવસ પહેલા શરૂ થઈ, અને કેટલી તીવ્ર છે?`,
-        };
-        const touchOpts = {
-          EN: ['Started recently in last 1-2 days', 'Sudden acute pain / discomfort today', 'Mild and gradually increasing', 'Comes and goes intermittently'],
-          HI: ['पिछले 1-2 दिनों में शुरू हुई', 'आज अचानक तेज तकलीफ शुरू हुई', 'हल्की व धीरे-धीरे बढ़ने वाली', 'रुक-रुक कर होने वाली समस्या'],
-          GU: ['છેલ્લા ૧-૨ દિવસમાં શરૂ થઈ', 'આજે અચાનક તીવ્ર તકલીફ થઈ', 'હળવી અને ધીમે-ધીમે વધતી', 'અવારનવાર આવતી-જતી તકલીફ'],
-        };
-        return {
-          question: qText[lang],
-          questionLanguage: lang,
-          questionCategory: 'ONSET',
-          touchOptions: touchOpts[lang],
-          isRedFlag: false,
-          redFlagReason: null,
-          isComplete: false,
-          clinicalRationale: 'Dynamically investigating newly presented chief complaint in follow-up encounter',
-        };
-      }
+      // ----------------------------------------------------
+      // PATHWAY 1: PARTIAL RELIEF / SYMPTOMS STILL PERSIST
+      // ----------------------------------------------------
+      const isPartial = /partial relief|persist|थोड़ा आराम|तकलीफ बाकी|થોડી રાહત|તકલીફ ચાલુ/i.test(latest) ||
+        (turns === 1 && !/70%|significantly|काफी सुधार|સારો સુધારો|worsening|बढ़ गई|વધી ગઈ|new problem|नई समस्या|નવી સમસ્યા/i.test(latest));
 
-      // Dynamic Branch 3: Patient mentions medicine side effects, missed doses, or finished tablets
-      const isMedIssue = /medicine|tablet|pill|dose|side effect|finished|दवा|गोली|દવા|ગોળી|गैस|उल्टी/i.test(latest);
-      if (isMedIssue && turns <= 2) {
+      if (isPartial && turns === 1 && !isExplicitClosing) {
         const qText = {
           EN: isCaregiver
-            ? `Which specific medicine caused discomfort for the patient, or how long ago did their prescribed tablets finish?`
-            : `Which specific medicine caused discomfort, or how long ago did your prescribed medicines finish?`,
+            ? `Which specific residual symptoms still linger for the patient, and during what times of the day or activities do they feel them most?`
+            : `Which specific residual symptoms still linger or persist, and during what times of the day or activities do you feel them most?`,
           HI: isCaregiver
-            ? `किस दवा से मरीज को परेशानी हुई, या पिछली लिखी दवाइयां कितने दिन पहले समाप्त हो गई थीं?`
-            : `किस दवा से आपको तकलीफ हुई, या पहले लिखी गई दवाइयां कितने दिन पहले खत्म हुई थीं?`,
+            ? `मरीज को अब कौन सी बची हुई तकलीफ अभी भी महसूस हो रही है, और किस समय या काम के दौरान यह ज्यादा होती है?`
+            : `आपको अब कौन सी बची हुई तकलीफ अभी भी महसूस हो रही है, और किस समय या काम के दौरान यह ज्यादा होती है?`,
           GU: isCaregiver
-            ? `કઈ દવાથી દર્દીને તકલીફ થઈ, કે અગાઉ આપેલી દવાઓ કેટલા દિવસ પહેલા પૂરી થઈ ગઈ હતી?`
-            : `કઈ દવાથી આપને તકલીફ જણાઈ, કે અગાઉ આપેલી દવાઓ કેટલા દિવસ પહેલા પૂર્ણ થઈ ગઈ હતી?`,
+            ? `દર્દીને હવે કઈ બાકી રહેલી તકલીફ હજુ પણ જણાય છે, અને કયા સમયે કે પ્રવૃત્તિ દરમિયાન તે વધુ થાય છે?`
+            : `આપને હવે કઈ બાકી રહેલી તકલીફ હજુ પણ જણાય છે, અને કયા સમયે કે પ્રવૃત્તિ દરમિયાન તે વધુ થાય છે?`,
         };
         const touchOpts = {
-          EN: ['Caused stomach burning / nausea / dizziness', 'Medicines finished 2-3 days ago', 'Stopped taking due to lack of relief', 'Took medicines on time but symptoms persist'],
-          HI: ['दवा से पेट में जलन / उल्टी / चक्कर आए', 'दवा 2-3 दिन पहले समाप्त हो गई', 'आराम न मिलने से दवा बंद कर दी', 'पूरी दवा समय पर ली पर तकलीफ बाकी है'],
-          GU: ['દવાથી પેટમાં બળતરા / ઉબકા / ચક્કર આવ્યા', 'દવા ૨-૩ દિવસ પહેલા પૂરી થઈ ગઈ', 'રાહત ન મળતા દવા બંધ કરી દીધી', 'બધી દવા સમયસર લીધી પણ તકલીફ ચાલુ છે'],
-        };
-        return {
-          question: qText[lang],
-          questionLanguage: lang,
-          questionCategory: 'MEDICATIONS',
-          touchOptions: touchOpts[lang],
-          isRedFlag: false,
-          redFlagReason: null,
-          isComplete: false,
-          clinicalRationale: 'Assessing pharmacotherapy tolerance, side effects, and adherence',
-        };
-      }
-
-      // Dynamic Branch 4: Patient reports worsening symptoms / persistent pain / functional limits
-      const isWorse = /worsen|pain|severe|stiff|swelling|fever|बढ़|दर्द|जकड़न|सूजन|बुखार|દુખાવો|જકડન|સોજો|તાવ/i.test(latest);
-      if (isWorse && turns <= 2) {
-        const qText = {
-          EN: isCaregiver
-            ? `Where does the patient's pain or discomfort spread, and does movement, posture, or physical activity make it worse?`
-            : `Where does your pain or discomfort radiate, and what movements or daily activities make it worse?`,
-          HI: isCaregiver
-            ? `मरीज का दर्द किस तरफ फैल रहा है, और क्या चलने-फिरने या काम करने से तकलीफ और बढ़ती है?`
-            : `आपका दर्द किस तरफ फैल रहा है, और किस हलचल या काम से तकलीफ और बढ़ जाती है?`,
-          GU: isCaregiver
-            ? `દર્દીનો દુખાવો કઈ તરફ ફેલાય છે, અને હલનચલન કે કામ કરવાથી તકલીફ વધે છે?`
-            : `આપનો દુખાવો કઈ તરફ ફેલાય છે, અને હલનચલન કે કામ કરવાથી તકલીફ વધુ થાય છે?`,
-        };
-        const touchOpts = {
-          EN: ['Radiating to limbs with numbness / tingling', 'Sharp pain during bending or exertion', 'Continuous throbbing pain disturbing night sleep', 'Localized stiffness without radiation'],
-          HI: ['हाथ-पैरों में सुन्नपन व खिंचाव के साथ', 'झुकने या मेहनत करने पर तेज चुभन', 'लगातार भारी दर्द जिससे नींद में खलल है', 'दर्द एक ही जगह सीमित पर तेज है'],
-          GU: ['હાથ-પગમાં ખાલી ચડવી અને ખેંચાણ સાથે', 'વાંકા વળતી વખતે કે શ્રમથી તીવ્ર દુખાવો', 'સતત ધબકતો દુખાવો જેનાથી ઊંઘ આવતી નથી', 'દુખાવો એક જ જગ્યાએ છે પણ તીવ્ર છે'],
+          EN: ['Mild lingering ache during exertion', 'Morning stiffness & joint discomfort', 'Symptoms return as soon as medicine dose wears off', 'Dull background ache without sharp pain'],
+          HI: ['काम/मेहनत करने पर हल्का दर्द', 'सुबह उठने पर हल्की जकड़न', 'दवा का असर खत्म होते ही तकलीफ लौट आती है', 'हल्का भारीपन बना रहता है'],
+          GU: ['કામ/શ્રમ કરતી વખતે હળવો દુખાવો', 'સવારે જાગતી વખતે હળવી જકડન', 'દવાનો પ્રભાવ પૂરો થતાં તકલીફ પાછી આવે છે', 'હળવો દુખાવો સતત ચાલુ રહે છે'],
         };
         return {
           question: qText[lang],
@@ -1005,15 +922,151 @@ export class UniversalClinicalEngine implements AIProvider {
           isRedFlag: false,
           redFlagReason: null,
           isComplete: false,
-          clinicalRationale: 'Evaluating symptom exacerbation, radiation patterns, and functional impact',
+          clinicalRationale: 'Investigating residual symptom burden and aggravating daily triggers',
         };
       }
 
-      // Final Dynamic Wrap-up (Turn >= 2 or general details gathered)
+      // ----------------------------------------------------
+      // PATHWAY 2: NO RELIEF / WORSENING SYMPTOMS / PAIN
+      // ----------------------------------------------------
+      const isWorse = /worsening|no relief|severe|pain|stiff|swelling|fever|बढ़ गई|तकलीफ बढ़|कोई आराम नहीं|दर्द|जकड़न|सूजन|बुखार|વધી ગઈ|રાહત નથી|દુખાવો|જકડન|સોજો|તાવ/i.test(latest);
+
+      if (isWorse && turns === 1 && !isExplicitClosing) {
+        const qText = {
+          EN: isCaregiver
+            ? `Since symptoms have intensified, where does the patient's pain or discomfort radiate, has any new swelling or stiffness appeared, and does it disturb their sleep?`
+            : `Since your symptoms have intensified, where does the pain radiate, has any new swelling or stiffness appeared, and is it disturbing your sleep?`,
+          HI: isCaregiver
+            ? `चूँकि तकलीफ बढ़ी है, कृपया बताएं कि क्या दर्द फैल रहा है, नई सूजन या जकड़न आई है, और क्या रात में नींद में परेशानी हो रही है?`
+            : `चूँकि आपकी तकलीफ बढ़ गई है, कृपया बताएं कि क्या दर्द फैल रहा है, नई सूजन या जकड़न आई है, और क्या रात की नींद में रुकावट है?`,
+          GU: isCaregiver
+            ? `જ્યારે તકલીફ વધી છે, તો કૃપા કરીને જણાવો કે શું દુખાવો ફેલાય છે, નવી સોજો કે જકડન આવી છે, અને ઊંઘમાં મુશ્કેલી થાય છે?`
+            : `જ્યારે આપની તકલીફ વધી ગઈ છે, તો કૃપા કરીને જણાવો કે શું દુખાવો ફેલાય છે, નવી સોજો કે જકડન આવી છે, અને ઊંઘમાં તકલીફ છે?`,
+        };
+        const touchOpts = {
+          EN: ['Pain radiating down limbs with numbness', 'Sharp continuous pain disturbing sleep', 'New swelling, warmth & redness noticed', 'Severe stiffness making movement difficult'],
+          HI: ['हाथ-पैरों में सुन्नपन व खिंचाव के साथ दर्द', 'लगातार तेज दर्द जिससे नींद नहीं आती', 'नई सूजन, लाली और गर्माहट आ गई है', 'तेज जकड़न जिससे चलने-फिरने में भारी कष्ट है'],
+          GU: ['હાથ-પગમાં ખાલી ચડવી અને ખેંચાણ સાથે દુખાવો', 'સતત તીવ્ર દુખાવો જેનાથી ઊંઘ આવતી નથી', 'નવી સોજો, લાલાશ અને ગરમી જણાય છે', 'તીવ્ર જકડન જેથી હલનચલનમાં ઘણી મુશ્કેલી છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Evaluating symptom exacerbation, radiating pain, and functional limits',
+        };
+      }
+
+      // ----------------------------------------------------
+      // PATHWAY 3: NEW COMPLAINT TODAY
+      // ----------------------------------------------------
+      const isNewProb = /new problem|नई समस्या|નવી સમસ્યા|headache|cough|rash|vomit|stomach|सिरदर्द|खांसी|दाने|ઉધરસ|દાણા/i.test(latest);
+
+      if (isNewProb && turns === 1 && !isExplicitClosing) {
+        const qText = {
+          EN: isCaregiver
+            ? `Please describe the patient's new complaint: when did it begin, and did it start suddenly or gradually?`
+            : `Please describe your new complaint: when did it begin, and did it start suddenly or gradually?`,
+          HI: isCaregiver
+            ? `कृपया मरीज की इस नई समस्या के बारे में बताएं: यह कितने समय पहले शुरू हुई, और क्या यह अचानक हुई या धीरे-धीरे बढ़ी?`
+            : `कृपया अपनी इस नई समस्या के बारे में बताएं: यह कब शुरू हुई, और क्या यह अचानक हुई या धीरे-धीरे बढ़ी?`,
+          GU: isCaregiver
+            ? `કૃપા કરીને દર્દીની આ નવી સમસ્યા વિશે જણાવો: આ કેટલા સમય પહેલા શરૂ થઈ, અને શું અચાનક થઈ કે ધીમે-ધીમે વધી?`
+            : `કૃપા કરીને આપની આ નવી સમસ્યા વિશે જણાવો: આ કેટલા દિવસ પહેલા શરૂ થઈ, અને શું અચાનક થઈ કે ધીમે-ધીમે વધી?`,
+        };
+        const touchOpts = {
+          EN: ['Started today / past few hours acutely', 'Started 2-3 days ago and worsening', 'Mild discomfort for about a week', 'Comes and goes intermittently'],
+          HI: ['आज अचानक कुछ घंटों पहले शुरू हुई', '2-3 दिन पहले शुरू हुई और बढ़ रही है', 'लगभग एक सप्ताह से हल्की तकलीफ है', 'रुक-रुक कर होने वाली समस्या है'],
+          GU: ['આજે અચાનક થોડા કલાકો પહેલા શરૂ થઈ', '૨-૩ દિવસ પહેલા શરૂ થઈ અને વધતી જાય છે', 'લગભગ એક અઠવાડિયાથી હળવી તકલીફ છે', 'અવારનવાર આવતી-જતી તકલીફ છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Investigating onset and timing of new presenting chief complaint in follow-up encounter',
+        };
+      }
+
+      // ----------------------------------------------------
+      // PATHWAY 4: SIGNIFICANT IMPROVEMENT (>70% RELIEF)
+      // ----------------------------------------------------
+      const isSignificantRelief = /70%|significantly improved|काफी सुधार|સારો સુધારો/i.test(latest);
+
+      if (isSignificantRelief && turns === 1 && !isExplicitClosing) {
+        const qText = {
+          EN: isCaregiver
+            ? `Glad to hear of the patient's improvement! Do they need a prescription refill or have any minor lingering discomfort to discuss with the doctor?`
+            : `Glad to hear of your improvement! Do you need a prescription refill or have any minor lingering discomfort to discuss with your doctor?`,
+          HI: isCaregiver
+            ? `सुधार जानकर खुशी हुई! क्या मरीज को दवाइयों का रीफिल चाहिए या डॉक्टर से कोई हल्की बची हुई तकलीफ पर चर्चा करनी है?`
+            : `आपकी सेहत में सुधार जानकर खुशी हुई! क्या आपको दवाइयों का रीफिल चाहिए या डॉक्टर से कोई हल्की बची तकलीफ पर चर्चा करनी है?`,
+          GU: isCaregiver
+            ? `સુધારો જાણીને ઘણો આનંદ થયો! શું દર્દીને દવાઓ ફરી જોઈએ છે કે ડૉક્ટર સાથે કોઈ હળવી તકલીફ અંગે વાત કરવી છે?`
+            : `આપની તબિયતમાં સુધારો જાણીને ઘણો આનંદ થયો! શું આપને દવાઓ ફરીથી જોઈએ છે કે ડૉક્ટર સાથે કોઈ હળવી તકલીફ અંગે ચર્ચા કરવી છે?`,
+        };
+        const touchOpts = {
+          EN: ['Need prescription refill for continued relief', 'Occasional mild soreness with exertion', 'Almost fully normal, routine checkup only', 'All symptoms resolved — ready for consultation'],
+          HI: ['दवाइयों का रीफिल चाहिए ताकि आराम बना रहे', 'ज्यादा मेहनत करने पर हल्का दर्द', 'पूरी तरह ठीक हैं, केवल सामान्य चेकअप', 'सभी लक्षण ठीक — डॉक्टर परामर्श हेतु तैयार'],
+          GU: ['દવાઓ ફરી જોઈએ છે જેથી રાહત ચાલુ રહે', 'વધુ શ્રમ કરવાથી ક્યારેક હળવો દુખાવો', 'સંપૂર્ણ સામાન્ય છીએ, માત્ર રૂટિન તપાસ', 'બધા લક્ષણો મટી ગયા — ડૉક્ટરને મળવા તૈયાર'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'MEDICATIONS',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing medication continuation needs and minor lingering symptoms post-recovery',
+        };
+      }
+
+      // ----------------------------------------------------
+      // TURN 2: MEDICATION TOLERABILITY & ADHERENCE FOLLOW-UP
+      // ----------------------------------------------------
+      if (turns === 2 && !isExplicitClosing) {
+        const qText = {
+          EN: isCaregiver
+            ? `Has the patient been taking their prescribed medications regularly on time, and did they experience any side-effects like gastric burning or nausea?`
+            : `Have you been taking your prescribed medications regularly on time, and did you experience any side-effects like gastric burning or nausea?`,
+          HI: isCaregiver
+            ? `क्या मरीज पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट जैसे पेट में जलन या उल्टी महसूस हुई?`
+            : `क्या आप पहले लिखी गई दवाइयां समय पर नियमित ले रहे थे, और क्या कोई साइड-इफेक्ट जैसे पेट में जलन या उल्टी महसूस हुई?`,
+          GU: isCaregiver
+            ? `શું દર્દી અગાઉ આપેલી દવાઓ સમયસર નિયમિત લેતા હતા, અને કોઈ આડઅસર જેમ કે પેટમાં બળતરા કે ઉબકા થયા?`
+            : `શું આપ અગાઉ આપેલી દવાઓ સમયસર નિયમિત લેતા હતા, અને કોઈ આડઅસર જેમ કે પેટમાં બળતરા કે ઉબકા થયા?`,
+        };
+        const touchOpts = {
+          EN: ['Taking all medicines regularly on schedule', 'Missed doses occasionally / Stopped early', 'Medicines finished 2-3 days ago / Need refill', 'Experienced gastric burning / Nausea from medicine'],
+          HI: ['सभी दवाइयां समय पर नियमित लीं', 'कभी-कभार दवा छूट गई / जल्दी बंद कर दी', 'दवा 2-3 दिन पहले खत्म हो गई / दोबारा चाहिए', 'दवा से पेट में जलन / उल्टी जैसा लगा'],
+          GU: ['બધી દવાઓ સમયસર નિયમિત લીધી', 'ક્યારેક દવા છૂટી ગઈ / વહેલી બંધ કરી', 'દવા ૨-૩ દિવસ પહેલા પૂરી થઈ ગઈ / ફરી જોઈએ', 'દવાથી પેટમાં બળતરા / ઉબકા જેવું થયું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'MEDICATIONS',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Verifying pharmacotherapy compliance, refill status, and adverse reactions',
+        };
+      }
+
+      // ----------------------------------------------------
+      // TURN 3+: FINAL REVIEW & WRAP-UP
+      // ----------------------------------------------------
       const qFinal = {
         EN: isCaregiver
-          ? `Thank you. Is there any other detail regarding the patient's condition that you would like the doctor to review?`
-          : `Thank you. Is there any other detail regarding your recovery that you would like your doctor to review?`,
+          ? `Thank you. Is there any other symptom or specific detail regarding the patient's recovery that you would like the doctor to review?`
+          : `Thank you. Is there any other symptom or specific detail regarding your recovery that you would like your doctor to review?`,
         HI: isCaregiver
           ? `धन्यवाद। क्या मरीज के स्वास्थ्य या फॉलो-अप के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`
           : `धन्यवाद। क्या अपने स्वास्थ्य या फॉलो-अप के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`,
@@ -1034,7 +1087,7 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: true,
-        clinicalRationale: 'Dynamic answer-driven follow-up successfully captured all patient-stated details',
+        clinicalRationale: 'Multi-turn longitudinal follow-up successfully completed with full clinical history',
       };
     }
 
@@ -1670,7 +1723,7 @@ Return ONLY the direct translated sentence:
   async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
-      const isNew = state.isNewPatient !== false;
+      const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
       const prevInfo = state.previousVisitInfo;
 
       const historyFormatted = conversationHistory && conversationHistory.length > 0
