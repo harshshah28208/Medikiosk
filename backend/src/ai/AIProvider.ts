@@ -637,7 +637,12 @@ Return ONLY valid JSON (no markdown fences):
 
       const res = await this.model.generateContent(prompt);
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush);
+        parsed.touchOptions = fallbackQ.touchOptions;
+      }
+      return parsed;
     } catch (e: any) {
       console.log(`[AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
       return this.fallback.generateNextQuestion(state, language, isAyush);

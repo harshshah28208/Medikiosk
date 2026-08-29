@@ -423,20 +423,21 @@ export function IntakePage() {
         )}
 
         {/* Quick Touch Options */}
-        {!isComplete && touchOptions.length > 0 && !isProcessing && (
-          <div className="p-3 bg-slate-100/80 border-t border-slate-200 shrink-0">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              {language === 'hi' ? 'त्वरित विकल्प चुनें:' : language === 'gu' ? 'ઝડપી વિકલ્પ પસંદ કરો:' : 'Quick Touch Options:'}
+        {!isComplete && (touchOptions.length > 0 || (messages.length > 0 && messages[messages.length - 1]?.role === 'AI' && messages[messages.length - 1]?.options && (messages[messages.length - 1]?.options?.length || 0) > 0)) && !isProcessing && (
+          <div className="p-3 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border-t border-slate-200 shrink-0">
+            <p className="text-[11px] font-bold text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              {language === 'hi' ? 'त्वरित उत्तर विकल्प (दबाकर चुनें):' : language === 'gu' ? 'ઝડપી ઉત્તર વિકલ્પો (દબાવીને પસંદ કરો):' : 'Quick One-Tap Answer Options:'}
             </p>
             <div className="flex flex-wrap gap-2">
-              {touchOptions.map((option, idx) => (
+              {(touchOptions.length > 0 ? touchOptions : (messages[messages.length - 1]?.options || [])).map((option, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSendMessage(option, 'TOUCH')}
-                  className="px-4 py-2.5 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-800 font-semibold text-xs sm:text-sm rounded-xl shadow-sm transition-all touch-target active:scale-95"
+                  className="px-4 py-2.5 bg-white hover:bg-blue-600 hover:text-white border border-blue-200/80 hover:border-blue-600 text-slate-800 font-semibold text-xs sm:text-sm rounded-xl shadow-sm transition-all touch-target active:scale-95 flex items-center gap-2 group"
                 >
-                  {option}
+                  <span className="w-2 h-2 rounded-full bg-blue-500 group-hover:bg-white shrink-0 transition-colors" />
+                  <span>{option}</span>
                 </button>
               ))}
             </div>
