@@ -516,9 +516,119 @@ export class UniversalClinicalEngine implements AIProvider {
       return CLINICAL_TRANSLATIONS.medical_history[targetLanguage];
     }
 
-    // Check Progression (Returning patient)
+    // Check Lower Back Pain / Sciatica
+    if (/lower back|back pain|sciatica|spine|buttock|कमर|पीठ|કમર/i.test(tLower)) {
+      const q = {
+        EN: "Does the pain radiate down your right or left leg past the knee, and is there any numbness, tingling, or weakness in your feet?",
+        HI: "क्या कमर का दर्द आपके दाहिने या बाएं पैर में घुटने से नीचे तक जा रहा है, और क्या पैर या पंजों में सुन्नपन, झनझनाहट या कमजोरी महसूस हो रही है?",
+        GU: "શું કમરનો દુખાવો આપના જમણા કે ડાબા પગમાં ઘૂંટણથી નીચે સુધી ઉતરે છે, અને પગમાં ખાલી ચડવી, ઝણઝણાટી કે નબળાઈ જણાય છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Penis / Genitourinary
+    if (/penis|urina|urine|discharge|genital|पेशाब|मूत्र|लिंग|ઇન્દ્રિય/i.test(tLower)) {
+      const q = {
+        EN: "Do you have burning or pain during urination, any discharge (pus/clear fluid), irritation, or difficulty passing urine?",
+        HI: "क्या आपको पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव (discharge) आ रहा है, या पेशाब रुक-रुक कर आ रहा है?",
+        GU: "શું આપને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે પેશાબ કરવામાં અટકાવ છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Vomiting / Nausea / GI
+    if (/vomit|उल्टी|ઉલટી|nausea|dehydrat/i.test(tLower)) {
+      const q = {
+        EN: "How many times have you vomited, does it contain food, bile, or blood, and are you able to retain water and fluids?",
+        HI: "आपको कितनी बार उल्टी हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?",
+        GU: "તમને કેટલી વાર ઉલટી થઈ છે, શું ઉલટીમાં ખોરાક કે પિત્ત (પીળું પાણી) નીકળે છે, અને પાણી પચી શકે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Ear / ENT
+    if (/ear|hearing|discharge|कान|કાન/i.test(tLower)) {
+      const q = {
+        EN: "Do you have any ear discharge (pus/watery fluid), hearing loss, blocked ear sensation, or ringing sounds?",
+        HI: "क्या आपके कान से कोई मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?",
+        GU: "શું આપના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Headache / Migraine
+    if (/headache|migraine|throbbing|सिर|માથ/i.test(tLower)) {
+      const q = {
+        EN: "Is your headache throbbing/pulsing on one side, and are you sensitive to bright lights or loud sounds?",
+        HI: "क्या आपको एक तरफ तेज टीस मारने वाला सिरदर्द है, और तेज रोशनी या आवाज से परेशानी बढ़ती है?",
+        GU: "શું આપને એક બાજુ તીવ્ર માથું ધબકે છે, અને વધુ પ્રકાશ કે અવાજથી તકલીફ વધે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Stomach / Acidity
+    if (/stomach|abdom|acidity|gas|पेट|પેટ/i.test(tLower)) {
+      const q = {
+        EN: "Is your stomach discomfort burning in the chest/upper abdomen, and does eating food make it better or worse?",
+        HI: "क्या आपके पेट या सीने में जलन/मरोड़ हो रही है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?",
+        GU: "શું આપના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને જમ્યા પછી તકલીફ વધે છે કે ઘટે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Chest / Heart
+    if (/chest|breathless|सीने|छाती|हार्ट/i.test(tLower)) {
+      const q = {
+        EN: "Is the chest pain heavy/crushing, does it radiate to your left arm or jaw, and do you feel breathless or sweaty?",
+        HI: "क्या सीने में भारी दबाव या जकड़न है, क्या यह दर्द बाएं हाथ या जबड़े में जा रहा है, और सांस फूलने या पसीना आने की तकलीफ है?",
+        GU: "શું છાતીમાં ભારે દબાણ કે જકડન છે, શું આ દુખાવો ડાબા હાથ કે જડબામાં જાય છે, અને શ્વાસ ચડવાની કે પરસેવાની તકલીફ છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Knee / Joint
+    if (/knee|joint|bone|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(tLower)) {
+      const q = {
+        EN: "Are your knee or joint aches accompanied by swelling, morning stiffness, or clicking sounds when walking?",
+        HI: "क्या घुटने या जोड़ों के दर्द के साथ सूजन, सुबह उठने पर जकड़न, या चलने पर कट-कट की आवाज आती है?",
+        GU: "શું ઘૂંટણ કે સાંધાના દુખાવા સાથે સોજો, સવારે જકડન, કે ચાલતી વખતે અવાજ આવે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Skin / Rash / Pimples
+    if (/pimple|rash|skin|itch|खुजली|चकामे|ખીલ/i.test(tLower)) {
+      const q = {
+        EN: "Are the skin rashes or pimples spreading, itchy, painful, or discharging pus?",
+        HI: "क्या त्वचा के दाने या मुँहासे फैल रहे हैं, उनमें तेज खुजली, दर्द या मवाद आ रहा है?",
+        GU: "શું ચામડી પરના દાણા કે ખીલ ફેલાઈ રહ્યા છે, તેમાં તીવ્ર ખંજવાળ, દુખાવો કે પરુ થાય છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Returning Patient Progression (Turn 0)
     if (tLower.includes('previous visit') || tLower.includes('progress') || tLower.includes('पिछली मुलाकात') || tLower.includes('છેલ્લી મુલાકાત')) {
       return CLINICAL_TRANSLATIONS.progression[targetLanguage];
+    }
+
+    // Check Worsened Follow-Up
+    if (/intensified|worsen|not improved|तकरीफ बढ़ी|વધી ગઈ/i.test(tLower)) {
+      const q = {
+        EN: "Since your symptoms have intensified or not improved, please describe the changes: has the pain radiated, is there new swelling, fever, or difficulty in daily routine?",
+        HI: "चूँकि आपको आराम नहीं है या तकलीफ बढ़ी है, कृपया बताएं कि क्या दर्द फैल रहा है, नई सूजन या बुखार आया है, या दैनिक कामकाज में रुकावट हो रही है?",
+        GU: "જ્યારે આપને રાહત નથી કે તકલીફ વધી છે, તો કૃપા કરીને જણાવો કે શું દુખાવો ફેલાય છે, નવી સોજો કે તાવ આવ્યો છે, કે રોજિંદા કામમાં મુશ્કેલી છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Residual Symptoms Follow-Up
+    if (/residual symptoms|बची हुई तकलीफ|બાકી રહેલી તકલીફ/i.test(tLower)) {
+      const q = {
+        EN: "Which specific residual symptoms still remain, and during what activities or times do you feel them?",
+        HI: "आपको अब कौन सी बची हुई तकलीफ अभी भी महसूस हो रही है, और किस समय या काम के दौरान यह ज्यादा होती है?",
+        GU: "આપને હવે કઈ બાકી રહેલી તકલીફ હજુ પણ જણાય છે, અને કયા સમયે કે પ્રવૃત્તિ દરમિયાન તે વધુ થાય છે?",
+      };
+      return q[targetLanguage];
     }
 
     // Check Medication Adherence (Returning patient)
@@ -526,10 +636,22 @@ export class UniversalClinicalEngine implements AIProvider {
       return CLINICAL_TRANSLATIONS.medication_adherence[targetLanguage];
     }
 
+    // Check Lifestyle & Triggers Follow-Up
+    if (/triggers|aggravat|खान-पान और आराम|ખોરાક અને આરામ/i.test(tLower)) {
+      const q = {
+        EN: "Have you noticed any triggers that worsen your symptoms, and have you been able to follow the recommended diet, rest, or exercise routine?",
+        HI: "क्या आपने किसी ऐसी चीज पर गौर किया जिससे आपकी तकलीफ बढ़ती है, और क्या आप बताई गई दिनचर्या, खान-पान और आराम का पालन कर पा रहे हैं?",
+        GU: "શું આપે કોઈ એવી બાબત નોંધી જેનાથી આપની તકલીફ વધે છે, અને શું આપ જણાવેલ દિનચર્યા, ખોરાક અને આરામનું પાલન કરી રહ્યા છો?",
+      };
+      return q[targetLanguage];
+    }
+
     // Check Closing
     if (tLower.includes('covers all symptoms') || tLower.includes('thank you') || tLower.includes('धन्यवाद') || tLower.includes('આભાર')) {
       return CLINICAL_TRANSLATIONS.closing[targetLanguage];
     }
+
+    return text;
 
     return text;
   }
