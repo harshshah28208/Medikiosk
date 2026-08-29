@@ -1990,25 +1990,43 @@ Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of th
 Clinical History Gathered So Far: ${JSON.stringify(state)}
 Turns Completed: ${state.turnsCompleted}
 
-CLINICAL INTAKE WORKFLOW & DOCTOR RULES:
-1. DYNAMIC ANSWER-DRIVEN INQUIRY FOR RETURNING (OLD) PATIENTS:
-   - The patient is attending a follow-up consultation.
-   - You MUST formulate EVERY follow-up question 100% dynamically based strictly on the patient's latest answer, what specific changes or symptoms they just stated, their past diagnosis, previous visit history, and past medications.
-   - DO NOT follow any rigid checklist, fixed pattern, or fixed sequence of questions.
-   - If the patient reports worsening symptoms or increased pain, immediately investigate the exact changes, radiation, new triggers, and functional limits.
-   - If the patient reports medication issues, side effects, or questions, explore drug adherence, tolerability, and efficacy.
-   - If the patient reports improvement or resolution, ask about residual symptoms or refill needs, and complete intake when appropriate.
-   - If the patient raises a new problem or secondary complaint, dynamically explore the onset, duration, and severity of that new issue.
-2. NEW PATIENTS WORKFLOW:
-   - Gather baseline lifestyle and past medical history before deeply exploring chief complaint characteristics and red flags.
-3. AUTONOMOUS CLINICAL COMPLETION:
-   - You (the AI Doctor) have full clinical autonomy to decide the exact number of questions.
-   - If the patient's condition is mild, stable, or resolved, complete in fewer turns.
-   - If the condition is complex, severe, or worsening, ask as many targeted follow-up questions as clinically needed.
-   - Set "isComplete": true ONLY with a final closing verification question when all clinically necessary dimensions are gathered.
-4. TOUCH OPTIONS: For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} directly answering this specific follow-up question.
-5. ANTI-REPETITION: NEVER re-ask any question or dimension already answered in previous turns or conversation transcript.
-6. LANGUAGE: Formulate the question and touchOptions in 100% natural, culturally fluent ${language}.
+CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
+
+1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
+   - Goal: Build baseline profile -> explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
+   - Adaptive Branching:
+     * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
+     * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
+     * If patient reports a chronic condition (e.g., "I have diabetes"), ask only useful follow-ups (duration, meds). If they say "No prior major illnesses", do NOT interrogate them with unnecessary disease checklists.
+   - Completion: When chief complaint characteristics, duration, severity, relevant background, and red flags are addressed, set "isComplete": true with a final closing verification question.
+
+2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
+   - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
+   - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
+   - Turn 0 (Change-First Opening): Welcome the patient back ("Welcome back. We have your previous record. What has changed since your last visit?") referencing previous diagnosis or medications if available.
+   - Dynamic Change Pathways:
+     * Sypmtom Progression: Ask if the previous condition improved, worsened, unchanged, or if a new problem appeared.
+     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment. NEVER re-ask if they have the symptom (e.g., if previous visit was headache, do NOT ask "Do you have a headache?").
+     * If Unchanged ("Everything is the same"): Confirm stability, ask if current meds need refills, and avoid forcing a long questionnaire.
+     * If Medication Changed ("Doctor increased Amlodipine from 5mg to 10mg" or "I stopped taking it"): Record the patient-reported change for clinician verification without overwriting historical records.
+     * If NEW COMPLAINT (e.g., previous visit was Diabetes follow-up, but today patient says "I have abdominal pain"): Immediately branch to investigate the *new* complaint adaptively. Incorporate existing context for safety, but DO NOT assume the new complaint is caused by their past condition.
+     * If Previous Documents / Labs Exist (e.g., past HbA1c): Do NOT ask "Have you ever had an HbA1c?", ask "Have you had a newer lab report since your last visit?".
+   - Completion: Set "isComplete": true with closing verification when changes, current complaint, and treatment response are clearly evaluated.
+
+3. TOUCH OPTIONS:
+   - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
+
+4. ANTI-REPETITION & QUESTION MEMORY:
+   - NEVER re-ask any question, symptom, or dimension already answered in the transcript or state.
+
+5. NEGATION & CONTEXT RIGOR:
+   - Explicitly respect negations ("No vomiting" = denied, NOT unknown).
+   - Distinguish family history ("Father has diabetes" = family history only, NOT patient diabetes).
+   - Distinguish temporal context ("Had fever last month" = historical, NOT current).
+
+6. LANGUAGE:
+   - Formulate the question, touchOptions, and rationale in pure, natural, culturally fluent ${language} (EN = English, HI = Hindi, GU = Gujarati).
 
 Return ONLY valid JSON (no markdown fences):
 {
@@ -2228,32 +2246,43 @@ Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of th
 Clinical History Gathered So Far: ${JSON.stringify(state)}
 Turns Completed: ${state.turnsCompleted}
 
-CLINICAL DOCTOR RULES:
-1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Turn 0 (Initial Greeting): If no questions have been asked yet, welcome the patient warmly and ask what primary health concern, symptom, or complaint brought them to the hospital today.
-   - Turn 1 (Onset & Evolution): Investigate when and how their stated complaint began (sudden vs gradual, exact duration/days).
-   - Turn 2 (Character, Radiation & Specific Pathology): Deeply explore the sensation, severity (1-10), radiation path, and aggravating/relieving factors of that specific disease/symptom.
-   - Turn 3 (Associated Symptoms & Background): Check for associated red flag symptoms, chronic conditions (BP, Sugar, Thyroid), ongoing medicines, or drug allergies.
-   - Turn 4+ (Completion): When complete history of present illness is gathered, set "isComplete": true with a final closing verification question.
+CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
 
-2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Turn 0 (Follow-Up Opening): Acknowledge their previous consultation (referencing previous diagnosis or past medications if available in context) and ask how their condition has progressed since the last visit (improved, worsened, unchanged, or new problem).
-   - Subsequent Turns (100% Dynamic based on patient response):
-     - If patient reports worsening or severe pain: Explore symptom intensification, radiation, swelling, sleep disruption, and functional limits.
-     - If patient reports partial relief: Inquire specifically about what residual symptoms remain and during what daily movements/times.
-     - Inquire about medication adherence, tolerability, and whether they experienced any side-effects from previously prescribed medicines.
-     - If patient reports significant improvement or full recovery: Ask if they need a prescription refill or have final questions for the doctor, and complete intake.
-     - If patient reports a new complaint: Directly investigate the onset and severity of the new complaint.
-   - Completion: Set "isComplete": true with closing verification when follow-up evaluation is thoroughly covered.
+1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
+   - Goal: Build baseline profile -> explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
+   - Adaptive Branching:
+     * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
+     * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
+     * If patient reports a chronic condition (e.g., "I have diabetes"), ask only useful follow-ups (duration, meds). If they say "No prior major illnesses", do NOT interrogate them with unnecessary disease checklists.
+   - Completion: When chief complaint characteristics, duration, severity, relevant background, and red flags are addressed, set "isComplete": true with a final closing verification question.
+
+2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
+   - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
+   - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
+   - Turn 0 (Change-First Opening): Welcome the patient back ("Welcome back. We have your previous record. What has changed since your last visit?") referencing previous diagnosis or medications if available.
+   - Dynamic Change Pathways:
+     * Sypmtom Progression: Ask if the previous condition improved, worsened, unchanged, or if a new problem appeared.
+     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment. NEVER re-ask if they have the symptom (e.g., if previous visit was headache, do NOT ask "Do you have a headache?").
+     * If Unchanged ("Everything is the same"): Confirm stability, ask if current meds need refills, and avoid forcing a long questionnaire.
+     * If Medication Changed ("Doctor increased Amlodipine from 5mg to 10mg" or "I stopped taking it"): Record the patient-reported change for clinician verification without overwriting historical records.
+     * If NEW COMPLAINT (e.g., previous visit was Diabetes follow-up, but today patient says "I have abdominal pain"): Immediately branch to investigate the *new* complaint adaptively. Incorporate existing context for safety, but DO NOT assume the new complaint is caused by their past condition.
+     * If Previous Documents / Labs Exist (e.g., past HbA1c): Do NOT ask "Have you ever had an HbA1c?", ask "Have you had a newer lab report since your last visit?".
+   - Completion: Set "isComplete": true with closing verification when changes, current complaint, and treatment response are clearly evaluated.
 
 3. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
 
-4. ANTI-REPETITION:
-   - NEVER re-ask any question or dimension already answered in the transcript or state.
+4. ANTI-REPETITION & QUESTION MEMORY:
+   - NEVER re-ask any question, symptom, or dimension already answered in the transcript or state.
 
-5. LANGUAGE:
-   - Formulate the question, touchOptions, and rationale in pure, natural, culturally fluent ${language}.
+5. NEGATION & CONTEXT RIGOR:
+   - Explicitly respect negations ("No vomiting" = denied, NOT unknown).
+   - Distinguish family history ("Father has diabetes" = family history only, NOT patient diabetes).
+   - Distinguish temporal context ("Had fever last month" = historical, NOT current).
+
+6. LANGUAGE:
+   - Formulate the question, touchOptions, and rationale in pure, natural, culturally fluent ${language} (EN = English, HI = Hindi, GU = Gujarati).
 
 Return ONLY valid JSON:
 {
