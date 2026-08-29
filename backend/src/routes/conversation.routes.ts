@@ -218,25 +218,31 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
   let state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : session.clinicalState as unknown as ClinicalState;
   state.currentLanguage = lang;
 
-  // Translate all input messages provided from the client
+  // Translate all input messages and their touch options to target language
   const translatedMessages: Array<{ id: string; role: string; content: string; timestamp: string; options?: string[] }> = [];
 
   for (const m of messages) {
     let translated = m.content;
+    let translatedOpts = m.options;
     if (m.content) {
       translated = await aiProvider.translateText(m.content, lang);
+    }
+    if (Array.isArray(m.options) && m.options.length > 0) {
+      const trOpts: string[] = [];
+      for (const opt of m.options) {
+        const tr = await aiProvider.translateText(opt, lang);
+        trOpts.push(tr);
+      }
+      translatedOpts = trOpts;
     }
     translatedMessages.push({
       id: m.id,
       role: m.role,
       content: translated,
       timestamp: m.timestamp,
-      options: m.options,
+      options: translatedOpts,
     });
   }
-
-  // Generate appropriate touch options in target language for current state
-  const nextQ = await aiProvider.generateNextQuestion(state, lang);
 
   await prisma.conversationSession.update({
     where: { id: sessionId },
@@ -246,13 +252,13 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
     },
   });
 
-  const lastAI = [...translatedMessages].reverse().find(m => m.role === 'AI');
+  const lastAI = [...translatedMessages].reverse().find((m) => m.role === 'AI');
 
   res.json({
     language: lang,
     translatedMessages,
-    latestQuestion: lastAI?.content || nextQ.question,
-    touchOptions: nextQ.touchOptions,
+    latestQuestion: lastAI?.content || '',
+    touchOptions: lastAI?.options || [],
     clinicalState: state,
   });
 });
