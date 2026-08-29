@@ -113,6 +113,87 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     HI: 'बुखार, खांसी और गले में दर्द',
     GU: 'તાવ, ઉધરસ અને ગળામાં દુખાવો',
   },
+  {
+    EN: 'Lower back pain radiating down right/left leg',
+    HI: 'कमर का तेज दर्द जो पैर में नीचे जा रहा है',
+    GU: 'કમરનો તીવ્ર દુખાવો જે પગમાં નીચે ઉતરે છે',
+  },
+  {
+    EN: 'Severe burning pain during urination & discharge',
+    HI: 'पेशाब में तेज जलन, दर्द और मवाद का स्राव',
+    GU: 'પેશાબ કરતી વખતે તીવ્ર બળતરા અને સ્ત્રાવ',
+  },
+  {
+    EN: 'Frequent vomiting & inability to keep food down',
+    HI: 'लगातार उल्टियां और खाना/पानी न पचना',
+    GU: 'વારંવાર ઉલટી અને ખોરાક ન પચવો',
+  },
+
+  // Lower Back Sciatica
+  {
+    EN: 'Radiating down leg with numbness / tingling',
+    HI: 'पैरों में नीचे की तरफ खिंचाव व सुन्नपन',
+    GU: 'પગમાં નીચે તરફ દુખાવો અને ખાલી ચડવી',
+  },
+  {
+    EN: 'Sharp pain when bending forward or lifting',
+    HI: 'झुकने या वजन उठाने पर तेज चुभन',
+    GU: 'વાંકા વળતી વખતે તીક્ષ્ણ દુખાવો',
+  },
+  {
+    EN: 'Dull aching stiffness after prolonged sitting',
+    HI: 'देर तक बैठने पर भारीपन व जकड़न',
+    GU: 'લાંબો સમય બેસવાથી કમરમાં જકડન',
+  },
+  {
+    EN: 'Pain localized strictly to lower spine',
+    HI: 'दर्द केवल कमर के निचले हिस्से तक सीमित',
+    GU: 'દુખાવો માત્ર કમરના ભાગ પૂરતો જ છે',
+  },
+
+  // Genitourinary / Penis
+  {
+    EN: 'Severe burning sensation while urinating',
+    HI: 'पेशाब में तेज जलन और दर्द',
+    GU: 'પેશાબ કરતી વખતે તીવ્ર બળતરા',
+  },
+  {
+    EN: 'Whitish / yellowish pus discharge from penis',
+    HI: 'लिंग से मवाद/सफेद पानी का स्राव',
+    GU: 'ઇન્દ્રિયમાંથી પરુ કે સફેદ પાણીનો સ્ત્રાવ',
+  },
+  {
+    EN: 'Frequent urge to urinate with reduced flow',
+    HI: 'बार-बार पेशाब की इच्छा व धार कम',
+    GU: 'વારંવાર પેશાબ જવું પડે છે અને પ્રવાહ ધીમો',
+  },
+  {
+    EN: 'Itching, redness, or skin irritation',
+    HI: 'खुजली, लाली और त्वचा में जलन',
+    GU: 'ખંજવાળ, લાલાશ અને ચામડી પર બળતરા',
+  },
+
+  // Vomiting / GI
+  {
+    EN: 'Frequent vomiting (>4-5 times), cannot retain water',
+    HI: 'लगातार उल्टियां (>4-5 बार), पानी भी नहीं रुक रहा',
+    GU: 'વારંવાર ઉલટી (>૪-૫ વાર), પાણી પણ ટકતું નથી',
+  },
+  {
+    EN: 'Vomited 1-2 times after meals with nausea',
+    HI: 'खाने के बाद 1-2 बार उल्टी व जी मिचलाना',
+    GU: 'જમ્યા પછી ૧-૨ વાર ઉલટી અને ઉબકા',
+  },
+  {
+    EN: 'Sour yellow bile vomiting with stomach cramps',
+    HI: 'खट्टी डकारें व पीले पित्त की उल्टी',
+    GU: 'ખાટા ઓડકાર અને પીળા પિત્તની ઉલટી',
+  },
+  {
+    EN: 'Accompanied by loose watery stools & weakness',
+    HI: 'दस्त (loose motions) और कमजोरी के साथ',
+    GU: 'ઝાડા (લૂઝ મોશન) અને ભારે અશક્તિ સાથે',
+  },
 
   // Medical History & Allergies
   {
@@ -594,7 +675,7 @@ export class UniversalClinicalEngine implements AIProvider {
     }
 
     // Step 2: Medical Background, Medications & Drug Allergies SECOND
-    if (!answeredDimensions.has('PAST_HISTORY') || !answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
+    if (!answeredDimensions.has('PAST_HISTORY') && !answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES')) {
       const qText = {
         EN: isCaregiver
           ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
@@ -687,7 +768,97 @@ export class UniversalClinicalEngine implements AIProvider {
     if (!answeredDimensions.has('CHARACTER')) {
       const complaintLower = (state.chiefComplaint || state.latestAnswer || '').toLowerCase();
 
-      // 1. EAR COMPLAINT
+      // 1. LOWER BACK PAIN & SCIATICA
+      if (/back|spine|lumbar|sciatica|कमर|पीठ|પીઠ|વાંસો/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient's lower back pain radiate down their buttocks or leg (sciatica), and do they have numbness, tingling, or weakness in their feet?`
+            : `Does your lower back pain radiate down your buttocks or leg (sciatica), and do you feel any numbness, tingling, or weakness in your feet?`,
+          HI: isCaregiver
+            ? `क्या मरीज की कमर का दर्द कूल्हों या पैरों के नीचे की तरफ जा रहा है, और क्या पैरों में सुन्नपन, झनझनाहट या चलने में कमजोरी है?`
+            : `क्या आपकी कमर का दर्द कूल्हों या पैरों के नीचे की तरफ जा रहा है, और क्या पैरों में सुन्नपन, झनझनाहट या चलने में कमजोरी है?`,
+          GU: isCaregiver
+            ? `શું દર્દીની કમરનો દુખાવો પગ તરફ નીચે ઉતરે છે (સાયટિકા), અને પગમાં ખાલી ચડવી, ઝણઝણાટી કે ચાલવામાં તકલીફ છે?`
+            : `શું આપની કમરનો દુખાવો પગ તરફ નીચે ઉતરે છે (સાયટિકા), અને પગમાં ખાલી ચડવી, ઝણઝણાટી કે ચાલવામાં તકલીફ છે?`,
+        };
+        const touchOpts = {
+          EN: ['Radiating down leg with numbness / tingling', 'Sharp pain when bending forward or lifting', 'Dull aching stiffness after prolonged sitting', 'Pain localized strictly to lower spine'],
+          HI: ['पैरों में नीचे की तरफ खिंचाव व सुन्नपन', 'झुकने या वजन उठाने पर तेज चुभन', 'देर तक बैठने पर भारीपन व जकड़न', 'दर्द केवल कमर के निचले हिस्से तक सीमित'],
+          GU: ['પગમાં નીચે તરફ દુખાવો અને ખાલી ચડવી', 'વાંકા વળતી વખતે તીક્ષ્ણ દુખાવો', 'લાંબો સમય બેસવાથી કમરમાં જકડન', 'દુખાવો માત્ર કમરના ભાગ પૂરતો જ છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Evaluating lumbar disc herniation, sciatica radiculopathy, and neurological deficits',
+        };
+      }
+
+      // 2. PENIS / GENITOURINARY / UROLOGICAL
+      if (/penis|urina|urine|discharge|genital|पेशाब|मूत्र|लिंग|ઇન્દ્રિય/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient have severe burning during urination, any discharge (pus/clear fluid), genital irritation, or difficulty passing urine?`
+            : `Do you have burning or pain during urination, any discharge (pus/clear fluid), irritation, or difficulty passing urine?`,
+          HI: isCaregiver
+            ? `क्या मरीज को पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव (discharge) आ रहा है, या पेशाब में रुकावट है?`
+            : `क्या आपको पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव (discharge) आ रहा है, या पेशाब रुक-रुक कर आ रहा है?`,
+          GU: isCaregiver
+            ? `શું દર્દીને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે પેશાબ કરવામાં અટકાવ છે?`
+            : `શું આપને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે પેશાબ કરવામાં અટકાવ છે?`,
+        };
+        const touchOpts = {
+          EN: ['Severe burning sensation while urinating', 'Whitish / yellowish pus discharge from penis', 'Frequent urge to urinate with reduced flow', 'Itching, redness, or skin irritation'],
+          HI: ['पेशाब में तेज जलन और दर्द', 'लिंग से मवाद/सफेद पानी का स्राव', 'बार-बार पेशाब की इच्छा व धार कम', 'खुजली, लाली और त्वचा में जलन'],
+          GU: ['પેશાબ કરતી વખતે તીવ્ર બળતરા', 'ઇન્દ્રિયમાંથી પરુ કે સફેદ પાણીનો સ્ત્રાવ', 'વારંવાર પેશાબ જવું પડે છે અને પ્રવાહ ધીમો', 'ખંજવાળ, લાલાશ અને ચામડી પર બળતરા'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Investigating urethritis, UTI, STI infection markers, and urinary outflow symptoms',
+        };
+      }
+
+      // 3. VOMITING, NAUSEA & GASTROINTESTINAL
+      if (/vomit|उल्टी|ઉલટી|nausea|dehydrat/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `How many times has the patient vomited, does it contain food, bile, or blood, and are they able to retain fluids?`
+            : `How many times have you vomited, does it contain food, bile, or blood, and are you able to retain water and fluids?`,
+          HI: isCaregiver
+            ? `मरीज को कितनी बार उल्टी हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`
+            : `आपको कितनी बार उल्टी हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`,
+          GU: isCaregiver
+            ? `દર્દીને કેટલી વાર ઉલટી થઈ છે, શું ઉલટીમાં ખોરાક કે પિત્ત નીકળે છે, અને પાણી ટકે છે?`
+            : `તમને કેટલી વાર ઉલટી થઈ છે, શું ઉલટીમાં ખોરાક કે પિત્ત (પીળું પાણી) નીકળે છે, અને પાણી પચી શકે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Frequent vomiting (>4-5 times), cannot retain water', 'Vomited 1-2 times after meals with nausea', 'Sour yellow bile vomiting with stomach cramps', 'Accompanied by loose watery stools & weakness'],
+          HI: ['लगातार उल्टियां (>4-5 बार), पानी भी नहीं रुक रहा', 'खाने के बाद 1-2 बार उल्टी व जी मिचलाना', 'खट्टी डकारें व पीले पित्त की उल्टी', 'दस्त (loose motions) और कमजोरी के साथ'],
+          GU: ['વારંવાર ઉલટી (>૪-૫ વાર), પાણી પણ ટકતું નથી', 'જમ્યા પછી ૧-૨ વાર ઉલટી અને ઉબકા', 'ખાટા ઓડકાર અને પીળા પિત્તની ઉલટી', 'ઝાડા (લૂઝ મોશન) અને ભારે અશક્તિ સાથે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing acute gastroenteritis, emesis frequency, electrolyte loss risk, and hydration status',
+        };
+      }
+
+      // 4. EAR COMPLAINT
       if (/ear|कान|કાન/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
@@ -928,7 +1099,7 @@ export class GeminiAIProvider implements AIProvider {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
     this.model = this.genAI.getGenerativeModel({ model: modelName });
   }
 
