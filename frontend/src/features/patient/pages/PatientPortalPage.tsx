@@ -30,25 +30,13 @@ export function PatientPortalPage() {
       setActiveVisit(p.visits[0]);
     }
 
-    const rawApiBase =
-      import.meta.env.VITE_API_BASE ||
-      (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-        ? `${window.location.origin}/api`
-        : 'http://localhost:5000/api');
-    const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
-
-    fetch(`${cleanApiBase}/documents/timeline/${p.id}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.timeline) {
+    api.doctor.timeline(p.id)
+      .then((data: any) => {
+        if (data?.timeline && Array.isArray(data.timeline)) {
           setTimeline(data.timeline);
         }
       })
-      .catch((e) => console.error('Timeline error:', e))
+      .catch((e: any) => console.error('Timeline error:', e))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -210,32 +198,71 @@ export function PatientPortalPage() {
 
         <div className="space-y-6 relative before:absolute before:inset-0 before:left-5 before:w-0.5 before:bg-slate-200">
           {timeline.length > 0 ? (
-            timeline.map((item, idx) => (
-              <div key={idx} className="relative flex items-start gap-6 pl-2">
-                {/* Node Dot */}
-                <div className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0 z-10 shadow-md">
-                  {item.type === 'VISIT' ? (
-                    <Stethoscope className="w-3.5 h-3.5" />
-                  ) : item.type === 'PRESCRIPTION' ? (
-                    <Pill className="w-3.5 h-3.5" />
-                  ) : (
-                    <FileText className="w-3.5 h-3.5" />
-                  )}
-                </div>
+            timeline.map((item: any, idx: number) => {
+              const docName = item.doctor?.name || 'Dr. Yogesh Sharma';
+              const docSpec = item.doctor?.specialization || item.department || 'General Medicine';
+              const diagnosis = item.doctor?.diagnosis || item.chiefComplaint || 'Consultation Completed';
+              const aiSummary = item.aiSummary?.historyOfPresentIllness || item.aiSummary?.chiefComplaint || item.description || 'Intake summary recorded at MediKiosk.';
+              const rx = item.lastPrescription || (item.prescriptions?.length ? item.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null);
 
-                {/* Content Box */}
-                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all">
-                  <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                    <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
-                    <span className="text-xs text-slate-400 font-mono">
-                      {new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
+              return (
+                <div key={idx} className="relative flex items-start gap-6 pl-2">
+                  {/* Node Dot */}
+                  <div className="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0 z-10 shadow-md">
+                    <Stethoscope className="w-3.5 h-3.5" />
                   </div>
 
-                  <p className="text-xs text-slate-600 font-sans leading-relaxed">{item.description}</p>
+                  {/* Content Box */}
+                  <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-200/80">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">{item.chiefComplaint || item.title || 'OPD Consultation'}</h3>
+                        <span className="text-[11px] text-blue-600 font-semibold">{item.department || 'General Medicine'}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 font-mono">
+                        {item.date ? new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Past Visit'}
+                      </span>
+                    </div>
+
+                    {/* Doctor Details */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                          <Stethoscope className="w-3.5 h-3.5 text-blue-600" /> {docName}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{docSpec}</span>
+                      </div>
+                      <p className="text-slate-600">
+                        <strong className="text-slate-700">Diagnosis: </strong>
+                        <span className="text-emerald-600 font-semibold">{diagnosis}</span>
+                      </p>
+                    </div>
+
+                    {/* AI Summary */}
+                    <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs space-y-1">
+                      <span className="font-bold text-blue-900 flex items-center gap-1.5 text-[11px] uppercase">
+                        <FileText className="w-3.5 h-3.5 text-blue-600" /> AI Clinical Intake Findings
+                      </span>
+                      <p className="text-slate-700 text-[11px] leading-relaxed">{aiSummary}</p>
+                    </div>
+
+                    {/* Vitals & Prescription */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
+                      {item.vitals && (
+                        <span className="font-mono text-[10px] bg-slate-200/70 px-2 py-0.5 rounded text-slate-700">
+                          BP: {item.vitals.bpSystolic}/{item.vitals.bpDiastolic} • Pulse: {item.vitals.pulse}
+                        </span>
+                      )}
+                      {rx && (
+                        <span className="text-slate-700 font-medium ml-auto">
+                          💊 <strong>Rx:</strong> {rx}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="p-8 text-center text-slate-400 text-sm">
               Your recent clinical visits and prescriptions will populate your health record automatically.

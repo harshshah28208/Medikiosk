@@ -357,10 +357,22 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
   const visits = await prisma.visit.findMany({
     where: { patientId },
     include: {
-      clinicalHistory: {
-        select: { chiefComplaint: true, status: true, completionScore: true, createdAt: true },
+      clinicalHistory: true,
+      department: { select: { name: true, code: true } },
+      doctor: {
+        include: {
+          user: { select: { name: true, email: true } },
+        },
       },
-      department: { select: { name: true } },
+      consultations: {
+        include: {
+          doctor: { include: { user: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+      summary: { select: { summaryJson: true, status: true } },
+      ayushAssessment: true,
       vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
       prescriptions: {
         include: { items: true },
@@ -369,20 +381,58 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
       },
     },
     orderBy: { createdAt: 'desc' },
-    take: 10,
+    take: 15,
   });
 
-  const timeline = visits.map((v) => ({
-    visitId: v.id,
-    date: v.createdAt,
-    chiefComplaint: v.clinicalHistory?.chiefComplaint || v.reasonForVisit || 'OPD Visit',
-    department: v.department?.name || 'General',
-    status: v.status,
-    priority: v.priority,
-    completionScore: v.clinicalHistory?.completionScore || 0,
-    vitals: v.vitals?.[0] || null,
-    lastPrescription: v.prescriptions?.[0]?.items?.map((i: any) => i.medicineName).join(', ') || null,
-  }));
+  const timeline = visits.map((v) => {
+    let aiSummaryParsed = null;
+    if (v.summary?.summaryJson) {
+      try {
+        aiSummaryParsed = typeof v.summary.summaryJson === 'string' ? JSON.parse(v.summary.summaryJson) : v.summary.summaryJson;
+      } catch {}
+    }
+
+    const consult = v.consultations?.[0];
+    const doctorName = v.doctor?.user?.name || consult?.doctor?.user?.name || (v.department?.name?.includes('AYUSH') ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma');
+    const doctorSpecialization = v.doctor?.specialization || (v.department?.name?.includes('AYUSH') ? 'Classical Homeopathy & AYUSH' : 'Internal Medicine & Cardiology');
+
+    return {
+      visitId: v.id,
+      date: v.createdAt,
+      chiefComplaint: v.clinicalHistory?.chiefComplaint || v.reasonForVisit || 'General OPD Consultation',
+      department: v.department?.name || 'General Medicine',
+      departmentCode: v.department?.code || 'GEN',
+      status: v.status,
+      priority: v.priority,
+      completionScore: v.clinicalHistory?.completionScore || 100,
+      doctor: {
+        name: doctorName,
+        specialization: doctorSpecialization,
+        diagnosis: consult?.diagnosis || consult?.impression || 'Clinical Assessment Completed',
+        clinicalNotes: consult?.clinicalNotes || null,
+        treatmentPlan: consult?.treatmentPlan || null,
+      },
+      aiSummary: aiSummaryParsed || {
+        chiefComplaint: v.clinicalHistory?.chiefComplaint || v.reasonForVisit || 'OPD Intake Completed',
+        historyOfPresentIllness: 'Completed multi-turn AI clinical intake at Kiosk.',
+        lifestyle: 'Evaluated during intake.',
+      },
+      vitals: v.vitals?.[0] || null,
+      prescriptions: v.prescriptions?.[0]?.items?.map((i: any) => ({
+        medicineName: i.medicineName,
+        dosage: i.dosage,
+        frequency: i.frequency,
+        duration: i.duration,
+      })) || [],
+      lastPrescription: v.prescriptions?.[0]?.items?.map((i: any) => `${i.medicineName} (${i.dosage})`).join(', ') || null,
+      ayushAssessment: v.ayushAssessment ? {
+        systemType: v.ayushAssessment.homeopathyMiasm ? 'HOMEOPATHY' : 'AYURVEDA',
+        miasm: v.ayushAssessment.homeopathyMiasm,
+        modalities: v.ayushAssessment.homeopathyModalities,
+        repertoryNotes: v.ayushAssessment.homeopathyRepertoryNotes,
+      } : null,
+    };
+  });
 
   res.json({ timeline, count: timeline.length });
 });

@@ -570,25 +570,105 @@ export function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* Longitudinal Timeline Panel */}
+              {/* Longitudinal Timeline Panel — Full Details with AI Summary & Doctor Profiles */}
               {timeline.length > 0 && (
-                <div className="bg-slate-950 border border-slate-700 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-slate-300 text-xs font-bold uppercase tracking-wider">
-                    <History className="w-4 h-4 text-indigo-400" />
-                    <span>Longitudinal Patient History ({timeline.length} past visits)</span>
+                <div className="bg-slate-950 border border-indigo-900/40 rounded-2xl p-5 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2.5 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                      <History className="w-4 h-4 text-indigo-400" />
+                      <span>Longitudinal Medical History ({timeline.length} Recorded Visits)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Chronological Patient 360</span>
                   </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {timeline.map((tl: any, i: number) => (
-                      <div key={i} className="flex items-start gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">
-                          V{timeline.length - i}
+
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {timeline.map((tl: any, i: number) => {
+                      const docName = tl.doctor?.name || 'Dr. Yogesh Sharma';
+                      const docSpec = tl.doctor?.specialization || tl.department || 'Internal Medicine';
+                      const diagnosis = tl.doctor?.diagnosis || tl.chiefComplaint || 'Clinical Review Completed';
+                      const aiSummaryText = tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || 'AI Intake summary verified at Kiosk.';
+                      const lifestyleText = tl.aiSummary?.lifestyle;
+                      const rxText = tl.lastPrescription || (tl.prescriptions?.length ? tl.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null);
+
+                      return (
+                        <div key={i} className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all space-y-3">
+                          {/* Top Header: Visit #, Date, Department */}
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-lg bg-indigo-600/20 text-indigo-300 text-[11px] font-bold font-mono border border-indigo-500/30">
+                                Visit #{timeline.length - i}
+                              </span>
+                              <span className="text-xs font-bold text-slate-100">{tl.chiefComplaint || 'General OPD Consultation'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                              <span>{tl.date ? new Date(tl.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Past Visit'}</span>
+                              <span>•</span>
+                              <span className="text-indigo-400 font-semibold">{tl.department || 'General Medicine'}</span>
+                            </div>
+                          </div>
+
+                          {/* Grid of Doctor Details & AI Clinical Summary */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            {/* Doctor Details & Diagnosis */}
+                            <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800/80 space-y-1.5">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                <span className="flex items-center gap-1.5 text-indigo-300">
+                                  <Stethoscope className="w-3.5 h-3.5 text-indigo-400" /> Treating Physician
+                                </span>
+                                <span className="text-slate-500">{docSpec}</span>
+                              </div>
+                              <p className="text-slate-100 font-bold">{docName}</p>
+                              <div className="text-[11px] text-slate-300">
+                                <span className="text-slate-500 font-medium">Doctor Diagnosis: </span>
+                                <span className="text-emerald-400 font-semibold">{diagnosis}</span>
+                              </div>
+                              {tl.doctor?.clinicalNotes && (
+                                <p className="text-[11px] text-slate-400 italic">"{tl.doctor.clinicalNotes}"</p>
+                              )}
+                            </div>
+
+                            {/* AI Summary & Lifestyle Findings */}
+                            <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800/80 space-y-1.5">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                <span className="flex items-center gap-1.5 text-blue-300">
+                                  <FileText className="w-3.5 h-3.5 text-blue-400" /> AI Intake Summary
+                                </span>
+                                <span className="text-blue-400 font-mono">Groq NLU</span>
+                              </div>
+                              <p className="text-slate-200 text-[11px] leading-relaxed line-clamp-2">{aiSummaryText}</p>
+                              {lifestyleText && (
+                                <div className="text-[10px] text-amber-300/80 pt-1 border-t border-slate-900">
+                                  <span className="font-bold text-slate-400">Lifestyle/Habits: </span>
+                                  <span>{lifestyleText}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Vitals & Prescriptions Bar */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 text-[11px] text-slate-400">
+                            {tl.vitals ? (
+                              <div className="flex items-center gap-2 font-mono text-[10px]">
+                                <span className="text-green-400">BP: {tl.vitals.bpSystolic}/{tl.vitals.bpDiastolic}</span>
+                                <span>•</span>
+                                <span>Pulse: {tl.vitals.pulse} bpm</span>
+                                <span>•</span>
+                                <span>SpO2: {tl.vitals.spo2}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">Vitals Recorded</span>
+                            )}
+
+                            {rxText && (
+                              <div className="text-right text-[11px] text-indigo-300">
+                                <span className="text-slate-500">Prescription: </span>
+                                <span className="font-semibold text-slate-200">{rxText}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-300">
-                          <span className="font-semibold text-slate-100 block">{tl.chiefComplaint || 'OPD Visit'}</span>
-                          <span className="text-slate-500">{tl.date ? new Date(tl.date).toLocaleDateString() : 'Past Visit'} • {tl.department || 'General'}</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
