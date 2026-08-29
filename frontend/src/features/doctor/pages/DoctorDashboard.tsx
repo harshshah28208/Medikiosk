@@ -32,14 +32,24 @@ export function DoctorDashboard() {
     { medicineName: 'Paracetamol', dosage: '650 mg', frequency: 'Thrice daily (TID)', duration: '3 days', instructions: 'After meals' },
   ]);
 
-  const loadPatients = async () => {
+  const [showAllHospitalPatients, setShowAllHospitalPatients] = useState(false);
+
+  const loadPatients = async (showAll = showAllHospitalPatients) => {
     setIsLoading(true);
     try {
-      const res = await api.visits.list();
+      const res = await api.doctor.patients(showAll);
       if (res?.visits) {
         setPatients(res.visits);
-        if (res.visits.length > 0 && !selectedVisit) {
-          handleSelectPatient(res.visits[0]);
+        if (res.visits.length > 0) {
+          const currentSelectedStillInList = selectedVisit && res.visits.find((v: any) => v.id === selectedVisit.id);
+          if (currentSelectedStillInList) {
+            handleSelectPatient(currentSelectedStillInList);
+          } else {
+            handleSelectPatient(res.visits[0]);
+          }
+        } else {
+          setSelectedVisit(null);
+          setSummaryData(null);
         }
       }
     } catch (e) {
@@ -50,8 +60,8 @@ export function DoctorDashboard() {
   };
 
   useEffect(() => {
-    loadPatients();
-  }, []);
+    loadPatients(showAllHospitalPatients);
+  }, [showAllHospitalPatients]);
 
   const handleSelectPatient = async (visit: any) => {
     setSelectedVisit(visit);
@@ -144,7 +154,7 @@ export function DoctorDashboard() {
         </div>
 
         <button
-          onClick={loadPatients}
+          onClick={() => loadPatients()}
           className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition-colors self-start sm:self-auto touch-target"
         >
           <RefreshCw className="w-4 h-4" />
@@ -163,6 +173,30 @@ export function DoctorDashboard() {
             <span className="text-xs font-mono font-bold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full">
               {patients.length} Waiting
             </span>
+          </div>
+
+          {/* Filter Toggle: My Patients vs All Hospital OPD */}
+          <div className="flex items-center p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => setShowAllHospitalPatients(false)}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all ${
+                !showAllHospitalPatients
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              👤 My Patients
+            </button>
+            <button
+              onClick={() => setShowAllHospitalPatients(true)}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all ${
+                showAllHospitalPatients
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🏥 All Hospital OPD
+            </button>
           </div>
 
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
