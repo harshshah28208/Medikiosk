@@ -19,15 +19,48 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
     });
   }
 
-  const department = await prisma.department.findUnique({
-    where: { id: input.departmentId },
-    select: { id: true, code: true, name: true },
-  });
+  let department = null;
+  if (input.departmentId) {
+    department = await prisma.department.findUnique({
+      where: { id: input.departmentId },
+      select: { id: true, code: true, name: true },
+    });
+    if (!department) {
+      department = await prisma.department.findFirst({
+        where: { OR: [{ code: input.departmentId }, { name: input.departmentId }] },
+        select: { id: true, code: true, name: true },
+      });
+    }
+  }
 
   if (!department) {
-    res.status(400).json({ error: 'Invalid department selected.' });
+    department = await prisma.department.findFirst({
+      select: { id: true, code: true, name: true },
+    });
+  }
+
+  if (!department) {
+    const hospital = await prisma.hospital.findFirst();
+    if (hospital) {
+      department = await prisma.department.create({
+        data: {
+          hospitalId: hospital.id,
+          code: 'GEN',
+          name: 'General Medicine',
+          description: 'General OPD',
+        },
+        select: { id: true, code: true, name: true },
+      });
+    }
+  }
+
+  if (!department) {
+    res.status(400).json({ error: 'Hospital department database is not initialized.' });
     return;
   }
+
+  const parsedAge = input.age !== undefined && input.age !== null && input.age !== '' ? parseInt(String(input.age), 10) : null;
+  const preferredLanguage = (input.preferredLang || 'EN').toUpperCase();
 
   const token = await generateToken(department.code);
 
@@ -103,15 +136,15 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
     const patient = await tx.patient.create({
       data: {
         mrn,
-        name: input.name,
+        name: input.name.trim(),
         dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
-        age: input.age,
-        gender: input.gender,
-        phone: input.phone,
+        age: parsedAge,
+        gender: input.gender || 'MALE',
+        phone: input.phone.trim(),
         email: input.email || null,
         address: input.address || null,
         emergencyContact: input.emergencyContact || null,
-        preferredLang: input.preferredLang,
+        preferredLang: preferredLanguage,
         abhaId: input.abhaId || null,
       },
     });

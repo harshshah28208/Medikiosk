@@ -59,24 +59,26 @@ export function RegistrationPage() {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!formData.name || !formData.phone || !formData.departmentId) {
-      setErrorMsg('Please complete all mandatory fields (Name, Phone, Department).');
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setErrorMsg('Please enter your Name and Phone number to register.');
       return;
     }
+
+    const selectedDeptId = formData.departmentId || departments[0]?.id || 'GEN';
 
     setIsSubmitting(true);
     try {
       const payload = {
         name: formData.name.trim(),
         age: formData.age ? parseInt(formData.age, 10) : undefined,
-        gender: formData.gender,
+        gender: formData.gender || 'MALE',
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
         address: formData.address.trim() || undefined,
         emergencyContact: formData.emergencyContact.trim() || undefined,
-        preferredLang: language.toUpperCase(),
+        preferredLang: (language || 'en').toUpperCase(),
         abhaId: formData.abhaId.trim() || undefined,
-        departmentId: formData.departmentId,
+        departmentId: selectedDeptId,
         reasonForVisit: formData.reasonForVisit.trim() || undefined,
         pastMedicalHistory: formData.pastMedicalHistory.trim() || undefined,
         currentMedications: formData.currentMedications.trim() || undefined,
@@ -90,8 +92,11 @@ export function RegistrationPage() {
         localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.visit));
         localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.queueEntry));
         navigate('/kiosk/consent');
+      } else if (res?.error) {
+        setErrorMsg(res.error);
       }
     } catch (err: any) {
+      console.error('Registration error:', err);
       setErrorMsg(err.message || 'Registration failed. Please check your information.');
     } finally {
       setIsSubmitting(false);
