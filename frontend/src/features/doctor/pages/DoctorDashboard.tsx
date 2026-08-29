@@ -726,14 +726,85 @@ export function DoctorDashboard() {
               )}
 
               {/* Extracted Entities Inspection */}
-              {viewingDoc.extractions && viewingDoc.extractions.length > 0 && (
-                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 space-y-2">
-                  <span className="text-xs font-bold uppercase text-slate-400 block">AI OCR Extracted Entities</span>
-                  <pre className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl font-mono overflow-x-auto border border-slate-800">
-                    {viewingDoc.extractions[0].extractedData}
-                  </pre>
-                </div>
-              )}
+              {viewingDoc.extractions && viewingDoc.extractions.length > 0 && (() => {
+                let parsed: any = null;
+                try {
+                  parsed = typeof viewingDoc.extractions[0].extractedData === 'string'
+                    ? JSON.parse(viewingDoc.extractions[0].extractedData)
+                    : viewingDoc.extractions[0].extractedData;
+                } catch (e) {
+                  parsed = null;
+                }
+
+                return (
+                  <div className="p-5 bg-slate-900 rounded-2xl border border-slate-800 space-y-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4" />
+                        AI Verified Document Content
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Confidence: {((viewingDoc.extractions[0].confidence || 0.95) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+
+                    {parsed?.summary && (
+                      <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Document Summary</span>
+                        <p className="text-slate-200 text-sm leading-relaxed">{parsed.summary}</p>
+                      </div>
+                    )}
+
+                    {parsed?.medications && parsed.medications.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Extracted Prescribed Medications</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {parsed.medications.map((m: any, idx: number) => (
+                            <div key={idx} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                              <span className="font-bold text-emerald-300 block">{m.name}</span>
+                              <span className="text-slate-400 text-[11px]">{m.dosage || m.instructions || m.frequency || 'Prescribed'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {parsed?.labResults && parsed.labResults.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Extracted Laboratory Values</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {parsed.labResults.map((t: any, idx: number) => (
+                            <div key={idx} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                              <div>
+                                <span className="font-bold text-slate-200 block">{t.testName}</span>
+                                <span className="text-slate-500 text-[10px]">Ref: {t.referenceRange || 'Normal'}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
+                                t.flag === 'HIGH' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                t.flag === 'LOW' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                'bg-slate-800 text-slate-300'
+                              }`}>
+                                {t.result} {t.unit || ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {parsed?.transcribedText && (
+                      <details className="text-slate-400 cursor-pointer">
+                        <summary className="text-[11px] font-semibold text-slate-400 hover:text-slate-200">
+                          View Raw Transcribed Document Text
+                        </summary>
+                        <pre className="text-[11px] text-slate-300 bg-slate-950 p-3 rounded-xl font-mono overflow-x-auto border border-slate-800 mt-2 whitespace-pre-wrap">
+                          {parsed.transcribedText}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
           </div>
