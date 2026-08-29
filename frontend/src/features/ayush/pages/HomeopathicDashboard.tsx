@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../../services/api";
 import {
   Droplets, Users, CheckCircle2, RefreshCw,
-  Flower2, FileText, Activity, AlertTriangle, Sparkles
+  Flower2, FileText, Activity, AlertTriangle, Sparkles, Eye, Download, X, Printer
 } from "lucide-react";
 
 const MIASMS = [
@@ -35,6 +35,7 @@ export function HomeopathicDashboard() {
   const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
   // Homeopathic Case State
   const [miasm, setMiasm] = useState(MIASMS[0]);
@@ -132,6 +133,63 @@ export function HomeopathicDashboard() {
       }).catch(() => {});
     }
   }, [selectedVisit?.id]);
+
+  
+  const handleDownloadSummary = () => {
+    if (!selectedVisit) return;
+    const p = selectedVisit.patient;
+    const s = typeof selectedVisit.summary?.summaryJson === 'string'
+      ? JSON.parse(selectedVisit.summary.summaryJson)
+      : (selectedVisit.summary || {});
+
+    const report = `=====================================================
+MEDIKIOSK HOMEOPATHIC CASE & CLINICAL INTAKE REPORT
+Generated: ${new Date().toLocaleString()}
+=====================================================
+
+1. PATIENT DEMOGRAPHICS:
+------------------------
+Name:    ${p?.name || 'N/A'}
+MRN:     ${p?.mrn || 'N/A'}
+Age/Sex: ${p?.age || 'N/A'} Yrs / ${p?.gender || 'N/A'}
+Phone:   ${p?.phone || 'N/A'}
+
+2. CLINICAL INTAKE & CHIEF COMPLAINT:
+-------------------------------------
+Chief Complaint: ${selectedVisit.reasonForVisit || s?.chiefComplaint || 'Under Evaluation'}
+History of Present Illness (HPI):
+${s?.historyOfPresentIllness || 'Patient completed conversational intake at Kiosk.'}
+
+3. LIFESTYLE & DAILY HABITS:
+----------------------------
+${s?.lifestyle || 'Assessed during intake.'}
+
+4. HOMEOPATHIC TOTALITY & ANALYSIS:
+-----------------------------------
+Active Miasm:            ${miasm}
+Constitutional Remedy:   ${constitutionalRemedy}
+Potency & Repetition:    ${potency} | ${repetition}
+Acute Remedy:            ${acuteRemedy || 'None'}
+Mental Generals:         ${mentalGenerals || 'Not recorded'}
+Physical Generals:       ${physicalGenerals || 'Not recorded'}
+Modalities (Aggravation):${modAgg || 'None'}
+Modalities (Amelioration):${modAmel || 'None'}
+Doctor Clinical Notes:   ${clinicalNotes || 'Follow-up in 4 weeks.'}
+
+=====================================================
+MediKiosk Autonomous Homeopathic Care System
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Homeopathic_Case_${p?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,9 +356,31 @@ export function HomeopathicDashboard() {
                       MRN: {selectedVisit.patient?.mrn} • Phone: {selectedVisit.patient?.phone || 'N/A'} • {selectedVisit.patient?.age}Y / {selectedVisit.patient?.gender}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold">Priority</span>
-                    <p className="text-xs font-bold text-teal-400">{selectedVisit.priority || 'NORMAL'}</p>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Priority: </span>
+                      <span className="text-xs font-bold text-teal-400">{selectedVisit.priority || 'NORMAL'}</span>
+                    </div>
+                    
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSummaryModalOpen(true)}
+                      className="px-3 py-1.5 bg-teal-600/20 hover:bg-teal-600 text-teal-300 hover:text-white text-xs rounded-xl font-bold border border-teal-500/40 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Whole Summary</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadSummary}
+                      className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs rounded-xl font-bold border border-blue-500/40 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Case Report</span>
+                    </button>
+                  </div>
+
                   </div>
                 </div>
 
@@ -515,6 +595,95 @@ export function HomeopathicDashboard() {
           )}
         </div>
       </div>
+
+      {/* Homeopathic AI Summary Modal */}
+      {isSummaryModalOpen && selectedVisit && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-600/20 text-teal-400 rounded-2xl flex items-center justify-center font-bold">
+                  <Flower2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Homeopathic Clinical Summary &amp; Intake</h2>
+                  <p className="text-xs text-slate-400">
+                    Patient: <strong className="text-slate-200">{selectedVisit.patient?.name}</strong> • MRN: <span className="font-mono text-teal-300">{selectedVisit.patient?.mrn}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-bold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadSummary}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-xl font-bold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download (.txt)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSummaryModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-teal-400 uppercase tracking-wider block">
+                  Chief Symptom / Complaint
+                </span>
+                <p className="text-slate-100 font-semibold text-sm">
+                  {selectedVisit.reasonForVisit || 'Under Evaluation'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
+                  AI Intake Findings &amp; Lifestyle
+                </span>
+                <p className="text-slate-200 leading-relaxed">
+                  {typeof selectedVisit.summary?.summaryJson === 'string'
+                    ? JSON.parse(selectedVisit.summary.summaryJson)?.historyOfPresentIllness || 'Clinical intake completed.'
+                    : 'Intake details recorded.'}
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block">
+                  Similimum &amp; Miasmatic Prescription
+                </span>
+                <p className="text-teal-300 font-bold text-sm">
+                  {constitutionalRemedy} ({potency}) — {repetition}
+                </p>
+                <p className="text-slate-400 text-[11px]">Primary Miasm: {miasm}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
