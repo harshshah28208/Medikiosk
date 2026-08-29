@@ -66,14 +66,22 @@ export function DoctorDashboard() {
 
   const handleSelectPatient = async (visit: any) => {
     setSelectedVisit(visit);
-    setSummaryData(null);
+    if (visit.summary) {
+      const sJson = typeof visit.summary === 'string'
+        ? JSON.parse(visit.summary)
+        : (visit.summary.summaryJson ? (typeof visit.summary.summaryJson === 'string' ? JSON.parse(visit.summary.summaryJson) : visit.summary.summaryJson) : visit.summary);
+      setSummaryData(sJson);
+      setImpression(sJson.chiefComplaint || visit.reasonForVisit || '');
+      setSoapSubjective(sJson.historyOfPresentIllness || '');
+      setSoapAssessment(sJson.chiefComplaint || '');
+    } else {
+      setSummaryData(null);
+      setImpression(visit.reasonForVisit || '');
+    }
     setTimeline([]);
     setClinicalNotes('');
-    setImpression('');
     setTreatmentPlan('');
-    setSoapSubjective('');
     setSoapObjective('');
-    setSoapAssessment('');
     setSoapPlan('');
     setPrescriptions([
       { medicineName: '', dosage: '', frequency: 'Once daily (OD)', duration: '5 days', instructions: 'After food' },
