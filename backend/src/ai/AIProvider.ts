@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import { Groq } from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ClinicalState, QuestionOutput } from './ClinicalState.js';
@@ -536,6 +538,12 @@ function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): str
   if (/back|spine|lumbar|sciatica|कमर|पीठ|પીઠ|વાંસો/i.test(c)) {
     return lang === 'HI' ? 'कमर और पीठ के दर्द' : lang === 'GU' ? 'કમરના દુખાવા' : 'back pain and stiffness';
   }
+  if (/groin|inguinal|जांघ|પેલ્વિસ|સાથળ/i.test(c)) {
+    return lang === 'HI' ? 'जांघ और ग्रोइन के दर्द' : lang === 'GU' ? 'સાથળ અને પેલ્વિસના દુખાવા' : 'groin discomfort and pain';
+  }
+  if (/penis|genitourinary|urology|erectile|लिंग|ઇન્દ્રિય|પુરુષ અંગ/i.test(c)) {
+    return lang === 'HI' ? 'जननांग व यूरिन संबंधी चिंता' : lang === 'GU' ? 'જનનાંગ અને પેશાબ સંબંધિત સમસ્યા' : 'genitourinary concerns';
+  }
   if (/urine|urina|burning urine|पेशाब|પેશાબ/i.test(c)) {
     return lang === 'HI' ? 'पेशाब में जलन और दर्द' : lang === 'GU' ? 'પેશાબમાં બળતરા અને દુખાવો' : 'urinary burning and discomfort';
   }
@@ -870,20 +878,21 @@ export class UniversalClinicalEngine implements AIProvider {
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
 
-    // Track answered clinical dimensions from both state and conversation transcript to guarantee smooth stage progression
+    // Track answered clinical dimensions from turns, state, and conversation transcript to guarantee smooth stage progression
     const answeredDimensions = new Set<string>();
+    const turns = state.turnsCompleted || 0;
     const historyText = (conversationHistory || []).map(m => m.content).join(' ').toLowerCase() + ' ' + (state.questionsAsked || []).join(' ').toLowerCase();
 
-    if (historyText.includes('how long') || historyText.includes('कब से') || historyText.includes('કેટલા સમયથી') || (state.symptoms || []).some(s => s.onset)) {
+    if (turns >= 2 || historyText.includes('how long') || historyText.includes('कब से') || historyText.includes('કેટલા સમયથી') || (state.symptoms || []).some(s => s.onset)) {
       answeredDimensions.add('ONSET');
     }
-    if (historyText.includes('severity') || historyText.includes('how many times') || historyText.includes('times have you') || historyText.includes('गंभीरता') || historyText.includes('તીવ્રતા') || (state.symptoms || []).some(s => s.severity || s.character)) {
+    if (turns >= 3 || historyText.includes('aggravated') || historyText.includes('bulge') || historyText.includes('urinary stream') || historyText.includes('severity') || historyText.includes('how many times') || historyText.includes('times have you') || historyText.includes('गंभीरता') || historyText.includes('તીવ્રતા') || (state.symptoms || []).some(s => s.severity || s.character)) {
       answeredDimensions.add('CHARACTER');
     }
-    if (historyText.includes('lifestyle') || historyText.includes('sleep') || historyText.includes('routine') || historyText.includes('diet') || historyText.includes('दिनचर्या') || historyText.includes('દિનચર્યા') || (state.lifestyle?.sleep && state.lifestyle.sleep.length > 2)) {
+    if (turns >= 4 || historyText.includes('lifestyle') || historyText.includes('sleep') || historyText.includes('routine') || historyText.includes('diet') || historyText.includes('दिनचर्या') || historyText.includes('દિનચર્યા') || (state.lifestyle?.sleep && state.lifestyle.sleep.length > 2)) {
       answeredDimensions.add('LIFESTYLE');
     }
-    if (historyText.includes('medical conditions') || historyText.includes('ongoing') || historyText.includes('regular medicines') || historyText.includes('allergies') || historyText.includes('पुरानी बीमारी') || historyText.includes('જૂની બીમારી') || ((state.pastMedicalHistory || []).length > 0 && state.pastMedicalHistory[0] !== 'None reported')) {
+    if (turns >= 5 || historyText.includes('medical conditions') || historyText.includes('ongoing') || historyText.includes('regular medicines') || historyText.includes('allergies') || historyText.includes('पुरानी बीमारी') || historyText.includes('જૂની બીમારી') || ((state.pastMedicalHistory || []).length > 0 && state.pastMedicalHistory[0] !== 'None reported')) {
       answeredDimensions.add('PAST_HISTORY');
     }
     if ((state.symptoms || []).some(s => s.progression)) answeredDimensions.add('PROGRESSION');
@@ -1471,8 +1480,68 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // 10. UROLOGICAL / BURNING URINE
-      if (/urine|urina|burning urine|penis|पेशाब|પેશાબ/i.test(complaintLower)) {
+      // 10. GROIN / INGUINAL PAIN
+      if (/groin|inguinal|जांघ|પેલ્વિસ|સાથળ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Is the patient's groin pain aggravated by standing, coughing, or heavy lifting, and is there any visible bulge/swelling in the groin or scrotum?`
+            : `Is your groin pain aggravated by standing, coughing, or heavy lifting, and have you noticed any visible bulge or swelling in your groin or scrotum?`,
+          HI: isCaregiver
+            ? `क्या मरीज का ग्रोइन/जांघ का दर्द खड़े होने, खांसने या भारी वजन उठाने पर बढ़ता है, और क्या जांघ या अंडकोष में कोई सूजन/उभार है?`
+            : `क्या आपके ग्रोइन/जांघ का दर्द खड़े होने, खांसने या भारी वजन उठाने पर बढ़ता है, और क्या जांघ या अंडकोष में कोई उभार या सूजन है?`,
+          GU: isCaregiver
+            ? `શું દર્દીનો સાથળ/પેલ્વિસનો દુખાવો ઊભા રહેવાથી, ખાંસીથી કે વજન ઊંચકવાથી વધે છે, અને કોઈ સોજો કે ગાંઠ જણાય છે?`
+            : `શું આપનો સાથળ/પેલ્વિસનો દુખાવો ઊભા રહેવાથી, ખાંસીથી કે વજન ઊંચકવાથી વધે છે, અને કોઈ સોજો કે ગાંઠ જણાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Pain increases when coughing, straining or lifting', 'Visible swelling / bulge noticed in groin or scrotum', 'Sharp pulling ache radiating down to thigh or testicle', 'Dull ache after long walking or standing'],
+          HI: ['खांसने, जोर लगाने या वजन उठाने पर दर्द बढ़ता है', 'जांघ या अंडकोष में उभार/सूजन महसूस हुई', 'अंडकोष या जांघ में नीचे की ओर खिंचाव भरा दर्द', 'अधिक चलने या खड़े रहने के बाद भारीपन'],
+          GU: ['ખાંસી, જોર કરવાથી કે વજન ઊંચકવાથી દુખાવો વધે છે', 'સાથળ કે અંડકોષમાં સોજો/ગાંઠ જણાય છે', 'અંડકોષ કે સાથળ તરફ ખેંચાણ સાથે દુખાવો', 'વધુ ચાલવા કે ઊભા રહેવા પછી ભારેપણું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Evaluating inguinal hernia markers, testicular radiation, and strain-induced groin pathology',
+        };
+      }
+
+      // 10B. PENIS / GENITOURINARY DEVELOPMENT & CONCERNS
+      if (/penis|erectile|urolog|genital|लिंग|ઇન્દ્રિય|પુરુષ અંગ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Has the patient noticed any difficulty with urinary stream, pain/burning, erectile concerns, morning erections, or any discomfort in the genital region?`
+            : `Have you noticed any difficulty with urinary stream, pain/burning, erectile concerns, morning erections, or any discomfort in the genital region?`,
+          HI: isCaregiver
+            ? `क्या मरीज को पेशाब की धार में कमी, जलन, शारीरिक विकास संबंधी चिंता, तनाव में कमी या जननांग में कोई दर्द महसूस हुआ है?`
+            : `क्या आपको पेशाब की धार में कमी, जलन, शारीरिक विकास संबंधी चिंता, तनाव में कमी या जननांग में कोई दर्द महसूस होता है?`,
+          GU: isCaregiver
+            ? `શું દર્દીને પેશાબની ધારમાં ઘટાડો, બળતરા, શારીરિક વિકાસ અંગે ચિંતા, કે જનનાંગ વિસ્તારમાં કોઈ દુખાવો જણાય છે?`
+            : `શું આપને પેશાબની ધારમાં ઘટાડો, બળતરા, શારીરિક વિકાસ અંગે ચિંતા, કે જનનાંગ વિસ્તારમાં કોઈ દુખાવો જણાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Concerns regarding normal physical development & growth', 'Occasional burning or weak urinary stream', 'Discomfort / ache in genital or testicular area', 'Routine checkup & private medical counseling needed'],
+          HI: ['शारीरिक विकास और वृद्धि को लेकर सामान्य चिंता', 'कभी-कभार पेशाब में जलन या धीमी धार', 'जननांग या अंडकोष क्षेत्र में हल्का दर्द/भारीपन', 'डॉक्टर से व्यक्तिगत परामर्श व सलाह चाहिए'],
+          GU: ['શારીરિક વિકાસ અને વૃદ્ધિ અંગે સામાન્ય ચિંતા', 'ક્યારેક પેશાબમાં બળતરા કે ધીમી ધાર', 'જનનાંગ વિસ્તારમાં હળવો દુખાવો/ભારેપણું', 'ડૉક્ટર સાથે ખાનગી પરામર્શ અને માર્ગદર્શન જોઈએ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing genitourinary development, urological symptoms, and counseling indicators',
+        };
+      }
+
+      // 10C. UROLOGICAL / BURNING URINE
+      if (/urine|urina|burning urine|पेशाब|પેશાબ/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
             ? `Does the patient have severe burning during urination, any discharge (pus/fluid), or frequent urge to urinate with reduced flow?`
@@ -1961,7 +2030,11 @@ ${historyFormatted}
 
 ACTIVE CLINICAL CONTEXT:
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
-${!isNew && prevInfo ? `Previous Visit Record: Last visit date: ${prevInfo.lastVisitDate}, Last complaint: ${prevInfo.lastComplaint}, Last department: ${prevInfo.lastDepartment}, Past medications: ${prevInfo.pastPrescriptions.join(', ') || 'None'}` : ''}
+${!isNew && prevInfo ? `Previous Visit Record:
+- Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (PRIMARY GROUND TRUTH: YOU MUST INQUIRE STRICTLY ABOUT THIS SPECIFIC COMPLAINT)
+- Prior Visit Date: ${prevInfo.lastVisitDate}
+- Prior Prescriptions: ${prevInfo.pastPrescriptions?.join(', ') || 'None'}
+- Administrative Clinic: ${prevInfo.lastDepartment} (NEVER assume symptoms from clinic name; ONLY focus on "${prevInfo.lastComplaint}")` : ''}
 Current Chief Complaint / Symptoms: "${state.chiefComplaint || ''}"
 Patient Just Answered / Stated: "${state.latestAnswer || ''}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
@@ -1980,17 +2053,23 @@ CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
    - Turn 4 (Closing Verification): When chief complaint, lifestyle baseline, and medical background are addressed, set "isComplete": true with a final closing verification question.
 
 2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Goal: Previous Disease Follow-Up -> Progression & Residual Symptoms -> Previous Medications & Treatment Response -> Closing Verification.
-   - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
-   - Turn 0 (Previous Disease Follow-Up Opening): ALWAYS acknowledge their previous consultation/disease (referencing previous diagnosis or past medications from context) and ask how that specific condition has progressed since the last visit (improved, worsened, unchanged, or if a new problem appeared).
-   - Turn 1 (Progression & Residual Symptoms):
-     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment.
-     * If Partial Relief: Inquire specifically about what residual symptoms remain and during what daily activities/times.
-     * If NEW COMPLAINT: Immediately branch to investigate the onset, duration, and severity of the new complaint.
-   - Turn 2 (Previous Medications & Treatment Follow-Up):
-     * Inquire about compliance with previously prescribed medications, whether they experienced any side-effects, and if they need a prescription refill.
-   - Turn 3 (Closing Verification):
-     * Set "isComplete": true with closing verification when previous disease progression, current complaint, and treatment response are clearly evaluated.
+   - CRITICAL REQUIREMENT — EXACT COMPLAINT ANCHOR (COMPLAINT OVERRIDES DEPARTMENT):
+     * Base your clinical inquiry 100% on the patient's actual reported symptom/complaint ("${prevInfo?.lastComplaint || 'the previous condition'}"), NEVER infer or assume symptoms from the clinic/department name!
+     * Example: If the patient's previous visit record lists Department: "Dermatology" (or General Medicine) but their actual chief complaint was "Back pain", your follow-up MUST BE STRICTLY ABOUT THE BACK PAIN (bending, spine stiffness, radiating pain, response to pain meds), and you MUST NEVER ask about skin or rashes!
+     * The previous chief complaint "${prevInfo?.lastComplaint || 'the previous condition'}" is the sole clinical anchor for all follow-up questions.
+   - Specific Disease Anchor Examples:
+     * If previous visit complaint was Back pain (even in Dermatology) -> Follow-up on lumbar stiffness, bending, radiating leg pain, and posture.
+     * If previous visit complaint was Hypertension / Headache -> Follow-up on Blood Pressure readings, morning headaches, dizziness, and Tab Amlodipine 5mg adherence.
+     * If previous visit complaint was Diabetes -> Follow-up on blood sugar levels, polyuria/thirst, foot numbness, diet adherence, and Metformin.
+     * If previous visit complaint was Asthma / Wheezing -> Follow-up on inhaler usage, shortness of breath, nocturnal wheezing attacks, and cold/dust triggers.
+     * If previous visit complaint was Osteoarthritis / Knee Pain -> Follow-up on walking distance, joint stiffness, swelling, and response to pain medications.
+     * If previous visit complaint was Urological / Genitourinary -> Follow-up on urinary stream, physical development concerns, testicular ache, and prescribed supplements.
+     * If previous visit complaint was Skin Rash / Eczema -> Follow-up on itching severity, spreading of rashes, and topical ointment application.
+   - Stage Sequence for Returning Patients:
+     * Turn 0: Greet the patient back, specifically name their actual prior complaint ("${prevInfo?.lastComplaint || 'your prior condition'}"), and ask how that specific complaint has progressed (improved, worsened, unchanged, or if a new problem appeared).
+     * Turn 1: Inquire about specific clinical markers, residual symptoms, or exacerbation of that EXACT previous complaint.
+     * Turn 2: Inquire about adherence to the EXACT previously prescribed medications ("${prevInfo?.pastPrescriptions?.join(', ') || 'prescribed medicines'}"), side-effects, and refill requirements.
+     * Turn 3+ (Closing Verification): When disease progression, residual concerns, and medications are evaluated in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with a closing review question.
 
 3. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
@@ -2216,7 +2295,11 @@ ${historyFormatted}
 
 ACTIVE CLINICAL CONTEXT:
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
-${!isNew && prevInfo ? `Previous Visit Record: Last visit date: ${prevInfo.lastVisitDate}, Last complaint: ${prevInfo.lastComplaint}, Last department: ${prevInfo.lastDepartment}, Past medications: ${prevInfo.pastPrescriptions.join(', ') || 'None'}` : ''}
+${!isNew && prevInfo ? `Previous Visit Record:
+- Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (PRIMARY GROUND TRUTH: YOU MUST INQUIRE STRICTLY ABOUT THIS SPECIFIC COMPLAINT)
+- Prior Visit Date: ${prevInfo.lastVisitDate}
+- Prior Prescriptions: ${prevInfo.pastPrescriptions?.join(', ') || 'None'}
+- Administrative Clinic: ${prevInfo.lastDepartment} (NEVER assume symptoms from clinic name; ONLY focus on "${prevInfo.lastComplaint}")` : ''}
 Current Chief Complaint / Symptoms: "${state.chiefComplaint || ''}"
 Patient Just Answered / Stated: "${state.latestAnswer || ''}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
@@ -2232,20 +2315,26 @@ CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
    - Turn 1 (Onset & Specific Pathology): Explore when and how the chief complaint began (sudden vs gradual, duration) and specific pathology (severity 1-10, character, triggers, radiation, relieving factors).
    - Turn 2 (Daily Routine & Lifestyle): If not yet answered in transcript or state, ask about daily routine, sleep hours/quality, diet, physical activity, and stress factors.
    - Turn 3 (Past Medical History, Medications & Allergies): If not yet answered in transcript or state, ask about chronic conditions (BP, Sugar, Thyroid), prior surgeries, regular medications, or known drug allergies.
-   - Turn 4 (Closing Verification): When chief complaint, lifestyle baseline, and medical background are addressed, set "isComplete": true with a final closing verification question.
+   - Turn 4+ (Closing Verification): When chief complaint, onset, pathology, lifestyle, and medical background are addressed in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
 
 2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Goal: Previous Disease Follow-Up -> Progression & Residual Symptoms -> Previous Medications & Treatment Response -> Closing Verification.
-   - DO NOT START FROM ZERO. Patient records, past medications, past vitals, and previous visit complaints are ALREADY known.
-   - Turn 0 (Previous Disease Follow-Up Opening): ALWAYS acknowledge their previous consultation/disease (referencing previous diagnosis or past medications from context) and ask how that specific condition has progressed since the last visit (improved, worsened, unchanged, or if a new problem appeared).
-   - Turn 1 (Progression & Residual Symptoms):
-     * If Worsened: Ask current severity (1-10), change in frequency, radiating pain, and response to previous treatment.
-     * If Partial Relief: Inquire specifically about what residual symptoms remain and during what daily activities/times.
-     * If NEW COMPLAINT: Immediately branch to investigate the onset, duration, and severity of the new complaint.
-   - Turn 2 (Previous Medications & Treatment Follow-Up):
-     * Inquire about compliance with previously prescribed medications, whether they experienced any side-effects, and if they need a prescription refill.
-   - Turn 3 (Closing Verification):
-     * Set "isComplete": true with closing verification when previous disease progression, current complaint, and treatment response are clearly evaluated.
+   - CRITICAL REQUIREMENT — EXACT COMPLAINT ANCHOR (COMPLAINT OVERRIDES DEPARTMENT):
+     * Base your clinical inquiry 100% on the patient's actual reported symptom/complaint ("${prevInfo?.lastComplaint || 'the previous condition'}"), NEVER infer or assume symptoms from the clinic/department name!
+     * Example: If the patient's previous visit record lists Department: "Dermatology" (or General Medicine) but their actual chief complaint was "Back pain", your follow-up MUST BE STRICTLY ABOUT THE BACK PAIN (bending, spine stiffness, radiating pain, response to pain meds), and you MUST NEVER ask about skin or rashes!
+     * The previous chief complaint "${prevInfo?.lastComplaint || 'the previous condition'}" is the sole clinical anchor for all follow-up questions.
+   - Specific Disease Anchor Examples:
+     * If previous visit complaint was Back pain (even in Dermatology) -> Follow-up on lumbar stiffness, bending, radiating leg pain, and posture.
+     * If previous visit complaint was Hypertension / Headache -> Follow-up on Blood Pressure readings, morning headaches, dizziness, and Tab Amlodipine 5mg adherence.
+     * If previous visit complaint was Diabetes -> Follow-up on blood sugar levels, polyuria/thirst, foot numbness, diet adherence, and Metformin.
+     * If previous visit complaint was Asthma / Wheezing -> Follow-up on inhaler usage, shortness of breath, nocturnal wheezing attacks, and cold/dust triggers.
+     * If previous visit complaint was Osteoarthritis / Knee Pain -> Follow-up on walking distance, joint stiffness, swelling, and response to pain medications.
+     * If previous visit complaint was Urological / Genitourinary -> Follow-up on urinary stream, physical development concerns, testicular ache, and prescribed supplements.
+     * If previous visit complaint was Skin Rash / Eczema -> Follow-up on itching severity, spreading of rashes, and topical ointment application.
+   - Stage Sequence for Returning Patients:
+     * Turn 0: Greet the patient back, specifically name their actual prior complaint ("${prevInfo?.lastComplaint || 'your prior condition'}"), and ask how that specific complaint has progressed (improved, worsened, unchanged, or if a new problem appeared).
+     * Turn 1: Inquire about specific clinical markers, residual symptoms, or exacerbation of that EXACT previous complaint.
+     * Turn 2: Inquire about adherence to the EXACT previously prescribed medications ("${prevInfo?.pastPrescriptions?.join(', ') || 'prescribed medicines'}"), side-effects, and refill requirements.
+     * Turn 3+ (Closing Verification): When disease progression, residual concerns, and medications are evaluated in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
 
 3. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.

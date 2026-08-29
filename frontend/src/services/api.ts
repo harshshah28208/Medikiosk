@@ -173,10 +173,24 @@ export const api = {
   },
 
   conversation: {
-    start: (visitId: string, language: string = 'EN', isAyush = false, respondentType = 'PATIENT') =>
+    start: (
+      visitId: string,
+      language: string = 'EN',
+      isAyush = false,
+      respondentType = 'PATIENT',
+      options?: { isReturningPatient?: boolean; recentChanges?: string; previousPatientInfo?: any }
+    ) =>
       request('/conversation/start', {
         method: 'POST',
-        body: JSON.stringify({ visitId, language, isAyush, respondentType }),
+        body: JSON.stringify({
+          visitId,
+          language,
+          isAyush,
+          respondentType,
+          isReturningPatient: options?.isReturningPatient,
+          recentChanges: options?.recentChanges,
+          previousPatientInfo: options?.previousPatientInfo,
+        }),
       }),
     sendMessage: (sessionId: string, data: { content: string; inputMethod?: string; language?: string; rawTranscript?: string; isAyush?: boolean }) =>
       request(`/conversation/${sessionId}/message`, {

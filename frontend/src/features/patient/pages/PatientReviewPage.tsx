@@ -90,6 +90,9 @@ export function PatientReviewPage() {
   const handleSubmitConfirmation = async () => {
     if (!isConfirmed) return;
     setIsSubmitted(true);
+    // Cleanup temporary kiosk session data to ensure privacy for the next patient
+    localStorage.removeItem('medikiosk_recent_changes');
+    localStorage.removeItem('medikiosk_temp_raw_transcript');
     setTimeout(() => {
       navigate('/kiosk/portal');
     }, 800);

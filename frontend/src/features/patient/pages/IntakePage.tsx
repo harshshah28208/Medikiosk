@@ -54,12 +54,24 @@ export function IntakePage() {
       setIsProcessing(true);
       try {
         const storedVisit = localStorage.getItem('medikiosk_active_visit');
+        const storedPatient = localStorage.getItem('medikiosk_active_patient');
+        const recentChanges = localStorage.getItem('medikiosk_recent_changes') || undefined;
         const parsedVisit = storedVisit ? JSON.parse(storedVisit) : null;
+        const parsedPatient = storedPatient ? JSON.parse(storedPatient) : null;
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
         const currentLang = activeLangRef.current;
         const respondentType = localStorage.getItem('medikiosk_respondent_type') || 'PATIENT';
-        const res = await api.conversation.start(vId, currentLang.toUpperCase(), false, respondentType);
+        const isReturning = Boolean(
+          recentChanges ||
+          (parsedPatient && (parsedPatient.visits?.length > 0 || parsedPatient.mrn))
+        );
+
+        const res = await api.conversation.start(vId, currentLang.toUpperCase(), false, respondentType, {
+          isReturningPatient: isReturning,
+          recentChanges,
+          previousPatientInfo: parsedPatient,
+        });
 
         if (isMounted && res?.session) {
           setSession(res.session);
@@ -138,11 +150,11 @@ export function IntakePage() {
 
         if (res.isComplete) {
           setIsComplete(true);
-          // If the patient explicitly chosen completion option (No, covers all symptoms), proceed immediately to next step
-          if (/covers all symptoms|complete intake|सब लक्षण बता दिए|ઇન્ટેક પૂર્ણ|તમામ લક્ષણો જણાવી દીધા|no, that covers/i.test(textToSend)) {
+          // If the patient explicitly chosen completion option (Proceed with Appointment / Complete intake), proceed immediately
+          if (/proceed|appointment|consultation|covers all symptoms|complete intake|सब लक्षण बता दिए|परामर्श के लिए आगे बढ़ें|ઇન્ટેક પૂર્ણ|તમામ લક્ષણો જણાવી દીધા|પરામર્શ માટે આગળ વધો|no, that covers|yes, proceed/i.test(textToSend)) {
             setTimeout(() => {
               handleCompleteIntake();
-            }, 800);
+            }, 600);
             return;
           }
         }

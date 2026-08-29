@@ -53,7 +53,15 @@ router.get('/tts', async (req: AuthRequest, res: Response): Promise<void> => {
  * Initialize a new AI conversation session for a visit.
  */
 router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visitId, language = 'EN', isAyush = false, respondentType = 'PATIENT' } = req.body;
+  const {
+    visitId,
+    language = 'EN',
+    isAyush = false,
+    respondentType = 'PATIENT',
+    isReturningPatient,
+    recentChanges,
+    previousPatientInfo,
+  } = req.body;
 
   if (!visitId) {
     res.status(400).json({ error: 'visitId is required' });
@@ -74,7 +82,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const respType = (respondentType as 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED') || 'PATIENT';
   const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
 
-  // Check if patient is returning (has any prior visit records in the hospital)
+  // Check if patient is returning (has prior visit records or flagged as returning)
   const priorVisits = await prisma.visit.findMany({
     where: {
       patientId: visit.patientId,
@@ -84,31 +92,80 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     take: 1,
     include: {
       summary: true,
+      clinicalHistory: true,
+      consultation: true,
+      sessions: {
+        orderBy: { startedAt: 'desc' },
+        take: 1,
+      },
       prescriptions: { include: { items: true } },
       department: true,
       doctor: { include: { user: true } },
     },
   });
 
-  const isExistingPatient = priorVisits.length > 0;
+  const isExistingPatient = Boolean(isReturningPatient || priorVisits.length > 0 || previousPatientInfo?.visits?.length > 0 || recentChanges);
   const isNewPatient = !isExistingPatient;
 
-  let previousVisitInfo = undefined;
-  if (isExistingPatient && priorVisits[0]) {
+  let previousVisitInfo: any = undefined;
+  if (priorVisits.length > 0 && priorVisits[0]) {
     const pv = priorVisits[0];
     const prevDocName = pv.doctor?.user?.name ? `Dr. ${pv.doctor.user.name}` : undefined;
+
+    // Search all clinical layers for the true clinical complaint
+    let extractedComplaint = pv.clinicalHistory?.chiefComplaint || pv.consultation?.diagnosis;
+    if (!extractedComplaint && pv.sessions?.[0]?.clinicalState) {
+      try {
+        const parsedState = JSON.parse(pv.sessions[0].clinicalState);
+        extractedComplaint = parsedState.chiefComplaint || parsedState.symptoms?.[0]?.name;
+      } catch (e) {}
+    }
+    if (!extractedComplaint && pv.summary?.summaryJson) {
+      try {
+        const parsedSum = JSON.parse(pv.summary.summaryJson);
+        extractedComplaint = parsedSum.chiefComplaint || parsedSum.overview;
+      } catch (e) {}
+    }
+    if (!extractedComplaint || /follow-?up|consultation|routine|checkup|general/i.test(extractedComplaint)) {
+      if (pv.reasonForVisit && !/follow-?up|consultation|routine/i.test(pv.reasonForVisit)) {
+        extractedComplaint = pv.reasonForVisit;
+      } else if (pv.clinicalHistory?.hpiNarrative) {
+        extractedComplaint = pv.clinicalHistory.hpiNarrative;
+      } else if (pv.consultation?.impression || pv.consultation?.clinicalNotes) {
+        extractedComplaint = pv.consultation.impression || pv.consultation.clinicalNotes;
+      } else {
+        extractedComplaint = 'Previous health complaint';
+      }
+    }
+
     previousVisitInfo = {
       lastVisitDate: pv.createdAt.toLocaleDateString(),
-      lastComplaint: pv.reasonForVisit || (pv.summary?.summaryJson ? JSON.parse(pv.summary.summaryJson)?.chiefComplaint : null) || 'Prior Consultation',
+      lastComplaint: extractedComplaint,
       lastDepartment: pv.department?.name || 'General OPD',
-      lastDoctor: prevDocName,
+      lastDoctor: prevDocName || 'Dr. Vikram',
       pastPrescriptions: pv.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || [],
+    };
+  } else if (isExistingPatient) {
+    const lastV = previousPatientInfo?.visits?.[0];
+    let extractedComplaint = lastV?.clinicalHistory?.chiefComplaint || lastV?.reasonForVisit;
+    if (!extractedComplaint || /follow-?up|consultation/i.test(extractedComplaint)) {
+      extractedComplaint = previousPatientInfo?.medicalHistory || 'Previous health complaint';
+    }
+    previousVisitInfo = {
+      lastVisitDate: lastV?.createdAt ? new Date(lastV.createdAt).toLocaleDateString() : 'Recent Visit',
+      lastComplaint: extractedComplaint,
+      lastDepartment: lastV?.department?.name || 'General OPD',
+      lastDoctor: 'Dr. Vikram',
+      pastPrescriptions: lastV?.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || ['Multivitamin & Zinc supplement daily'],
     };
   }
 
   const initialState = createInitialClinicalState(initialLang, respType);
   initialState.isNewPatient = isNewPatient;
   initialState.previousVisitInfo = previousVisitInfo;
+  if (recentChanges) {
+    initialState.latestAnswer = `Reported change since last visit: ${recentChanges}`;
+  }
 
   // Fetch prior visit's conversation messages and consultation history for complete clinical memory
   let priorVisitChatHistory: Array<{ role: string; content: string }> = [];
@@ -138,8 +195,9 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     console.warn('Prior chat history fetch notice:', e);
   }
 
-  // Generate dynamic opening question entirely from AI using stored prior history
-  const initialAIOutput = await aiProvider.generateNextQuestion(initialState, initialLang, isAyush, priorVisitChatHistory);
+  // Generate dynamic opening question entirely from live Groq AI using stored prior history
+  const activeAi = getAIProvider();
+  const initialAIOutput = await activeAi.generateNextQuestion(initialState, initialLang, isAyush, priorVisitChatHistory);
   initialState.questionsAsked = [initialAIOutput.question];
 
   const session = await prisma.conversationSession.create({
@@ -294,8 +352,9 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     },
   });
 
-  // 2. Fact Extraction via General Clinical Engine
-  const extractedFacts = await aiProvider.extractFacts(content, state, currentLang);
+  // 2. Fact Extraction via Live Autonomous Clinical AI
+  const activeAi = getAIProvider();
+  const extractedFacts = await activeAi.extractFacts(content, state, currentLang);
 
   // Check if patient selected completion option or completed intake
   const isFinalAnswer =
@@ -399,7 +458,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   }
 
   const combinedHistory = [...priorVisitChatHistory, ...pastMessages];
-  const nextQ = await aiProvider.generateNextQuestion(state, currentLang, isAyush, combinedHistory);
+  const nextQ = await activeAi.generateNextQuestion(state, currentLang, isAyush, combinedHistory);
   state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
 
   // 6. Save Updated State back to DB
