@@ -112,6 +112,19 @@ export function IntakePage() {
     speechProvider.stopListening();
     setIsListening(false);
 
+    // Immediate navigation if user chooses to proceed with appointment
+    if (/proceed|appointment|consultation|complete intake|अपॉइंटमेंट के लिए आगे बढ़ें|મુલાકાત માટે આગળ વધો|ok go to appointment|go to appointment/i.test(textToSend.trim())) {
+      const userMsg: ChatMessage = {
+        id: `patient-${Date.now()}`,
+        role: 'PATIENT',
+        content: textToSend.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      handleCompleteIntake();
+      return;
+    }
+
     const userMsg: ChatMessage = {
       id: `patient-${Date.now()}`,
       role: 'PATIENT',

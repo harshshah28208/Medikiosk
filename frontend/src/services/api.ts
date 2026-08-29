@@ -3,7 +3,6 @@ const rawApiBase =
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
     ? `${window.location.origin}/api`
     : 'http://localhost:5000/api');
-// Clean up any accidental double slashes or trailing slashes
 const API_BASE = rawApiBase.trim().replace(/\/+$/, '');
 
 export function getToken(): string | null {
@@ -18,13 +17,16 @@ export function setAuthSession(token: string, user: any) {
 export function clearAuthSession() {
   localStorage.removeItem('medikiosk_token');
   localStorage.removeItem('medikiosk_user');
+  localStorage.removeItem('medikiosk_active_patient');
+  localStorage.removeItem('medikiosk_active_visit');
+  localStorage.removeItem('medikiosk_active_queue');
+  localStorage.removeItem('medikiosk_active_doctor');
 }
 
 export function getCurrentUser(): any | null {
-  const userStr = localStorage.getItem('medikiosk_user');
-  if (!userStr) return null;
+  const raw = localStorage.getItem('medikiosk_user');
   try {
-    return JSON.parse(userStr);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
@@ -271,30 +273,43 @@ export const api = {
       }).catch(() => {
         const text = (data.content || '').toLowerCase();
         const langLower = (data.language || 'en').toLowerCase();
-        const isClosing = /covers all symptoms|proceed|complete intake|no further|14 years old|taking them daily|आगे बढ़ें|આગળ વધો|done|ਠੀਕ/i.test(text);
 
-        let aiMessageContent = 'Thank you. Could you share how long you have had this, and if you take any daily medications?';
-        let touchOptions = ['Started today', '1-3 days ago', 'More than a week ago', 'No medications taken'];
+        const isClosing = /covers all symptoms|proceed|complete intake|no further|taking them daily|आगे बढ़ें|આગળ વધો|done|bp|diabetes|sugar|chronic|medication|allergy|एलर्जी|દવા|બીપી|સુગર|no medications/i.test(text);
+        const isLifestyleAnswer = /sleep|diet|stress|active|routine|hours|नींद|ઊંઘ|તણાવ|તંદુરસ્ત|ભોજન|आहार|sedentary/i.test(text);
+
+        let aiMessageContent = 'To assess your health background, how is your daily routine—including your sleep hours, physical activity, diet, and work stress?';
+        let touchOptions = ['6-8 hrs good sleep, balanced diet', 'Poor sleep (<5 hrs), high stress', 'Sedentary routine, irregular meals', 'Physically active, normal routine'];
 
         if (langLower === 'hi') {
           if (isClosing) {
-            aiMessageContent = 'धन्यवाद। आपके मुख्य लक्षणों की जानकारी दर्ज हो चुकी है। क्या आप अब डॉक्टर से परामर्श के लिए आगे बढ़ना चाहते हैं?';
+            aiMessageContent = 'धन्यवाद। आपके स्वास्थ्य लक्षण और जीवनशैली का विवरण पूर्ण हो चुका है। क्या आप अब डॉक्टर से परामर्श के लिए आगे बढ़ना चाहते हैं?';
             touchOptions = ['अपॉइंटमेंट के लिए आगे बढ़ें', 'एक और जानकारी जोड़ें'];
+          } else if (isLifestyleAnswer) {
+            aiMessageContent = 'क्या आप रोज़ाना कोई दवा लेते हैं, या कोई पुरानी बीमारी (बीपी, शुगर, थायरॉयड) अथवा दवा से एलर्जी है?';
+            touchOptions = ['कोई पुरानी बीमारी नहीं / कोई दवा नहीं', 'हाई ब्लड प्रेशर (बीपी)', 'डायबिटीज / शुगर', 'दवा से एलर्जी है'];
           } else {
-            aiMessageContent = 'धन्यवाद। कृपया बताएं कि यह समस्या कितने समय से है, और क्या आप रोज़ाना कोई दवा ले रहे हैं?';
-            touchOptions = ['आज ही शुरू हुआ', '1-3 दिन से', 'एक हफ्ते से अधिक समय से', 'कोई दवा नहीं लेते'];
+            aiMessageContent = 'आपके स्वास्थ्य को बेहतर समझने के लिए, आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक गतिविधि, खान-पान और तनाव का स्तर?';
+            touchOptions = ['6-8 घंटे अच्छी नींद, संतुलित आहार', 'कम नींद (<5 घंटे), अधिक तनाव', 'बैठे रहने की दिनचर्या, अनियमित भोजन', 'शारीरिक रूप से सक्रिय, सामान्य दिनचर्या'];
           }
         } else if (langLower === 'gu') {
           if (isClosing) {
-            aiMessageContent = 'આભાર. તમારા મુખ્ય લક્ષણોની વિગતો પૂર્ણ થઈ ગઈ છે. શું તમે હવે ડૉક્ટરની મુલાકાત માટે આગળ વધવા માંગો છો?';
+            aiMessageContent = 'આભાર. તમારા લક્ષણો અને દિનચર્યા/જીવનશૈલીની માહિતી નોંધાઈ ગઈ છે. શું તમે હવે ડૉક્ટરની મુલાકાત માટે આગળ વધવા માંગો છો?';
             touchOptions = ['મુલાકાત માટે આગળ વધો', 'વધુ એક વિગત ઉમેરો'];
+          } else if (isLifestyleAnswer) {
+            aiMessageContent = 'શું તમે નિયમિત કોઈ દવા લો છો, અથવા કોઈ જૂની બીમારી (બીપી, સુગર, થાઈરોઈડ) કે દવાની એલર્જી છે?';
+            touchOptions = ['કોઈ જૂની બીમારી નથી / કોઈ દવા નથી', 'હાઈ બ્લડ પ્રેશર (બીપી)', 'ડાયાબિટીસ / સુગર', 'દવાની એલર્જી છે'];
           } else {
-            aiMessageContent = 'આભાર. કૃપા કરીને જણાવો કે આ તકલીફ કેટલા સમયથી છે, અને શું તમે નિયમિત કોઈ દવા લો છો?';
-            touchOptions = ['આજે જ શરૂ થયું', '૧-૩ દિવસથી', 'એક અઠવાડિયાથી વધુ સમયથી', 'કોઈ દવા લેતા નથી'];
+            aiMessageContent = 'તમારા સ્વાસ્થ્યને યોગ્ય રીતે સમજવા માટે, તમારી દિનચર્યા કેવી છે—જેમ કે ઊંઘના કલાકો, શારીરિક પ્રવૃત્તિ, આહાર અને તણાવનું પ્રમાણ?';
+            touchOptions = ['૬-૮ કલાક સારી ઊંઘ, સંતુલિત આહાર', 'ઓછી ઊંઘ (<૫ કલાક), વધુ તણાવ', 'બેઠાડુ જીવન, અનિયમિત ભોજન', 'શારીરિક રીતે સક્રિય, સામાન્ય દિનચર્યા'];
           }
-        } else if (isClosing) {
-          aiMessageContent = 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?';
-          touchOptions = ['Proceed with Appointment', 'Add One More Detail'];
+        } else {
+          if (isClosing) {
+            aiMessageContent = 'Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?';
+            touchOptions = ['Proceed with Appointment', 'Add One More Detail'];
+          } else if (isLifestyleAnswer) {
+            aiMessageContent = 'Do you take any regular daily medications, or have any chronic conditions (BP, Diabetes, Thyroid) or drug allergies?';
+            touchOptions = ['No chronic conditions / No daily meds', 'High Blood Pressure (BP)', 'Diabetes / High Blood Sugar', 'Regular medications present'];
+          }
         }
 
         return {
