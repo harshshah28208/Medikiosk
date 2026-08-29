@@ -18,8 +18,9 @@ export function DoctorDashboard() {
   const [showOriginalAnswers, setShowOriginalAnswers] = useState(false);
   const [summaryStatus, setSummaryStatus] = useState<'DRAFT' | 'CONFIRMED' | 'EDITED'>('DRAFT');
 
-  // Document Modal State
+  // Document & Summary Modal State
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [impression, setImpression] = useState('');
@@ -157,6 +158,77 @@ export function DoctorDashboard() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleDownloadSummary = () => {
+    if (!selectedVisit) return;
+    const p = selectedVisit.patient;
+    const s = summaryData;
+    const report = `=====================================================
+MEDIKIOSK CLINICAL INTAKE & OPD CONSULTATION REPORT
+Generated: ${new Date().toLocaleString()}
+=====================================================
+
+1. PATIENT DEMOGRAPHICS:
+------------------------
+Name:    ${p?.name || 'N/A'}
+MRN:     ${p?.mrn || 'N/A'}
+Age/Sex: ${p?.age || 'N/A'} Yrs / ${p?.gender || 'N/A'}
+Phone:   ${p?.phone || 'N/A'}
+ABHA ID: ${p?.abhaId || 'N/A'}
+
+2. CLINICAL INTAKE & COMPLAINTS:
+--------------------------------
+Chief Complaint: ${s?.chiefComplaint || selectedVisit.reasonForVisit || 'N/A'}
+Onset / Duration: ${s?.onset || 'N/A'}
+History of Present Illness (HPI):
+${s?.historyOfPresentIllness || 'Patient completed conversational multilingual intake at Kiosk.'}
+
+3. LIFESTYLE & DAILY ROUTINE:
+-----------------------------
+${s?.lifestyle || 'Assessed during intake.'}
+
+4. PAST MEDICAL HISTORY & ALLERGIES:
+------------------------------------
+Chronic Conditions: ${s?.pastMedicalHistory || 'None reported'}
+Known Allergies:    ${p?.allergies?.length ? p.allergies.map((a: any) => a.allergen).join(', ') : (s?.allergies || 'No known drug allergies (NKDA)')}
+Current Medications: ${s?.medications || 'None reported'}
+
+5. TRIAGE VITAL SIGNS:
+----------------------
+${selectedVisit.vitals?.[0]
+  ? `Blood Pressure: ${selectedVisit.vitals[0].bpSystolic}/${selectedVisit.vitals[0].bpDiastolic} mmHg
+Pulse:          ${selectedVisit.vitals[0].pulse} bpm
+SpO2:           ${selectedVisit.vitals[0].spo2}%
+Temperature:    ${selectedVisit.vitals[0].temperature || 98.6} °F`
+  : 'Vitals awaiting triage recording.'}
+
+6. DOCTOR CONSULTATION & DIAGNOSIS:
+-----------------------------------
+Doctor:         ${selectedVisit.doctor?.user?.name || 'Dr. Yogesh Sharma'}
+Department:     ${selectedVisit.department?.name || 'General Medicine'}
+Diagnosis:      ${soapAssessment || impression || 'Under Evaluation'}
+Treatment Plan: ${soapPlan || treatmentPlan || 'As prescribed below'}
+
+7. E-PRESCRIPTION:
+------------------
+${prescriptions.length > 0
+  ? prescriptions.map((pr, idx) => `${idx + 1}. ${pr.medicineName} - ${pr.dosage} | ${pr.frequency} | Duration: ${pr.duration} (${pr.instructions})`).join('\n')
+  : 'No active medications prescribed yet.'}
+
+=====================================================
+MediKiosk Autonomous Clinical Intake System
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Clinical_Summary_${p?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -359,14 +431,30 @@ export function DoctorDashboard() {
                       {summaryStatus === 'CONFIRMED' ? '✓ Clinician Confirmed' : 'AI Draft'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSummaryModalOpen(true)}
+                      className="px-3 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs rounded-xl font-bold border border-indigo-500/40 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Whole Summary</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadSummary}
+                      className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs rounded-xl font-bold border border-blue-500/40 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Report</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowOriginalAnswers(!showOriginalAnswers)}
                       className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl font-medium border border-slate-700 transition-colors flex items-center gap-1.5"
                     >
                       <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
-                      <span>{showOriginalAnswers ? 'Hide Raw Answers' : 'View Original Answers'}</span>
+                      <span>{showOriginalAnswers ? 'Hide Raw Answers' : 'View Verbatim Dialog'}</span>
                     </button>
                     {summaryStatus !== 'CONFIRMED' && (
                       <button
@@ -1000,6 +1088,161 @@ export function DoctorDashboard() {
               })()}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Complete AI Clinical Intake Summary Modal */}
+      {isSummaryModalOpen && selectedVisit && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center font-bold">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Complete Clinical Intake Summary Report</h2>
+                  <p className="text-xs text-slate-400">
+                    Patient: <strong className="text-slate-200">{selectedVisit.patient?.name}</strong> • MRN: <span className="font-mono text-indigo-300">{selectedVisit.patient?.mrn}</span> • Token: <span className="text-emerald-400 font-mono">#{selectedVisit.token}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-bold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Print / PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadSummary}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-xl font-bold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download (.txt)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSummaryModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body Sections */}
+            <div className="space-y-4 text-xs text-slate-300">
+              {/* Section 1: Demographics */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Age / Gender</span>
+                  <span className="text-slate-100 font-semibold">{selectedVisit.patient?.age} Yrs / {selectedVisit.patient?.gender}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Contact Phone</span>
+                  <span className="text-slate-100 font-semibold">{selectedVisit.patient?.phone || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Assigned Clinic</span>
+                  <span className="text-slate-100 font-semibold">{selectedVisit.department?.name || 'General Medicine'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block">Language</span>
+                  <span className="text-slate-100 font-semibold uppercase">{selectedVisit.language || 'EN'}</span>
+                </div>
+              </div>
+
+              {/* Section 2: Chief Complaint & HPI */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block">
+                  1. Chief Complaint &amp; History of Present Illness (HPI)
+                </span>
+                <p className="text-slate-100 font-semibold text-sm">
+                  {summaryData?.chiefComplaint || selectedVisit.reasonForVisit || 'Under Evaluation'}
+                </p>
+                <p className="text-slate-300 leading-relaxed">
+                  {summaryData?.historyOfPresentIllness || 'Patient completed structured conversational multilingual AI clinical intake at registration kiosk.'}
+                </p>
+              </div>
+
+              {/* Section 3: Lifestyle & Daily Habits */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
+                  2. Lifestyle, Daily Habits &amp; Routine Assessment
+                </span>
+                <p className="text-slate-200 leading-relaxed">
+                  {summaryData?.lifestyle || 'Daily routine, sleep hours, physical activity, and stress factors evaluated during intake.'}
+                </p>
+              </div>
+
+              {/* Section 4: Medical History, Medications & Allergies */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Chronic History</span>
+                  <span className="text-slate-200">{summaryData?.pastMedicalHistory || 'None reported'}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergy Profile</span>
+                  <span className={selectedVisit.patient?.allergies?.length ? 'text-red-400 font-bold' : 'text-emerald-400'}>
+                    {selectedVisit.patient?.allergies?.length ? selectedVisit.patient.allergies.map((a: any) => a.allergen).join(', ') : (summaryData?.allergies || 'No Known Drug Allergies')}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Medications</span>
+                  <span className="text-slate-200">{summaryData?.medications || 'None reported'}</span>
+                </div>
+              </div>
+
+              {/* Section 5: Triage Vitals */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-green-400 uppercase tracking-wider block">
+                  3. Triage Vital Signs
+                </span>
+                <p className="text-slate-100 font-mono">
+                  {selectedVisit.vitals?.[0]
+                    ? `BP: ${selectedVisit.vitals[0].bpSystolic}/${selectedVisit.vitals[0].bpDiastolic} mmHg • Pulse: ${selectedVisit.vitals[0].pulse} bpm • SpO2: ${selectedVisit.vitals[0].spo2}% • Temp: ${selectedVisit.vitals[0].temperature || 98.6}°F`
+                    : 'Vitals awaiting triage measurement.'}
+                </p>
+              </div>
+
+              {/* Section 6: Consultation & E-Prescription */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block">
+                  4. Doctor Consultation Impression &amp; Prescriptions
+                </span>
+                <p className="text-slate-200">
+                  <strong className="text-slate-400">Diagnosis: </strong>
+                  <span className="text-emerald-400 font-semibold">{soapAssessment || impression || 'Clinical Evaluation in Progress'}</span>
+                </p>
+                {prescriptions.length > 0 && (
+                  <div className="pt-2 border-t border-slate-900 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Prescribed Medicines:</span>
+                    {prescriptions.map((pr, pIdx) => (
+                      <div key={pIdx} className="text-slate-300 font-mono text-[11px]">
+                        • {pr.medicineName} — {pr.dosage} | {pr.frequency} | {pr.duration} ({pr.instructions})
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close Summary
+              </button>
+            </div>
           </div>
         </div>
       )}

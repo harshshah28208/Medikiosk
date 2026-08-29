@@ -75,6 +75,51 @@ export function PatientReviewPage() {
     window.print();
   };
 
+  const handleDownload = () => {
+    const p = activePatient;
+    const s = summaryReport;
+    const v = activeVisit;
+    const text = `=====================================================
+MEDIKIOSK PATIENT CLINICAL INTAKE SUMMARY
+=====================================================
+Date: ${new Date().toLocaleString()}
+Token: #${v?.token || 'N/A'} | Department: ${v?.department?.name || 'General OPD'}
+
+PATIENT DETAILS:
+Name:    ${p?.name || 'N/A'}
+MRN:     ${p?.mrn || 'N/A'}
+Age/Sex: ${p?.age || '--'} Yrs / ${p?.gender || '--'}
+Phone:   ${p?.phone || 'N/A'}
+
+CHIEF COMPLAINT:
+${s?.chiefComplaint || v?.reasonForVisit || 'Under Evaluation'}
+
+HISTORY OF PRESENT ILLNESS:
+${s?.historyOfPresentIllness || 'Completed multilingual AI conversational intake.'}
+
+LIFESTYLE & ROUTINE:
+${s?.lifestyle || 'Assessed during intake.'}
+
+PAST MEDICAL HISTORY & ALLERGIES:
+Chronic Conditions: ${s?.pastMedicalHistory || 'None reported'}
+Allergies: ${s?.allergies || 'No Known Drug Allergies'}
+Daily Medications: ${s?.medications || 'None reported'}
+
+=====================================================
+MediKiosk Autonomous Healthcare System
+=====================================================`;
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MediKiosk_Intake_Summary_${p?.mrn || 'Patient'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleSaveEdits = () => {
     setSummaryReport((prev: any) => ({
       ...prev,
@@ -121,15 +166,23 @@ export function PatientReviewPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold transition-all touch-target"
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold transition-all touch-target cursor-pointer"
             >
               <Edit3 className="w-4 h-4" />
               <span>{language === 'hi' ? 'सुधारें' : language === 'gu' ? 'સુધારો' : 'Edit Details'}</span>
             </button>
 
             <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold transition-all touch-target cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>{language === 'hi' ? 'डाउनलोड' : language === 'gu' ? 'ડાઉનલોડ' : 'Download'}</span>
+            </button>
+
+            <button
               onClick={handlePrint}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all touch-target"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all touch-target cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               <span>Print</span>
