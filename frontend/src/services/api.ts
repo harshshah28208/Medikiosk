@@ -79,6 +79,7 @@ async function request<T = any>(
 }
 
 import { DEMO_USERS, DEMO_QUEUE, DEMO_DOCTORS } from './demoFallbackData';
+import { callGroqDynamicIntake } from './groqClient';
 
 export const api = {
   health: () => request('/health').catch(() => ({ status: 'OK', environment: 'standalone-demo' })),
@@ -229,96 +230,144 @@ export const api = {
           recentChanges: options?.recentChanges,
           previousPatientInfo: options?.previousPatientInfo,
         }),
-      }).catch(() => {
+      }).catch(async () => {
+        const langUpper = (language || 'EN').toUpperCase() as 'EN' | 'HI' | 'GU';
         const isRet = Boolean(options?.isReturningPatient && !options?.previousPatientInfo?.isNewPatient);
-        const patientName = options?.previousPatientInfo?.name ? ` ${options.previousPatientInfo.name}` : '';
-        const langLower = (language || 'en').toLowerCase();
-
-        let content = `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`;
-        let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
-
-        if (langLower === 'hi') {
-          content = isRet
-            ? `मेडीकियोस्क में आपका स्वागत है${patientName}। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है? क्या वे सुधरे हैं, बिगड़े हैं या वैसे ही हैं?`
-            : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
-          touchOptions = isRet
-            ? ['लक्षणों में सुधार हुआ है', 'लक्षण और बिगड़ गए हैं', 'कोई बदलाव नहीं हुआ', 'नई समस्या शुरू हुई है']
-            : ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
-        } else if (langLower === 'gu') {
-          content = isRet
-            ? `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે? સુધારો થયો છે, વધ્યા છે કે એવા જ છે?`
-            : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`;
-          touchOptions = isRet
-            ? ['લક્ષણોમાં સુધારો થયો છે', 'લક્ષણો વધ્યા છે', 'કોઈ ફેરફાર નથી', 'નવી તકલીફ શરૂ થઈ છે']
-            : ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
-        } else if (isRet) {
-          content = `Welcome back${patientName}. Since your last visit, how have your symptoms been? Have they improved, worsened, or stayed the same?`;
-          touchOptions = ['My symptoms have improved', 'My symptoms have worsened', 'There is no change', 'I have a new problem'];
-        }
-
-        return {
-          session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
-          message: {
-            id: 'msg-start',
-            role: 'AI',
-            content,
-          },
-          touchOptions,
+        const state = {
+          isReturning: isRet,
+          previousVisitInfo: isRet ? {
+            lastComplaint: options?.previousPatientInfo?.medicalHistory || 'Hypertension / Follow-up',
+            lastDepartment: 'General Medicine',
+          } : undefined,
+          turnsCompleted: 0,
         };
+
+        try {
+          const groqRes = await callGroqDynamicIntake(state, langUpper, []);
+          return {
+            session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
+            message: {
+              id: 'msg-start',
+              role: 'AI',
+              content: groqRes.question,
+            },
+            touchOptions: groqRes.touchOptions,
+            nextQuestion: groqRes.question,
+          };
+        } catch {
+          const patientName = options?.previousPatientInfo?.name ? ` ${options.previousPatientInfo.name}` : '';
+          const langLower = (language || 'en').toLowerCase();
+
+          let content = `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`;
+          let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+
+          if (langLower === 'hi') {
+            content = isRet
+              ? `मेडीकियोस्क में आपका स्वागत है${patientName}। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है? क्या वे सुधरे हैं, बिगड़े हैं या वैसे ही हैं?`
+              : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
+            touchOptions = isRet
+              ? ['लक्षणों में सुधार हुआ है', 'लक्षण और बिगड़ गए हैं', 'कोई बदलाव नहीं हुआ', 'नई समस्या शुरू हुई है']
+              : ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
+          } else if (langLower === 'gu') {
+            content = isRet
+              ? `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે? સુધારો થયો છે, વધ્યા છે કે એવા જ છે?`
+              : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`;
+            touchOptions = isRet
+              ? ['લક્ષણોમાં સુધારો થયો છે', 'લક્ષણો વધ્યા છે', 'કોઈ ફેરફાર નથી', 'નવી તકલીફ શરૂ થઈ છે']
+              : ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
+          }
+
+          return {
+            session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
+            message: { id: 'msg-start', role: 'AI', content },
+            touchOptions,
+          };
+        }
       }),
+
     sendMessage: (sessionId: string, data: { content: string; inputMethod?: string; language?: string; rawTranscript?: string; isAyush?: boolean }) =>
       request(`/conversation/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
-      }).catch(() => {
-        const text = (data.content || '').toLowerCase();
-        const langLower = (data.language || 'en').toLowerCase();
+      }).catch(async () => {
+        const text = (data.content || '').trim();
+        const langUpper = ((data.language || 'EN').toUpperCase()) as 'EN' | 'HI' | 'GU';
 
-        const isClosing = /covers all symptoms|proceed|complete intake|no further|taking them daily|आगे बढ़ें|આગળ વધો|done|bp|diabetes|sugar|chronic|medication|allergy|एलर्जी|દવા|બીપી|સુગર|no medications/i.test(text);
-        const isLifestyleAnswer = /sleep|diet|stress|active|routine|hours|नींद|ઊંઘ|તણાવ|તંદુરસ્ત|ભોજન|आहार|sedentary/i.test(text);
-
-        let aiMessageContent = 'To assess your health background, how is your daily routine—including your sleep hours, physical activity, diet, and work stress?';
-        let touchOptions = ['6-8 hrs good sleep, balanced diet', 'Poor sleep (<5 hrs), high stress', 'Sedentary routine, irregular meals', 'Physically active, normal routine'];
-
-        if (langLower === 'hi') {
-          if (isClosing) {
-            aiMessageContent = 'धन्यवाद। आपके स्वास्थ्य लक्षण और जीवनशैली का विवरण पूर्ण हो चुका है। क्या आप अब डॉक्टर से परामर्श के लिए आगे बढ़ना चाहते हैं?';
-            touchOptions = ['अपॉइंटमेंट के लिए आगे बढ़ें', 'एक और जानकारी जोड़ें'];
-          } else if (isLifestyleAnswer) {
-            aiMessageContent = 'क्या आप रोज़ाना कोई दवा लेते हैं, या कोई पुरानी बीमारी (बीपी, शुगर, थायरॉयड) अथवा दवा से एलर्जी है?';
-            touchOptions = ['कोई पुरानी बीमारी नहीं / कोई दवा नहीं', 'हाई ब्लड प्रेशर (बीपी)', 'डायबिटीज / शुगर', 'दवा से एलर्जी है'];
-          } else {
-            aiMessageContent = 'आपके स्वास्थ्य को बेहतर समझने के लिए, आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक गतिविधि, खान-पान और तनाव का स्तर?';
-            touchOptions = ['6-8 घंटे अच्छी नींद, संतुलित आहार', 'कम नींद (<5 घंटे), अधिक तनाव', 'बैठे रहने की दिनचर्या, अनियमित भोजन', 'शारीरिक रूप से सक्रिय, सामान्य दिनचर्या'];
-          }
-        } else if (langLower === 'gu') {
-          if (isClosing) {
-            aiMessageContent = 'આભાર. તમારા લક્ષણો અને દિનચર્યા/જીવનશૈલીની માહિતી નોંધાઈ ગઈ છે. શું તમે હવે ડૉક્ટરની મુલાકાત માટે આગળ વધવા માંગો છો?';
-            touchOptions = ['મુલાકાત માટે આગળ વધો', 'વધુ એક વિગત ઉમેરો'];
-          } else if (isLifestyleAnswer) {
-            aiMessageContent = 'શું તમે નિયમિત કોઈ દવા લો છો, અથવા કોઈ જૂની બીમારી (બીપી, સુગર, થાઈરોઈડ) કે દવાની એલર્જી છે?';
-            touchOptions = ['કોઈ જૂની બીમારી નથી / કોઈ દવા નથી', 'હાઈ બ્લડ પ્રેશર (બીપી)', 'ડાયાબિટીસ / સુગર', 'દવાની એલર્જી છે'];
-          } else {
-            aiMessageContent = 'તમારા સ્વાસ્થ્યને યોગ્ય રીતે સમજવા માટે, તમારી દિનચર્યા કેવી છે—જેમ કે ઊંઘના કલાકો, શારીરિક પ્રવૃત્તિ, આહાર અને તણાવનું પ્રમાણ?';
-            touchOptions = ['૬-૮ કલાક સારી ઊંઘ, સંતુલિત આહાર', 'ઓછી ઊંઘ (<૫ કલાક), વધુ તણાવ', 'બેઠાડુ જીવન, અનિયમિત ભોજન', 'શારીરિક રીતે સક્રિય, સામાન્ય દિનચર્યા'];
-          }
-        } else {
-          if (isClosing) {
-            aiMessageContent = 'Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?';
-            touchOptions = ['Proceed with Appointment', 'Add One More Detail'];
-          } else if (isLifestyleAnswer) {
-            aiMessageContent = 'Do you take any regular daily medications, or have any chronic conditions (BP, Diabetes, Thyroid) or drug allergies?';
-            touchOptions = ['No chronic conditions / No daily meds', 'High Blood Pressure (BP)', 'Diabetes / High Blood Sugar', 'Regular medications present'];
-          }
+        if (/proceed|appointment|consultation|complete intake|अपॉइंटमेंट के लिए आगे बढ़ें|મુલાકાત માટે આગળ વધો/i.test(text)) {
+          return {
+            aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: 'Thank you. Proceeding with your appointment now.' },
+            nextQuestion: 'Thank you. Proceeding with your appointment now.',
+            touchOptions: ['Proceed with Appointment'],
+            isComplete: true,
+          };
         }
 
-        return {
-          aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: aiMessageContent },
-          nextQuestion: aiMessageContent,
-          touchOptions,
-          isComplete: isClosing,
-        };
+        try {
+          const state = {
+            latestAnswer: text,
+            chiefComplaint: text,
+            turnsCompleted: 1,
+          };
+          const groqRes = await callGroqDynamicIntake(state, langUpper, [
+            { role: 'Patient', content: text },
+          ]);
+          return {
+            aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: groqRes.question },
+            nextQuestion: groqRes.question,
+            touchOptions: groqRes.touchOptions,
+            isComplete: groqRes.isComplete,
+            isRedFlag: groqRes.isRedFlag,
+            redFlagAlert: groqRes.isRedFlag ? { type: 'ALERT', severity: 'URGENT', symptoms: groqRes.redFlagReason || 'Red flag symptom' } : undefined,
+          };
+        } catch {
+          const langLower = (data.language || 'en').toLowerCase();
+          const isClosing = /covers all symptoms|proceed|complete intake|no further|taking them daily|आगे बढ़ें|આગળ વધો|done|bp|diabetes|sugar|chronic|medication|allergy|एलर्जी|દવા|બીપી|સુગર|no medications/i.test(text.toLowerCase());
+          const isLifestyleAnswer = /sleep|diet|stress|active|routine|hours|नींद|ઊંઘ|તણાવ|તંદુરસ્ત|ભોજન|आहार|sedentary/i.test(text.toLowerCase());
+
+          let aiMessageContent = 'To assess your health background, how is your daily routine—including your sleep hours, physical activity, diet, and work stress?';
+          let touchOptions = ['6-8 hrs good sleep, balanced diet', 'Poor sleep (<5 hrs), high stress', 'Sedentary routine, irregular meals', 'Physically active, normal routine'];
+
+          if (langLower === 'hi') {
+            if (isClosing) {
+              aiMessageContent = 'धन्यवाद। आपके स्वास्थ्य लक्षण और जीवनशैली का विवरण पूर्ण हो चुका है। क्या आप अब डॉक्टर से परामर्श के लिए आगे बढ़ना चाहते हैं?';
+              touchOptions = ['अपॉइंटमेंट के लिए आगे बढ़ें', 'एक और जानकारी जोड़ें'];
+            } else if (isLifestyleAnswer) {
+              aiMessageContent = 'क्या आप रोज़ाना कोई दवा लेते हैं, या कोई पुरानी बीमारी (बीपी, शुगर, थायरॉयड) अथवा दवा से एलर्जी है?';
+              touchOptions = ['कोई पुरानी बीमारी नहीं / कोई दवा नहीं', 'हाई ब्लड प्रेशर (बीपी)', 'डायबिटीज / शुगर', 'दवा से एलर्जी है'];
+            } else {
+              aiMessageContent = 'आपके स्वास्थ्य को बेहतर समझने के लिए, आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक गतिविधि, खान-पान और तनाव का स्तर?';
+              touchOptions = ['6-8 घंटे अच्छी नींद, संतुलित आहार', 'कम नींद (<5 घंटे), अधिक तनाव', 'बैठे रहने की दिनचर्या, अनियमित भोजन', 'शारीरिक रूप से सक्रिय, सामान्य दिनचर्या'];
+            }
+          } else if (langLower === 'gu') {
+            if (isClosing) {
+              aiMessageContent = 'આભાર. તમારા લક્ષણો અને દિનચર્યા/જીવનશૈલીની માહિતી નોંધાઈ ગઈ છે. શું તમે હવે ડૉક્ટરની મુલાકાત માટે આગળ વધવા માંગો છો?';
+              touchOptions = ['મુલાકાત માટે આગળ વધો', 'વધુ એક વિગત ઉમેરો'];
+            } else if (isLifestyleAnswer) {
+              aiMessageContent = 'શું તમે નિયમિત કોઈ દવા લો છો, અથવા કોઈ જૂની બીમારી (બીપી, સુગર, થાઈરોઈડ) કે દવાની એલર્જી છે?';
+              touchOptions = ['કોઈ જૂની બીમારી નથી / કોઈ દવા નથી', 'હાઈ બ્લડ પ્રેશર (બીપી)', 'ડાયાબિટીસ / સુગર', 'દવાની એલર્જી છે'];
+            } else {
+              aiMessageContent = 'તમારા સ્વાસ્થ્યને યોગ્ય રીતે સમજવા માટે, તમારી દિનચર્યા કેવી છે—જેમ કે ઊંઘના કલાકો, શારીરિક પ્રવૃત્તિ, આહાર અને તણાવનું પ્રમાણ?';
+              touchOptions = ['૬-૮ કલાક સારી ઊંઘ, સંતુલિત આહાર', 'ઓછી ઊંઘ (<૫ કલાક), વધુ તણાવ', 'બેઠાડુ જીવન, અનિયમિત ભોજન', 'શારીરિક રીતે સક્રિય, સામાન્ય દિનચર્યા'];
+            }
+          } else {
+            if (isClosing) {
+              aiMessageContent = 'Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?';
+              touchOptions = ['Proceed with Appointment', 'Add One More Detail'];
+            } else if (isLifestyleAnswer) {
+              aiMessageContent = 'Do you take any regular daily medications, or have any chronic conditions (BP, Diabetes, Thyroid) or drug allergies?';
+              touchOptions = ['No chronic conditions / No daily meds', 'High Blood Pressure (BP)', 'Diabetes / High Blood Sugar', 'Regular medications present'];
+            }
+          }
+
+          return {
+            aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: aiMessageContent },
+            nextQuestion: aiMessageContent,
+            touchOptions,
+            isComplete: isClosing,
+          };
+        }
       }),
+
     switchLanguage: (sessionId: string, targetLanguage: string, messages: any[] = []) =>
       request(`/conversation/${sessionId}/switch-language`, {
         method: 'POST',
