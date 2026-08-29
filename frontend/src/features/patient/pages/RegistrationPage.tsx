@@ -17,6 +17,8 @@ export function RegistrationPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasSession, setHasSession] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,6 +38,30 @@ export function RegistrationPage() {
   });
 
   useEffect(() => {
+    // Check for existing logged in session or patient
+    const activePatientRaw = localStorage.getItem('medikiosk_active_patient');
+    const userRaw = localStorage.getItem('medikiosk_user');
+    const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
+    const storedUser = userRaw ? JSON.parse(userRaw) : null;
+    const sessionPatient = activePatient || (storedUser?.patient ? storedUser.patient : (storedUser?.role === 'PATIENT' ? storedUser : null));
+
+    if (sessionPatient && (sessionPatient.name || sessionPatient.phone)) {
+      setHasSession(true);
+      setFormData((prev) => ({
+        ...prev,
+        name: sessionPatient.name || '',
+        phone: sessionPatient.phone || '',
+        age: sessionPatient.age ? String(sessionPatient.age) : '30',
+        gender: sessionPatient.gender || 'MALE',
+        email: sessionPatient.email || '',
+        address: sessionPatient.address || '',
+        emergencyContact: sessionPatient.emergencyContact || '',
+        abhaId: sessionPatient.abhaId || '',
+      }));
+    } else {
+      setIsEditingDetails(true);
+    }
+
     api.admin
       .departments()
       .then((res: any) => {
@@ -162,89 +188,139 @@ export function RegistrationPage() {
         {/* Registration Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Personal Information */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            {/* Full Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {t('fullName')} <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="e.g. Rahul Sharma"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
-              />
-            </div>
-
-            {/* Mobile Number */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {t('phone')} <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                placeholder="10-digit mobile number"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
-              />
-            </div>
-
-            {/* Age & Gender */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  {t('age')}
-                </label>
-                <input
-                  type="number"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  placeholder="e.g. 45"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
-                />
+          {/* Patient Details: Auto-filled Card if Session Exists, or Full Form if New */}
+          {hasSession && !isEditingDetails ? (
+            <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-bold text-lg shadow-sm">
+                  {formData.name.charAt(0).toUpperCase() || 'P'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-slate-900 text-base">{formData.name}</span>
+                    <span className="text-[11px] px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-full flex items-center gap-1">
+                      ✓ Profile Auto-Filled
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                    <span>Phone: <strong>{formData.phone}</strong></span>
+                    <span>•</span>
+                    <span>Age/Gender: <strong>{formData.age || '30'} / {formData.gender}</strong></span>
+                    {formData.abhaId && (
+                      <>
+                        <span>•</span>
+                        <span>ABHA: <strong className="font-mono">{formData.abhaId}</strong></span>
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingDetails(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-bold px-3 py-1.5 bg-white border border-blue-200 rounded-xl shadow-xs self-start sm:self-auto"
+              >
+                Edit Demographics
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {hasSession && (
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Patient Demographics</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDetails(false)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                  >
+                    Hide / Use Saved Profile
+                  </button>
+                </div>
+              )}
+              {/* Personal Information Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Full Name */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    {t('fullName')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  {t('gender')}
-                </label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
-                >
-                  <option value="MALE">{t('male')}</option>
-                  <option value="FEMALE">{t('female')}</option>
-                  <option value="OTHER">{t('other')}</option>
-                </select>
+                {/* Mobile Number */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    {t('phone')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                    placeholder="10-digit mobile number"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                  />
+                </div>
+
+                {/* Age & Gender */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      {t('age')}
+                    </label>
+                    <input
+                      type="number"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      placeholder="e.g. 45"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      {t('gender')}
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                    >
+                      <option value="MALE">{t('male')}</option>
+                      <option value="FEMALE">{t('female')}</option>
+                      <option value="OTHER">{t('other')}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* ABHA Health ID */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    ABHA Health ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="abhaId"
+                    value={formData.abhaId}
+                    onChange={handleChange}
+                    placeholder="e.g. 91-8844-3311-2299"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                  />
+                </div>
               </div>
             </div>
-
-            {/* ABHA Health ID */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                ABHA Health ID (Optional)
-              </label>
-              <input
-                type="text"
-                name="abhaId"
-                value={formData.abhaId}
-                onChange={handleChange}
-                placeholder="e.g. 91-8844-3311-2299"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
-              />
-            </div>
-          </div>
+          )}
 
           {/* ─── Step 1: Medical System Selection ─── */}
           <div className="pt-2 border-t border-slate-100">
