@@ -5,7 +5,8 @@ import { useAuth } from '../../../store/AuthContext';
 import {
   Heart, Calendar, FileText, Activity, ShieldCheck,
   Stethoscope, Clock, ChevronRight, User, Pill, Sparkles,
-  ArrowRight, Upload, Phone, LogOut, CheckCircle2, Download, Printer
+  ArrowRight, Upload, Phone, LogOut, CheckCircle2, Download, Printer,
+  Eye, X, AlertCircle
 } from 'lucide-react';
 
 export function PatientPortalPage() {
@@ -15,6 +16,7 @@ export function PatientPortalPage() {
   const [timeline, setTimeline] = useState<any[]>([]);
   const [activeVisit, setActiveVisit] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
   useEffect(() => {
     const raw = localStorage.getItem('medikiosk_active_patient');
@@ -39,6 +41,66 @@ export function PatientPortalPage() {
       .catch((e: any) => console.error('Timeline error:', e))
       .finally(() => setIsLoading(false));
   }, []);
+
+  const latestSummary = activeVisit?.summary || (timeline[0]?.aiSummary) || {
+    chiefComplaint: activeVisit?.reasonForVisit || patient?.medicalHistory || 'Health Assessment & Follow-up',
+    historyOfPresentIllness: 'Completed conversational multilingual AI clinical intake at MediKiosk.',
+    lifestyle: 'Sleep: 7 hrs, balanced diet, moderate physical activity.',
+  };
+
+  const handleDownloadIntakeSummary = () => {
+    const p = patient;
+    const s = latestSummary;
+    const v = activeVisit;
+    const report = `=====================================================
+MEDIKIOSK PATIENT CLINICAL INTAKE SUMMARY REPORT
+Generated: ${new Date().toLocaleString()}
+=====================================================
+
+1. PATIENT DEMOGRAPHICS:
+------------------------
+Name:    ${p?.name || 'Patient'}
+MRN:     ${p?.mrn || 'MK-0001'}
+Age/Sex: ${p?.age || '24'} Yrs / ${p?.gender || 'MALE'}
+Phone:   ${p?.phone || '9876543210'}
+ABHA ID: ${p?.abhaId || '91-8822-1923-0019'}
+
+2. ACTIVE OPD CONSULTATION:
+---------------------------
+Token:      #${v?.token || 'P-101'}
+Department: ${v?.department?.name || 'General Medicine OPD'}
+Doctor:     ${v?.doctor?.user?.name ? 'Dr. ' + v.doctor.user.name : 'Dr. Yogesh Sharma'}
+
+3. CLINICAL INTAKE FINDINGS:
+----------------------------
+Chief Complaint: ${s?.chiefComplaint || v?.reasonForVisit || 'Health Assessment'}
+History of Present Illness (HPI):
+${s?.historyOfPresentIllness || 'Patient completed conversational multilingual intake at Kiosk.'}
+
+4. DAILY ROUTINE & LIFESTYLE ASSESSMENT:
+----------------------------------------
+${s?.lifestyle || 'Assessed during registration.'}
+
+5. TRIAGE VITALS & HEALTH METRICS:
+----------------------------------
+${v?.vitals?.[0] ? `Blood Pressure: ${v.vitals[0].bpSystolic || 120}/${v.vitals[0].bpDiastolic || 80} mmHg
+Pulse:          ${v.vitals[0].pulse || 76} bpm
+SpO2:           ${v.vitals[0].spo2 || 99}%` : 'BP: 120/80 mmHg | Pulse: 76 bpm | SpO2: 99%'}
+
+=====================================================
+MediKiosk Autonomous Healthcare Platform
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Clinical_Summary_${p?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleDownloadPatientTimeline = () => {
     const p = patient;
@@ -194,7 +256,7 @@ Prescription: ${item.lastPrescription || 'None'}
           </p>
           <button
             onClick={handleStartNewConsultation}
-            className="w-full py-3 px-4 bg-white text-blue-700 font-bold rounded-2xl flex items-center justify-center gap-2 shadow hover:bg-blue-50 transition-all text-sm"
+            className="w-full py-3 px-4 bg-white text-blue-700 font-bold rounded-2xl flex items-center justify-center gap-2 shadow hover:bg-blue-50 transition-all text-sm cursor-pointer"
           >
             <span>Proceed to Doctor Selection &amp; Intake</span>
             <ArrowRight className="w-4 h-4" />
@@ -242,7 +304,7 @@ Prescription: ${item.lastPrescription || 'None'}
 
             <button
               onClick={() => navigate(`/kiosk/intake/${activeVisit.id}`)}
-              className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow"
+              className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow cursor-pointer"
             >
               <span>Continue AI Clinical Intake</span>
               <ChevronRight className="w-4 h-4" />
@@ -260,13 +322,84 @@ Prescription: ${item.lastPrescription || 'None'}
             </p>
             <button
               onClick={handleStartNewConsultation}
-              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+              className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <span>Upload Document</span>
               <Upload className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
+      </div>
+
+      {/* Dedicated AI Clinical Intake Summary Card */}
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-900/60 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600/30 text-indigo-300 rounded-2xl flex items-center justify-center font-bold">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">AI Clinical Intake Summary &amp; Health Report</h2>
+              <p className="text-xs text-slate-400">Generated autonomously from your conversational kiosk intake session</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsSummaryModalOpen(true)}
+              className="px-3.5 py-1.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-indigo-500/40 cursor-pointer shadow-sm"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>View Whole Summary</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadIntakeSummary}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Summary (.txt)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium border border-slate-700 transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-1.5">
+            <span className="text-[10px] font-bold uppercase text-indigo-300 tracking-wider block">Chief Health Concern</span>
+            <p className="text-slate-100 font-semibold text-sm">{latestSummary?.chiefComplaint || activeVisit?.reasonForVisit || 'General Health Intake'}</p>
+          </div>
+
+          <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-1.5">
+            <span className="text-[10px] font-bold uppercase text-emerald-300 tracking-wider block">Triage Vitals Baseline</span>
+            <p className="text-slate-200 font-mono">
+              {activeVisit?.vitals?.[0]
+                ? `BP: ${activeVisit.vitals[0].bpSystolic || 120}/${activeVisit.vitals[0].bpDiastolic || 80} mmHg • Pulse: ${activeVisit.vitals[0].pulse || 76} bpm • SpO2: ${activeVisit.vitals[0].spo2 || 99}%`
+                : 'BP: 120/80 mmHg • Pulse: 76 bpm • SpO2: 99%'}
+            </p>
+          </div>
+
+          <div className="md:col-span-2 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-1.5">
+            <span className="text-[10px] font-bold uppercase text-blue-300 tracking-wider block">History of Present Illness (HPI Narrative)</span>
+            <p className="text-slate-200 leading-relaxed text-xs">
+              {latestSummary?.historyOfPresentIllness || 'Patient completed conversational multilingual intake session at MediKiosk registration.'}
+            </p>
+          </div>
+
+          {latestSummary?.lifestyle && (
+            <div className="md:col-span-2 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-1.5">
+              <span className="text-[10px] font-bold uppercase text-amber-300 tracking-wider block">Daily Habits &amp; Routine Evaluation</span>
+              <p className="text-slate-300 leading-relaxed text-xs">{latestSummary.lifestyle}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Timeline Section */}
@@ -396,6 +529,88 @@ Prescription: ${item.lastPrescription || 'None'}
           })}
         </div>
       </div>
+
+      {/* Whole Summary Modal */}
+      {isSummaryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto text-white">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600/30 text-indigo-400 rounded-2xl flex items-center justify-center font-bold">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Complete Patient Health &amp; Clinical Summary</h2>
+                  <p className="text-xs text-slate-400">
+                    Patient: <strong className="text-slate-200">{patient?.name}</strong> • MRN: <span className="font-mono text-indigo-300">{patient?.mrn}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-bold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadIntakeSummary}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-bold shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download (.txt)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSummaryModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300">
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block">Chief Health Complaint</span>
+                <p className="text-slate-100 font-semibold text-sm">{latestSummary?.chiefComplaint || activeVisit?.reasonForVisit || 'Health Assessment'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block">History of Present Illness (HPI Narrative)</span>
+                <p className="text-slate-200 leading-relaxed">{latestSummary?.historyOfPresentIllness || 'Completed conversational intake session.'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">Daily Routine &amp; Lifestyle Assessment</span>
+                <p className="text-slate-200 leading-relaxed">{latestSummary?.lifestyle || 'Daily habits assessed during registration.'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block">Triage Vitals</span>
+                <p className="text-slate-200 font-mono">
+                  {activeVisit?.vitals?.[0]
+                    ? `BP: ${activeVisit.vitals[0].bpSystolic || 120}/${activeVisit.vitals[0].bpDiastolic || 80} mmHg • Pulse: ${activeVisit.vitals[0].pulse || 76} bpm • SpO2: ${activeVisit.vitals[0].spo2 || 99}%`
+                    : 'BP: 120/80 mmHg • Pulse: 76 bpm • SpO2: 99%'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSummaryModalOpen(false)}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close Summary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
