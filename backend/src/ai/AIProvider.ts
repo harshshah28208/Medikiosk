@@ -82,6 +82,37 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     HI: 'शारीरिक निष्क्रियता व थकान',
     GU: 'બેઠાડુ જીવન અને થાક',
   },
+  // Primary Chief Complaints
+  {
+    EN: 'Ear pain / Discharge / Blocked ear',
+    HI: 'कान में दर्द / मवाद / भारीपन',
+    GU: 'કાનમાં દુખાવો / પરુ / ભારેપણું',
+  },
+  {
+    EN: 'Throbbing headache & eye strain',
+    HI: 'तेज सिरदर्द और आँखों में तनाव',
+    GU: 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ',
+  },
+  {
+    EN: 'Stomach ache / Burning acidity',
+    HI: 'पेट में दर्द / जलन / एसिडिटी',
+    GU: 'પેટમાં દુખાવો / બળતરા / એસિડિટી',
+  },
+  {
+    EN: 'Chest tightness / Shortness of breath',
+    HI: 'सीने में भारीपन / सांस लेने में तकलीफ',
+    GU: 'છાતીમાં ભારેપણું / શ્વાસ લેવામાં તકલીફ',
+  },
+  {
+    EN: 'Skin rash / Pimples / Itching',
+    HI: 'त्वचा में दाने / मुँहासे / खुजली',
+    GU: 'ચામડી પર દાણા / ખીલ / ખંજવાળ',
+  },
+  {
+    EN: 'Fever, cough & sore throat',
+    HI: 'बुखार, खांसी और गले में दर्द',
+    GU: 'તાવ, ઉધરસ અને ગળામાં દુખાવો',
+  },
 
   // Medical History & Allergies
   {
@@ -268,13 +299,95 @@ export class UniversalClinicalEngine implements AIProvider {
   async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
     const text = input.trim();
     const update: Partial<ClinicalState> = {};
+    const turns = state.turnsCompleted || 0;
+    const isNew = state.isNewPatient !== false;
 
-    if (!state.chiefComplaint) {
-      update.chiefComplaint = text;
-      update.chiefComplaintOriginal = text;
-      update.symptoms = [
-        {
-          name: text,
+    if (isNew) {
+      // Step 1: Turn 0 answer is LIFESTYLE
+      if (turns === 0 || !state.lifestyle?.sleep) {
+        update.lifestyle = {
+          sleep: text,
+          diet: text,
+          activity: text,
+          occupation: state.lifestyle?.occupation || '',
+          smoking: state.lifestyle?.smoking || null,
+          alcohol: state.lifestyle?.alcohol || null,
+        };
+        return update;
+      }
+
+      // Step 2: Turn 1 answer is MEDICAL HISTORY & ALLERGIES
+      if (turns === 1 || (state.pastMedicalHistory || []).length === 0) {
+        update.pastMedicalHistory = [text];
+        update.medications = [{ name: text }];
+        update.allergies = [{ allergen: text, reaction: 'None', severity: 'MILD' }];
+        return update;
+      }
+
+      // Step 3: Turn 2 answer is PRIMARY COMPLAINT / SYMPTOM
+      if (!state.chiefComplaint) {
+        update.chiefComplaint = text;
+        update.chiefComplaintOriginal = text;
+        update.symptoms = [
+          {
+            name: text,
+            originalText: text,
+            onset: null,
+            duration: null,
+            severity: null,
+            location: null,
+            character: null,
+            radiation: null,
+            aggravatingFactors: [],
+            relievingFactors: [],
+            timing: null,
+            progression: null,
+          },
+        ];
+        return update;
+      }
+
+      // Step 4: Turn 3 answer is ONSET & TIMING
+      const currentSymptom = (state.symptoms && state.symptoms[0]) || {
+        name: state.chiefComplaint,
+        originalText: state.chiefComplaint,
+        onset: null,
+        duration: null,
+        severity: null,
+        location: null,
+        character: null,
+        radiation: null,
+        aggravatingFactors: [],
+        relievingFactors: [],
+        timing: null,
+        progression: null,
+      };
+
+      if (!currentSymptom.onset || !currentSymptom.duration) {
+        currentSymptom.onset = text;
+        currentSymptom.duration = text;
+        update.symptoms = [currentSymptom];
+        return update;
+      }
+
+      // Step 5: Turn 4 answer is SEVERITY & CHARACTER
+      if (!currentSymptom.severity || !currentSymptom.character) {
+        const numMatch = text.match(/\b([1-9]|10)\b/);
+        currentSymptom.severity = numMatch ? parseInt(numMatch[1], 10) : 5;
+        currentSymptom.character = text;
+        update.symptoms = [currentSymptom];
+        return update;
+      }
+
+      if ((state.associatedSymptoms || []).length === 0) {
+        update.associatedSymptoms = [{ name: text, present: true }];
+        return update;
+      }
+    } else {
+      // RETURNING PATIENT WORKFLOW
+      if (turns === 0 || !(state.symptoms || []).some(s => s.progression)) {
+        const currentSymptom = (state.symptoms && state.symptoms[0]) || {
+          name: state.chiefComplaint || 'Follow-up condition',
           originalText: text,
           onset: null,
           duration: null,
@@ -285,49 +398,17 @@ export class UniversalClinicalEngine implements AIProvider {
           aggravatingFactors: [],
           relievingFactors: [],
           timing: null,
-          progression: null,
-        },
-      ];
-      return update;
-    }
+          progression: text,
+        };
+        currentSymptom.progression = text;
+        update.symptoms = [currentSymptom];
+        return update;
+      }
 
-    const currentSymptom = state.symptoms[0] || {
-      name: state.chiefComplaint,
-      originalText: state.chiefComplaint,
-      onset: null,
-      duration: null,
-      severity: null,
-      location: null,
-      character: null,
-      radiation: null,
-      aggravatingFactors: [],
-      relievingFactors: [],
-      timing: null,
-      progression: null,
-    };
-
-    if (!currentSymptom.onset || !currentSymptom.duration) {
-      currentSymptom.onset = text;
-      currentSymptom.duration = text;
-      update.symptoms = [currentSymptom];
-      return update;
-    }
-
-    if (!currentSymptom.severity || !currentSymptom.character) {
-      const numMatch = text.match(/\b([1-9]|10)\b/);
-      currentSymptom.severity = numMatch ? parseInt(numMatch[1], 10) : 5;
-      currentSymptom.character = text;
-      update.symptoms = [currentSymptom];
-      return update;
-    }
-
-    if (state.associatedSymptoms.length === 0) {
-      update.associatedSymptoms = [{ name: text, present: true }];
-      return update;
-    }
-
-    if (state.pastMedicalHistory.length === 0) {
-      update.pastMedicalHistory = [text];
+      if (turns === 1 || (state.medications || []).length === 0) {
+        update.medications = [{ name: text }];
+        return update;
+      }
     }
 
     return update;
@@ -542,7 +623,37 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 3: Clinical Symptoms & Primary Complaint Exploration THIRD
+    // Step 3: Chief Complaint / Primary Health Concern
+    if (!state.chiefComplaint) {
+      const qText = {
+        EN: isCaregiver
+          ? `Now, please tell me what specific symptoms or health concerns the patient is experiencing today?`
+          : `Now, please tell me what specific symptoms or health concerns brought you to the hospital today?`,
+        HI: isCaregiver
+          ? `अब कृपया बताएं कि मरीज को आज क्या मुख्य तकलीफ या लक्षण महसूस हो रहे हैं?`
+          : `अब कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?`,
+        GU: isCaregiver
+          ? `હવે કૃપા કરીને જણાવો કે દર્દીને આજે કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`
+          : `હવે કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
+      };
+      const touchOpts = {
+        EN: ['Ear pain / Discharge / Blocked ear', 'Throbbing headache & eye strain', 'Stomach ache / Burning acidity', 'Chest tightness / Shortness of breath', 'Skin rash / Pimples / Itching', 'Fever, cough & sore throat'],
+        HI: ['कान में दर्द / मवाद / भारीपन', 'तेज सिरदर्द और आँखों में तनाव', 'पेट में दर्द / जलन / एसिडिटी', 'सीने में भारीपन / सांस लेने में तकलीफ', 'त्वचा में दाने / मुँहासे / खुजली', 'बुखार, खांसी और गले में दर्द'],
+        GU: ['કાનમાં દુખાવો / પરુ / ભારેપણું', 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ', 'પેટમાં દુખાવો / બળતરા / એસિડિટી', 'છાતીમાં ભારેપણું / શ્વાસ લેવામાં તકલીફ', 'ચામડી પર દાણા / ખીલ / ખંજવાળ', 'તાવ, ઉધરસ અને ગળામાં દુખાવો'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'ONSET',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Inquiring chief complaint after lifestyle and medical history baseline established',
+      };
+    }
+
+    // Step 4: Clinical Symptoms & Primary Complaint Exploration
     if (!answeredDimensions.has('ONSET')) {
       let qText = {
         EN: isCaregiver
