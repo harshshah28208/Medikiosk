@@ -158,19 +158,24 @@ export function IntakePage() {
     }
   };
 
+  const [voiceConfirmation, setVoiceConfirmation] = useState<{ transcript: string } | null>(null);
+
   const handleVoiceToggle = () => {
     if (isListening) {
       speechProvider.stopListening();
       setIsListening(false);
     } else {
       speechProvider.stopSpeaking();
+      setVoiceConfirmation(null);
       setIsListening(true);
       speechProvider.startListening(
         activeLangRef.current,
         (transcript, isFinal) => {
           setInputText(transcript);
           if (isFinal) {
-            handleSendMessage(transcript, 'VOICE');
+            setIsListening(false);
+            speechProvider.stopListening();
+            setVoiceConfirmation({ transcript });
           }
         },
         (error) => {
@@ -449,11 +454,73 @@ export function IntakePage() {
           </div>
         )}
 
+        {/* Voice Transcription Confirmation Banner (Requirement 32: Voice -> Transcription -> Patient Confirmation -> Edit / Retry / Confirm) */}
+        {voiceConfirmation && !isProcessing && (
+          <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white border-t-2 border-blue-400 shrink-0 shadow-2xl animate-fade-in flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                  {language === 'hi' ? 'आवाज़ रिकॉर्ड हुई — पुष्टि करें' : language === 'gu' ? 'અવાજ રેકોર્ડ થયો — પુષ્ટિ કરો' : 'Voice Transcription Captured — Please Confirm'}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-300 bg-white/10 px-2 py-0.5 rounded-full">
+                {language === 'hi' ? 'भेजने से पहले समीक्षा करें' : language === 'gu' ? 'મોકલતા પહેલા તપાસો' : 'Review before sending'}
+              </span>
+            </div>
+
+            <div className="p-3 bg-white/10 border border-white/20 rounded-xl text-sm font-medium text-white shadow-inner">
+              "{voiceConfirmation.transcript}"
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const textToSend = voiceConfirmation.transcript;
+                  setVoiceConfirmation(null);
+                  setInputText('');
+                  handleSendMessage(textToSend, 'VOICE');
+                }}
+                className="flex-1 py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all touch-target"
+              >
+                <CheckSquare className="w-4 h-4" />
+                <span>{language === 'hi' ? 'पुष्टि करें और भेजें' : language === 'gu' ? 'પુષ્ટિ કરો અને મોકલો' : 'Confirm & Send Response'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setInputText(voiceConfirmation.transcript);
+                  setVoiceConfirmation(null);
+                }}
+                className="py-2.5 px-3 bg-white/20 hover:bg-white/30 text-white font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 touch-target"
+              >
+                <span>✏️</span>
+                <span>{language === 'hi' ? 'टेक्स्ट बदलें / सुधारें' : language === 'gu' ? 'ટેક્સ્ટ સુધારો' : 'Edit Text'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setVoiceConfirmation(null);
+                  handleVoiceToggle();
+                }}
+                className="py-2.5 px-3 bg-red-500/30 hover:bg-red-500/50 text-red-200 font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 touch-target"
+              >
+                <Mic className="w-3.5 h-3.5" />
+                <span>{language === 'hi' ? 'फिर से बोलें' : language === 'gu' ? 'ફરીથી બોલો' : 'Retry Voice'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Bottom Input Action Bar */}
         <footer className="p-4 bg-white border-t border-slate-200 shrink-0 flex flex-col gap-3">
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              setVoiceConfirmation(null);
               handleSendMessage(inputText, 'TEXT');
             }}
             className="flex items-center gap-2"

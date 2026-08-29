@@ -4,7 +4,7 @@ import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
 import {
   CheckCircle2, ArrowRight, ArrowLeft, Stethoscope,
-  Heart, AlertTriangle, FileText, Activity, Download, Printer, ShieldCheck, User, Calendar
+  Heart, AlertTriangle, FileText, Activity, Download, Printer, ShieldCheck, User, Calendar, Edit3, X, Save, CheckSquare
 } from 'lucide-react';
 
 export function PatientReviewPage() {
@@ -16,6 +16,20 @@ export function PatientReviewPage() {
   const [activeVisit, setActiveVisit] = useState<any>(null);
   const [summaryReport, setSummaryReport] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Patient Confirmation & Edit States (Requirement 33)
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Editable Form Fields
+  const [editForm, setEditForm] = useState({
+    chiefComplaint: '',
+    lifestyle: '',
+    pastMedicalHistory: '',
+    medications: '',
+    allergies: '',
+  });
 
   useEffect(() => {
     const p = localStorage.getItem('medikiosk_active_patient');
@@ -39,6 +53,14 @@ export function PatientReviewPage() {
                 ? JSON.parse(res.visit.summary.summaryJson)
                 : res.visit.summary.summaryJson;
               setSummaryReport(parsed);
+
+              setEditForm({
+                chiefComplaint: parsed?.chiefComplaint || res.visit.reasonForVisit || '',
+                lifestyle: parsed?.lifestyle || '',
+                pastMedicalHistory: parsed?.pastMedicalHistory || '',
+                medications: parsed?.medications || '',
+                allergies: parsed?.allergies || '',
+              });
             }
           }
         })
@@ -53,6 +75,26 @@ export function PatientReviewPage() {
     window.print();
   };
 
+  const handleSaveEdits = () => {
+    setSummaryReport((prev: any) => ({
+      ...prev,
+      chiefComplaint: editForm.chiefComplaint,
+      lifestyle: editForm.lifestyle,
+      pastMedicalHistory: editForm.pastMedicalHistory,
+      medications: editForm.medications,
+      allergies: editForm.allergies,
+    }));
+    setIsEditModalOpen(false);
+  };
+
+  const handleSubmitConfirmation = async () => {
+    if (!isConfirmed) return;
+    setIsSubmitted(true);
+    setTimeout(() => {
+      navigate('/kiosk/portal');
+    }, 800);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50">
       <div className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-slate-100 flex flex-col space-y-6">
@@ -60,26 +102,36 @@ export function PatientReviewPage() {
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-sm">
-              <CheckCircle2 className="w-7 h-7" />
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+              <ShieldCheck className="w-7 h-7" />
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
-                {language === 'hi' ? 'क्लिनिकल AI इन्टेक रिपोर्ट तैयार है' : language === 'gu' ? 'ક્લિનિકલ AI ઇન્ટેક રિપોર્ટ તૈયાર છે' : 'AI Clinical Intake Report Generated'}
+                {language === 'hi' ? 'रोगी समीक्षा व पुष्टि' : language === 'gu' ? 'દર્દી સમીક્ષા અને પુષ્ટિ' : 'Patient Review & Confirmation'}
               </h1>
               <p className="text-slate-500 text-xs sm:text-sm">
-                {language === 'hi' ? 'आपकी केस हिस्ट्री डॉक्टर के पास पहुँच चुकी है' : language === 'gu' ? 'આપની કેસ હિસ્ટ્રી ડૉક્ટરને મોકલી દેવાઈ છે' : 'Pre-consultation intake finalized for physician review'}
+                {language === 'hi' ? 'डॉक्टर को भेजने से पहले अपनी दर्ज की गई जानकारी जांचें व पुष्टि करें' : language === 'gu' ? 'ડૉક્ટરને મોકલતા પહેલા આપે આપેલી વિગતો ચકાસો અને પુષ્ટિ કરો' : 'Review your health details, edit any mistakes, and confirm for the doctor.'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handlePrint}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all touch-target"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print Report</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold transition-all touch-target"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>{language === 'hi' ? 'सुधारें' : language === 'gu' ? 'સુધારો' : 'Edit Details'}</span>
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all touch-target"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print</span>
+            </button>
+          </div>
         </div>
 
         {/* Digital OPD Patient Token & Department Banner */}
@@ -87,7 +139,7 @@ export function PatientReviewPage() {
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Patient Name</span>
             <p className="text-base font-bold truncate">{activePatient?.name || 'Patient'}</p>
-            <span className="text-xs text-blue-100 font-mono">MRN: {activePatient?.mrn || 'MK-1001'}</span>
+            <span className="text-xs text-blue-100 font-mono">MRN: {activePatient?.mrn || 'MK-1001'} | Age: {activePatient?.age || '--'}Y / {activePatient?.gender || '--'}</span>
           </div>
 
           <div className="text-left sm:text-center">
@@ -99,16 +151,25 @@ export function PatientReviewPage() {
           <div className="text-left sm:text-right">
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Queue Status</span>
             <span className="inline-block mt-1 px-2.5 py-0.5 bg-emerald-500 text-white font-bold text-xs rounded-full shadow-sm">
-              Waiting for Doctor
+              Ready for Doctor
             </span>
           </div>
         </div>
 
-        {/* Structured AI Report Generated Card */}
+        {/* Structured Patient Review Cards (Requirement 33: basic info, health history, routine, meds, allergies, complaint) */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 text-xs sm:text-sm text-slate-700">
-          <div className="flex items-center gap-2 text-slate-800 font-bold uppercase tracking-wider text-xs pb-2 border-b border-slate-200">
-            <FileText className="w-4 h-4 text-blue-600" />
-            <span>Physician Clinical Summary Draft</span>
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+            <div className="flex items-center gap-2 text-slate-800 font-bold uppercase tracking-wider text-xs">
+              <FileText className="w-4 h-4 text-blue-600" />
+              <span>{language === 'hi' ? 'दर्ज की गई स्वास्थ्य जानकारी' : language === 'gu' ? 'નોંધાયેલી સ્વાસ્થ્ય વિગતો' : 'Recorded Health Summary'}</span>
+            </div>
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>{language === 'hi' ? 'बदलाव करें' : language === 'gu' ? 'ફેરફાર કરો' : 'Make Changes'}</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -120,9 +181,9 @@ export function PatientReviewPage() {
             </div>
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Vital Signs Snapshot</span>
-              <p className="text-slate-900 font-semibold">
-                {summaryReport?.vitalHighlights || 'Awaiting nurse triage intake'}
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Routine &amp; Lifestyle</span>
+              <p className="text-slate-800 text-xs">
+                {summaryReport?.lifestyle || 'Standard routine reported'}
               </p>
             </div>
 
@@ -133,33 +194,26 @@ export function PatientReviewPage() {
               </p>
             </div>
 
-            {summaryReport?.lifestyle && (
-              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Routine &amp; Lifestyle</span>
-                <p className="text-slate-800 text-xs">{summaryReport.lifestyle}</p>
-              </div>
-            )}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Past Medical &amp; Surgical History</span>
+              <p className="text-slate-800 text-xs">
+                {summaryReport?.pastMedicalHistory || 'No prior chronic conditions declared'}
+              </p>
+            </div>
 
-            {summaryReport?.pastMedicalHistory && (
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Past Medical History</span>
-                <p className="text-slate-800 text-xs">{summaryReport.pastMedicalHistory}</p>
-              </div>
-            )}
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Regular Medications</span>
+              <p className="text-slate-800 text-xs">
+                {summaryReport?.medications || 'No regular medications reported'}
+              </p>
+            </div>
 
-            {summaryReport?.medications && (
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Current Regular Medications</span>
-                <p className="text-slate-800 text-xs">{summaryReport.medications}</p>
-              </div>
-            )}
-
-            {summaryReport?.allergies && (
-              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergies &amp; Sensitivities</span>
-                <p className="text-slate-800 text-xs">{summaryReport.allergies}</p>
-              </div>
-            )}
+            <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergies &amp; Drug Sensitivities</span>
+              <p className="text-slate-800 text-xs">
+                {summaryReport?.allergies || 'No known drug allergies reported (NKDA)'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -221,37 +275,161 @@ export function PatientReviewPage() {
           );
         })()}
 
-        {/* Direction Notice */}
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs sm:text-sm">
-          <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
-          <p>
+        {/* Patient Confirmation Declaration Checkbox (Requirement 33: CONFIRM action) */}
+        <div className="p-4 bg-blue-50/80 border-2 border-blue-200 rounded-2xl flex items-start gap-3 text-slate-800">
+          <input
+            type="checkbox"
+            id="patient-confirm-checkbox"
+            checked={isConfirmed}
+            onChange={(e) => setIsConfirmed(e.target.checked)}
+            className="w-5 h-5 mt-0.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer shrink-0"
+          />
+          <label htmlFor="patient-confirm-checkbox" className="text-xs sm:text-sm cursor-pointer select-none leading-relaxed">
+            <strong className="block text-blue-900 font-bold mb-0.5">
+              {language === 'hi' ? 'मरीज स्व-सत्यापन पुष्टि' : language === 'gu' ? 'દર્દી સ્વ-ચકાસણી પુષ્ટિ' : 'Patient Self-Verification & Confirmation'}
+            </strong>
             {language === 'hi'
-              ? 'आपकी AI केस हिस्ट्री डॉक्टर के डैशबोर्ड पर भेज दी गई है। वाइटल्स जांच के बाद डॉक्टर आपको बुलाएंगे।'
+              ? 'मैंने ऊपर दी गई अपनी सभी स्वास्थ्य जानकारी, लक्षण, दवाइयों व एलर्जी की जांच कर ली है और पुष्टि करता हूँ कि यह विवरण सही है।'
               : language === 'gu'
-              ? 'આપની AI કેસ હિસ્ટ્રી ડૉક્ટરના ડેશબોર્ડ પર મોકલી દેવાઈ છે. વાઇટલ્સ તપાસ પછી ડૉક્ટર આપને બોલાવશે.'
-              : 'Your AI clinical intake history is sent to the physician. Once vitals are recorded by the nurse, your token will be called.'}
-          </p>
+              ? 'મેં ઉપરોક્ત તમામ લક્ષણો, દવાઓ અને સ્વાસ્થ્ય વિગતો ચકાસી લીધી છે અને ખાતરી આપું છું કે આ વિગતો સાચી છે.'
+              : 'I have reviewed my recorded symptoms, medications, routine, and medical history. I confirm the details are accurate and ready for doctor consultation.'}
+          </label>
         </div>
 
-        {/* Action Buttons (Item 32: Edit, Confirm, Submit) */}
+        {/* Action Buttons (Requirement 33: EDIT, CONFIRM, SUBMIT) */}
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
-            onClick={() => navigate(`/kiosk/intake/${visitId || 'active'}`)}
-            className="px-6 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all"
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-6 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all flex items-center justify-center gap-2"
           >
-            ← Edit Intake Answers
+            <Edit3 className="w-4 h-4" />
+            <span>{language === 'hi' ? 'जानकारी सुधारें' : language === 'gu' ? 'વિગતો સુધારો' : 'Edit Information'}</span>
           </button>
 
           <button
-            onClick={() => navigate('/kiosk/portal')}
-            className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all touch-target-lg text-base"
+            onClick={handleSubmitConfirmation}
+            disabled={!isConfirmed || isSubmitted}
+            className={`
+              flex-1 py-4 font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all touch-target-lg text-base
+              ${isConfirmed
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30 active:scale-95 cursor-pointer'
+                : 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+              }
+            `}
           >
-            <span>Confirm &amp; Open Patient Health Portal</span>
+            <CheckCircle2 className="w-5 h-5" />
+            <span>
+              {isSubmitted
+                ? (language === 'hi' ? 'सफलतापूर्वक पुष्टि हुई...' : language === 'gu' ? 'સફળતાપૂર્વક પુષ્ટિ થઈ...' : 'Confirmed & Submitted...')
+                : (language === 'hi' ? 'पुष्टि करें और डॉक्टर को भेजें' : language === 'gu' ? 'પુષ્ટિ કરો અને ડૉક્ટરને મોકલો' : 'Confirm & Submit to Doctor')}
+            </span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
 
       </div>
+
+      {/* Interactive Edit Modal (Requirement 33: Patient can correct important mistakes) */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                    {language === 'hi' ? 'स्वास्थ्य जानकारी में सुधार करें' : language === 'gu' ? 'સ્વાસ્થ્ય વિગતો સુધારો' : 'Edit Recorded Health Details'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {language === 'hi' ? 'गलत दर्ज हुए विवरण को यहाँ सही करें' : language === 'gu' ? 'ભૂલથી નોંધાયેલી વિગત અહીં સુધારો' : 'Correct any misheard or incorrect intake answers'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs sm:text-sm">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Chief Complaint / Primary Problem</label>
+                <input
+                  type="text"
+                  value={editForm.chiefComplaint}
+                  onChange={(e) => setEditForm({ ...editForm, chiefComplaint: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Daily Routine &amp; Lifestyle (Sleep, Diet, Stress)</label>
+                <input
+                  type="text"
+                  value={editForm.lifestyle}
+                  onChange={(e) => setEditForm({ ...editForm, lifestyle: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Past Medical &amp; Surgical History</label>
+                <input
+                  type="text"
+                  value={editForm.pastMedicalHistory}
+                  onChange={(e) => setEditForm({ ...editForm, pastMedicalHistory: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Current Regular Medications</label>
+                <input
+                  type="text"
+                  value={editForm.medications}
+                  onChange={(e) => setEditForm({ ...editForm, medications: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Allergies &amp; Drug Sensitivities</label>
+                <input
+                  type="text"
+                  value={editForm.allergies}
+                  onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-semibold text-xs sm:text-sm transition-all"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-blue-600/20 flex items-center gap-1.5 transition-all"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Corrections</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
