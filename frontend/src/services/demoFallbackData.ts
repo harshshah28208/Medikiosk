@@ -1,0 +1,164 @@
+// ============================================================================
+// MediKiosk — Standalone / Vercel Instant Demo Fallback Data Layer
+// Allows the entire platform (Doctor, Nurse, Kiosk, Triage, AYUSH, Admin)
+// to function seamlessly on Vercel even when backend server is offline.
+// ============================================================================
+
+export const DEMO_USERS: Record<string, any> = {
+  'doctor@demo.com': {
+    id: 'doc-001',
+    email: 'doctor@demo.com',
+    name: 'Dr. Yogesh Sharma',
+    role: 'DOCTOR',
+    phone: '9876543211',
+    doctorProfile: {
+      id: 'doc-prof-001',
+      specialization: 'General Medicine',
+      qualifications: 'MBBS, MD (Medicine)',
+      department: { id: 'dept-gen', name: 'General Medicine', code: 'GEN' },
+    },
+  },
+  'nurse@demo.com': {
+    id: 'nurse-001',
+    email: 'nurse@demo.com',
+    name: 'Preeti Patel (Nurse)',
+    role: 'NURSE',
+    phone: '9876543213',
+    nurseProfile: {
+      id: 'nurse-prof-001',
+      shiftTiming: 'Morning (8 AM - 4 PM)',
+      department: { id: 'dept-gen', name: 'General Medicine', code: 'GEN' },
+      assignedDoctor: { id: 'doc-prof-001', user: { name: 'Dr. Yogesh Sharma' } },
+    },
+  },
+  'triage@demo.com': {
+    id: 'triage-001',
+    email: 'triage@demo.com',
+    name: 'Rajesh Kumar',
+    role: 'TRIAGE_STAFF',
+    phone: '9876543214',
+  },
+  'ayush@demo.com': {
+    id: 'ayush-001',
+    email: 'ayush@demo.com',
+    name: 'Vaidya Harish Bhatt',
+    role: 'AYUSH_DOCTOR',
+    phone: '9876543212',
+    doctorProfile: {
+      id: 'ayush-prof-001',
+      specialization: 'Ayurveda & Integrative Medicine',
+      qualifications: 'BAMS, MD (Ayurveda)',
+      department: { id: 'dept-ayush', name: 'AYUSH & Integrative Medicine', code: 'AYUSH' },
+    },
+  },
+  'admin@demo.com': {
+    id: 'admin-001',
+    email: 'admin@demo.com',
+    name: 'Amit Verma',
+    role: 'HOSPITAL_ADMIN',
+    phone: '9876543216',
+  },
+  'patient@demo.com': {
+    id: 'pat-user-001',
+    email: 'patient@demo.com',
+    name: 'Rahul Sharma',
+    role: 'PATIENT',
+    phone: '9876543210',
+    patient: {
+      id: 'pat-001',
+      mrn: 'MK-1001',
+      name: 'Rahul Sharma',
+      age: 28,
+      gender: 'MALE',
+      phone: '9876543210',
+      bloodGroup: 'B+',
+      abhaId: '91-8822-1923-0019',
+      medicalHistory: 'Hypertension, Morning throbbing headache',
+      allergies: [{ id: 'alg-1', allergen: 'Penicillin', severity: 'HIGH' }],
+      medications: [{ id: 'med-1', name: 'Tab Amlodipine 5mg OD', dosage: '5mg', frequency: 'Once daily' }],
+      visits: [
+        {
+          id: 'vis-001',
+          token: 'G-101',
+          status: 'READY_FOR_DOCTOR',
+          priority: 'NORMAL',
+          department: { id: 'dept-gen', name: 'General Medicine' },
+          doctor: { user: { name: 'Dr. Yogesh Sharma' } },
+          createdAt: new Date().toISOString(),
+          reasonForVisit: 'Hypertension & Morning Throbbing Headache',
+          queueEntry: { tokenNumber: 'G-101', priority: 'NORMAL', status: 'WAITING' },
+          vitals: [{ systolic: 138, diastolic: 88, pulse: 78, temperature: 98.4, spo2: 99, recordedAt: new Date().toISOString() }],
+          summary: {
+            chiefComplaint: 'Morning throbbing headache and mild dizziness for 5 days',
+            historyOfPresentIllness: 'Patient reports persistent bilateral throbbing headache on waking for the past 5 days. Blood pressure elevated (138/88 mmHg). Takes Tab Amlodipine 5mg daily.',
+            lifestyle: 'Sleep: 6 hrs/night, High work stress, Moderate caffeine intake',
+            pastMedicalHistory: 'Hypertension diagnosed 2 years ago',
+            medications: 'Tab Amlodipine 5mg OD',
+            allergies: 'Penicillin (Skin rash)',
+          },
+        },
+      ],
+    },
+  },
+};
+
+export const DEMO_QUEUE = [
+  {
+    id: 'q-1',
+    tokenNumber: 'G-101',
+    priority: 'NORMAL',
+    status: 'WAITING',
+    arrivedAt: new Date(Date.now() - 15 * 60000).toISOString(),
+    department: { name: 'General Medicine', code: 'GEN' },
+    visit: {
+      id: 'vis-001',
+      token: 'G-101',
+      priority: 'NORMAL',
+      status: 'READY_FOR_DOCTOR',
+      patient: { id: 'pat-001', name: 'Rahul Sharma', mrn: 'MK-1001', age: 28, gender: 'MALE', phone: '9876543210' },
+      vitals: [{ systolic: 138, diastolic: 88, pulse: 78, temperature: 98.4, spo2: 99 }],
+      summary: { chiefComplaint: 'Morning throbbing headache & BP follow-up' },
+    },
+  },
+  {
+    id: 'q-2',
+    tokenNumber: 'O-202',
+    priority: 'URGENT',
+    status: 'WAITING',
+    arrivedAt: new Date(Date.now() - 35 * 60000).toISOString(),
+    department: { name: 'Orthopedics', code: 'ORTHO' },
+    visit: {
+      id: 'vis-002',
+      token: 'O-202',
+      priority: 'URGENT',
+      status: 'IN_INTAKE',
+      patient: { id: 'pat-002', name: 'Meera Patel', mrn: 'MK-1002', age: 45, gender: 'FEMALE', phone: '9876541122' },
+      vitals: [{ systolic: 120, diastolic: 80, pulse: 82, temperature: 98.6, spo2: 98 }],
+      summary: { chiefComplaint: 'Severe right knee joint pain & morning stiffness' },
+    },
+  },
+  {
+    id: 'q-3',
+    tokenNumber: 'A-301',
+    priority: 'NORMAL',
+    status: 'CALLED',
+    arrivedAt: new Date(Date.now() - 50 * 60000).toISOString(),
+    department: { name: 'AYUSH & Integrative Medicine', code: 'AYUSH' },
+    visit: {
+      id: 'vis-003',
+      token: 'A-301',
+      priority: 'NORMAL',
+      status: 'IN_CONSULTATION',
+      patient: { id: 'pat-003', name: 'Sanjay Trivedi', mrn: 'MK-1003', age: 52, gender: 'MALE', phone: '9876543344' },
+      vitals: [{ systolic: 130, diastolic: 84, pulse: 74, temperature: 98.2, spo2: 99 }],
+      summary: { chiefComplaint: 'Chronic acidity, indigestion and Pitta imbalance' },
+    },
+  },
+];
+
+export const DEMO_DOCTORS = [
+  { id: 'doc-prof-001', user: { id: 'doc-001', name: 'Dr. Yogesh Sharma', email: 'doctor@demo.com' }, specialization: 'General Medicine', qualifications: 'MBBS, MD', department: { name: 'General Medicine' } },
+  { id: 'doc-prof-002', user: { id: 'doc-002', name: 'Dr. Vikram Seth', email: 'vikram.seth@demo.com' }, specialization: 'Orthopedics & Joint Surgery', qualifications: 'MBBS, MS (Ortho)', department: { name: 'Orthopedics' } },
+  { id: 'doc-prof-003', user: { id: 'doc-003', name: 'Vaidya Harish Bhatt', email: 'ayush@demo.com' }, specialization: 'AYUSH / Ayurveda', qualifications: 'BAMS, MD (Ayu)', department: { name: 'AYUSH & Integrative Medicine' } },
+  { id: 'doc-prof-004', user: { id: 'doc-004', name: 'Dr. Snehal Shah', email: 'snehal.shah@demo.com' }, specialization: 'Homeopathy', qualifications: 'BHMS, MD (Hom)', department: { name: 'AYUSH & Integrative Medicine' } },
+];

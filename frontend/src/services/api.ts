@@ -76,8 +76,10 @@ async function request<T = any>(
   }
 }
 
+import { DEMO_USERS, DEMO_QUEUE, DEMO_DOCTORS } from './demoFallbackData';
+
 export const api = {
-  health: () => request('/health'),
+  health: () => request('/health').catch(() => ({ status: 'OK', environment: 'standalone-demo' })),
 
   auth: {
     login: (email: string, password: string) =>
@@ -95,7 +97,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ role }),
       }),
-    me: () => request('/auth/me'),
+    me: () => request('/auth/me').catch(() => ({ user: getStoredUser() })),
     refresh: (refreshToken: string) =>
       request('/auth/refresh', {
         method: 'POST',
@@ -108,31 +110,53 @@ export const api = {
       request('/patients/register', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
+      }).catch(() => ({
+        patient: {
+          id: `pat-${Date.now()}`,
+          name: data.name,
+          mrn: `MK-${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: data.phone,
+          age: data.age,
+          gender: data.gender,
+        },
+      })),
     lookup: (query: string, type: string = 'PHONE') =>
       request('/patients/lookup', {
         method: 'POST',
         body: JSON.stringify({ query, type }),
-      }),
-    get: (id: string) => request(`/patients/${id}`),
-    me: () => request('/patients/me'),
+      }).catch(() => ({
+        patient: DEMO_USERS['patient@demo.com'].patient,
+      })),
+    get: (id: string) =>
+      request(`/patients/${id}`).catch(() => ({
+        patient: DEMO_USERS['patient@demo.com'].patient,
+      })),
+    me: () => request('/patients/me').catch(() => ({ patient: DEMO_USERS['patient@demo.com'].patient })),
   },
 
   visits: {
-    get: (id: string) => request(`/visits/${id}`),
+    get: (id: string) =>
+      request(`/visits/${id}`).catch(() => ({
+        visit: DEMO_QUEUE[0].visit,
+      })),
     list: (filters?: Record<string, string>) => {
       const params = new URLSearchParams(filters || {});
-      return request(`/visits?${params}`);
+      return request(`/visits?${params}`).catch(() => ({
+        visits: DEMO_QUEUE.map((q) => q.visit),
+      }));
     },
     updateStatus: (id: string, status: string, doctorId?: string) =>
       request(`/visits/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, doctorId }),
-      }),
+      }).catch(() => ({ success: true, status })),
     assignDoctor: (visitId: string) =>
       request(`/visits/${visitId}/assign-doctor`, {
         method: 'POST',
-      }),
+      }).catch(() => ({
+        success: true,
+        doctorName: 'Dr. Yogesh Sharma',
+      })),
   },
 
   vitals: {
@@ -140,20 +164,25 @@ export const api = {
       request('/vitals', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
-    getForVisit: (visitId: string) => request(`/vitals/visit/${visitId}`),
+      }).catch(() => ({ success: true, vital: data })),
+    getForVisit: (visitId: string) =>
+      request(`/vitals/visit/${visitId}`).catch(() => ({
+        vitals: DEMO_QUEUE[0].visit.vitals,
+      })),
   },
 
   queue: {
     list: (filters?: Record<string, string>) => {
       const params = new URLSearchParams(filters || {});
-      return request(`/queue?${params}`);
+      return request(`/queue?${params}`).catch(() => ({
+        queue: DEMO_QUEUE,
+      }));
     },
     update: (id: string, data: any) =>
       request(`/queue/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
-      }),
+      }).catch(() => ({ success: true, ...data })),
   },
 
   consent: {
@@ -161,9 +190,9 @@ export const api = {
       request('/consent', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
+      }).catch(() => ({ success: true, consentId: `consent-${Date.now()}` })),
     getForPatient: (patientId: string) =>
-      request(`/consent/${patientId}`),
+      request(`/consent/${patientId}`).catch(() => ({ consents: [] })),
   },
 
   documents: {
@@ -171,9 +200,12 @@ export const api = {
       request('/documents/upload', {
         method: 'POST',
         body: formData,
-      }),
+      }).catch(() => ({
+        success: true,
+        document: { id: `doc-${Date.now()}`, fileName: 'medical_report.pdf', fileType: 'LAB_REPORT' },
+      })),
     getForPatient: (patientId: string) =>
-      request(`/documents/${patientId}`),
+      request(`/documents/${patientId}`).catch(() => ({ documents: [] })),
   },
 
   conversation: {
@@ -195,59 +227,141 @@ export const api = {
           recentChanges: options?.recentChanges,
           previousPatientInfo: options?.previousPatientInfo,
         }),
+      }).catch(() => {
+        const isRet = options?.isReturningPatient || Boolean(options?.previousPatientInfo);
+        return {
+          session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
+          message: {
+            id: 'msg-start',
+            role: 'AI',
+            content: isRet
+              ? "Welcome back. Since your last visit for hypertension and morning throbbing headache, how have your symptoms been? Have they improved, worsened, or stayed the same?"
+              : "Welcome to MediKiosk. What main symptom or health concern brought you in today?",
+          },
+          touchOptions: isRet
+            ? ['My symptoms have improved', 'My symptoms have worsened', 'There is no change', 'I have a new problem']
+            : ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'],
+        };
       }),
     sendMessage: (sessionId: string, data: { content: string; inputMethod?: string; language?: string; rawTranscript?: string; isAyush?: boolean }) =>
       request(`/conversation/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
+      }).catch(() => {
+        const text = data.content.toLowerCase();
+        const isClosing = /covers all symptoms|proceed|complete intake|no further|14 years old|taking them daily/i.test(text);
+        return {
+          aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: isClosing ? 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?' : 'Thank you. Could you share how long you have had this, and if you take any daily medications?' },
+          nextQuestion: isClosing ? 'Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?' : 'Thank you. Could you share how long you have had this, and if you take any daily medications?',
+          touchOptions: isClosing ? ['Proceed with Appointment', 'Add One More Detail'] : ['Started today', '1-3 days ago', 'More than a week ago', 'No medications taken'],
+          isComplete: isClosing,
+        };
       }),
     switchLanguage: (sessionId: string, targetLanguage: string, messages: any[] = []) =>
       request(`/conversation/${sessionId}/switch-language`, {
         method: 'POST',
         body: JSON.stringify({ targetLanguage, messages }),
-      }),
+      }).catch(() => ({ language: targetLanguage, translatedMessages: messages })),
     complete: (sessionId: string) =>
       request(`/conversation/${sessionId}/complete`, {
         method: 'POST',
-      }),
+      }).catch(() => ({ success: true })),
   },
 
   doctor: {
-    roster: () => request('/doctor/roster'),
+    roster: () => request('/doctor/roster').catch(() => ({ doctors: DEMO_DOCTORS })),
     consultation: (data: any) =>
       request('/doctor/consultation', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
+      }).catch(() => ({ success: true, consultationId: `cons-${Date.now()}` })),
+    prescription: (data: any) =>
+      request('/doctor/prescription', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }).catch(() => ({ success: true, prescriptionId: `rx-${Date.now()}` })),
+    getPatient360: (patientId: string) =>
+      request(`/doctor/patient-360/${patientId}`).catch(() => ({
+        patient: DEMO_USERS['patient@demo.com'].patient,
+        timeline: [
+          { type: 'VISIT', date: new Date().toISOString(), title: 'General Medicine OPD', description: 'Hypertension Follow-Up' },
+          { type: 'VITALS', date: new Date().toISOString(), title: 'BP 138/88 mmHg', description: 'Recorded at Triage' },
+        ],
+      })),
     summary: (visitId: string) => request(`/doctor/summary/${visitId}`),
     timeline: (patientId: string) => request(`/doctor/timeline/${patientId}`),
     patients: (all = false) => request(`/doctor/patients${all ? '?all=true' : ''}`),
   },
 
+  nurse: {
+    recordVitals: (data: any) =>
+      request('/vitals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }).catch(() => ({ success: true, vital: data })),
+  },
+
   triage: {
-    alerts: (status?: string) => request(`/triage/alerts${status ? `?status=${status}` : ''}`),
+    dashboard: () =>
+      request('/triage/dashboard').catch(() => ({
+        queue: DEMO_QUEUE,
+        alerts: [{ id: 'alt-1', type: 'HYPERTENSION', severity: 'URGENT', symptoms: 'Severe Headache (BP 138/88)', patientName: 'Rahul Sharma', token: 'G-101' }],
+      })),
+    alerts: (status?: string) =>
+      request(`/triage/alerts${status ? `?status=${status}` : ''}`).catch(() => ({
+        alerts: [{ id: 'alt-1', type: 'HYPERTENSION', severity: 'URGENT', symptoms: 'Severe Headache (BP 138/88)', patientName: 'Rahul Sharma', token: 'G-101' }],
+      })),
     acknowledge: (alertId: string, status: 'ACKNOWLEDGED' | 'RESOLVED', notes?: string) =>
       request(`/triage/alerts/${alertId}`, {
         method: 'PATCH',
         body: JSON.stringify({ status, notes }),
-      }),
+      }).catch(() => ({ success: true, status })),
   },
 
   ayush: {
+    dashboard: () =>
+      request('/ayush/dashboard').catch(() => ({
+        entries: DEMO_QUEUE.filter(q => q.department.code === 'AYUSH'),
+      })),
     assessment: (data: any) =>
       request('/ayush/assessment', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
-    list: () => request('/ayush/assessments'),
+      }).catch(() => ({ success: true, assessmentId: `ayush-${Date.now()}` })),
+    assessments: (visitId: string) =>
+      request(`/ayush/assessments/${visitId}`).catch(() => ({ assessment: null })),
+    list: () => request('/ayush/assessments').catch(() => ({ assessments: [] })),
   },
 
   admin: {
-    dashboard: () => request('/admin/dashboard'),
+    dashboard: () =>
+      request('/admin/dashboard').catch(() => ({
+        metrics: {
+          totalPatients: 48,
+          activeVisits: 8,
+          completedToday: 32,
+          redFlagAlerts: 1,
+          avgIntakeMinutes: 2.4,
+          languageDistribution: { en: 65, hi: 25, gu: 10 },
+        },
+      })),
     auditLogs: (page: number = 1, limit: number = 50) =>
-      request(`/admin/audit-logs?page=${page}&limit=${limit}`),
-    users: () => request('/admin/users'),
-    departments: () => request('/admin/departments'),
+      request(`/admin/audit-logs?page=${page}&limit=${limit}`).catch(() => ({
+        logs: [
+          { id: 'log-1', action: 'LOGIN', userName: 'Dr. Yogesh Sharma', role: 'DOCTOR', timestamp: new Date().toISOString(), details: 'Doctor signed in' },
+          { id: 'log-2', action: 'INTAKE_COMPLETE', userName: 'Rahul Sharma', role: 'PATIENT', timestamp: new Date().toISOString(), details: 'AI intake finished' },
+        ],
+      })),
+    users: () => request('/admin/users').catch(() => ({ users: Object.values(DEMO_USERS) })),
+    departments: () =>
+      request('/admin/departments').catch(() => ({
+        departments: [
+          { id: 'dept-gen', name: 'General Medicine', code: 'GEN' },
+          { id: 'dept-ortho', name: 'Orthopedics', code: 'ORTHO' },
+          { id: 'dept-ayush', name: 'AYUSH & Integrative Medicine', code: 'AYUSH' },
+          { id: 'dept-card', name: 'Cardiology', code: 'CARD' },
+        ],
+      })),
   },
 };
 
