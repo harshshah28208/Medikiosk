@@ -63,8 +63,46 @@ export function LanguagePage() {
           })}
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-between w-full pt-4 border-t border-slate-100">
+        {/* Quick Route Cards: New Patient vs Existing Patient */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
+          <button
+            onClick={() => {
+              speechProvider.stopSpeaking();
+              localStorage.removeItem('medikiosk_active_patient');
+              localStorage.removeItem('medikiosk_active_visit');
+              localStorage.removeItem('medikiosk_active_queue');
+              navigate('/kiosk/register');
+            }}
+            className="flex items-center gap-4 p-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/30 transition-all touch-target text-left"
+          >
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <ArrowRight className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold">{t('startNewVisit') || 'New Patient Registration'}</h2>
+              <p className="text-xs text-blue-100">First time visiting this hospital</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              speechProvider.stopSpeaking();
+              navigate('/kiosk/identify');
+            }}
+            className="flex items-center gap-4 p-5 bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200 hover:border-slate-300 rounded-2xl shadow-sm transition-all touch-target text-left"
+          >
+            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center shrink-0">
+              <Globe className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold">{t('existingPatient') || 'Returning Patient'}</h2>
+              <p className="text-xs text-slate-500">Search by Phone, MRN, or ABHA</p>
+            </div>
+          </button>
+        </div>
+
+        {/* Footer Back */}
+        <div className="flex items-center justify-start w-full pt-4 border-t border-slate-100">
           <button
             onClick={() => {
               speechProvider.stopSpeaking();
@@ -74,17 +112,6 @@ export function LanguagePage() {
           >
             <ArrowLeft className="w-5 h-5" />
             {t('backBtn')}
-          </button>
-
-          <button
-            onClick={() => {
-              speechProvider.stopSpeaking();
-              navigate('/kiosk/identify');
-            }}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/30 touch-target transition-all"
-          >
-            {t('continueBtn')}
-            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </div>

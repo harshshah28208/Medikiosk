@@ -215,26 +215,87 @@ export function RegistrationPage() {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEditingDetails(true)}
-                className="text-xs text-blue-600 hover:text-blue-800 font-bold px-3 py-1.5 bg-white border border-blue-200 rounded-xl shadow-xs self-start sm:self-auto"
-              >
-                Edit Demographics
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDetails(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-bold px-3 py-1.5 bg-white border border-blue-200 rounded-xl shadow-xs"
+                >
+                  Edit Demographics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('medikiosk_active_patient');
+                    localStorage.removeItem('medikiosk_active_visit');
+                    localStorage.removeItem('medikiosk_active_queue');
+                    setHasSession(false);
+                    setIsEditingDetails(true);
+                    setFormData({
+                      name: '',
+                      phone: '',
+                      age: '',
+                      gender: 'MALE',
+                      email: '',
+                      address: '',
+                      emergencyContact: '',
+                      abhaId: '',
+                      departmentId: '',
+                      doctorId: '',
+                      reasonForVisit: '',
+                      pastMedicalHistory: '',
+                      currentMedications: '',
+                      allergies: '',
+                    });
+                  }}
+                  className="text-xs text-rose-600 hover:text-rose-800 font-bold px-3 py-1.5 bg-white border border-rose-200 rounded-xl shadow-xs"
+                >
+                  Register Different Person
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
               {hasSession && (
                 <div className="flex items-center justify-between pb-1">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Patient Demographics</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingDetails(false)}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
-                  >
-                    Hide / Use Saved Profile
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingDetails(false)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                    >
+                      Hide / Use Saved Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem('medikiosk_active_patient');
+                        localStorage.removeItem('medikiosk_active_visit');
+                        localStorage.removeItem('medikiosk_active_queue');
+                        setHasSession(false);
+                        setFormData({
+                          name: '',
+                          phone: '',
+                          age: '',
+                          gender: 'MALE',
+                          email: '',
+                          address: '',
+                          emergencyContact: '',
+                          abhaId: '',
+                          departmentId: '',
+                          doctorId: '',
+                          reasonForVisit: '',
+                          pastMedicalHistory: '',
+                          currentMedications: '',
+                          allergies: '',
+                        });
+                      }}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold underline"
+                    >
+                      Clear / New Person
+                    </button>
+                  </div>
                 </div>
               )}
               {/* Personal Information Inputs */}
