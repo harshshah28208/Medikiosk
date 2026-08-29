@@ -119,14 +119,14 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(env.PORT, () => {
+server.listen(Number(env.PORT) || 5000, '0.0.0.0', () => {
   console.log('');
   console.log('═══════════════════════════════════════════════');
   console.log('  🏥 MediKiosk Backend v2.0 (All 12 Phases Active)');
   console.log('═══════════════════════════════════════════════');
-  console.log(`  🌐 Server:    http://localhost:${env.PORT}`);
-  console.log(`  📊 Health:    http://localhost:${env.PORT}/api/health`);
-  console.log(`  🤖 AI:        ${env.GEMINI_API_KEY ? 'GeminiAIProvider' : 'MockAIProvider'}`);
+  console.log(`  🌐 Server:    http://0.0.0.0:${env.PORT || 5000}`);
+  console.log(`  📊 Health:    /api/health`);
+  console.log(`  🤖 AI:        ${process.env.GROQ_API_KEY ? 'GroqAIProvider (qwen/qwen3.8-27b)' : 'GeminiAIProvider'}`);
   console.log(`  🔧 Env:       ${env.NODE_ENV}`);
   console.log('═══════════════════════════════════════════════');
   console.log('');

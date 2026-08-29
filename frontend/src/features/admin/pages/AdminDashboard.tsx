@@ -219,8 +219,8 @@ export function AdminDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-              <span className="text-xs font-bold uppercase text-slate-400 block">Gemini 3.6 Flash Latency</span>
-              <p className="text-2xl font-black text-emerald-400 font-mono">312 ms</p>
+              <span className="text-xs font-bold uppercase text-slate-400 block">Groq Ultra-Fast AI Latency</span>
+              <p className="text-2xl font-black text-emerald-400 font-mono">240 ms</p>
               <span className="text-[10px] text-slate-500">Average response generation time</span>
             </div>
 

@@ -428,7 +428,7 @@ export function DoctorDashboard() {
                   <div className="md:col-span-2 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">History of Present Illness (HPI)</span>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-purple-900/40 text-purple-300 rounded font-mono">Gemini Clinical Engine</span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-purple-900/40 text-purple-300 rounded font-mono">Groq Clinical Engine</span>
                     </div>
                     <p className="text-slate-200 leading-relaxed">
                       {summaryData?.historyOfPresentIllness || 'Patient completed conversational multilingual AI intake at registration kiosk.'}

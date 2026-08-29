@@ -268,7 +268,7 @@ export function IntakePage() {
                 <span>MediKiosk Clinical AI</span>
                 <span className="text-[10px] px-2 py-0.5 bg-emerald-500/30 text-emerald-300 rounded-full font-mono flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  Live Gemini 3.6 Flash
+                  Groq Ultra-Fast AI (Qwen 27B)
                 </span>
               </h1>
               <p className="text-xs text-slate-400">Autonomous Clinical Intake • Multi-Turn Medical Interview</p>

@@ -30,7 +30,11 @@ export function PatientPortalPage() {
       setActiveVisit(p.visits[0]);
     }
 
-    const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+    const rawApiBase =
+      import.meta.env.VITE_API_BASE ||
+      (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+        ? `${window.location.origin}/api`
+        : 'http://localhost:5000/api');
     const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
 
     fetch(`${cleanApiBase}/documents/timeline/${p.id}`, {
@@ -179,7 +183,7 @@ export function PatientPortalPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-800">Upload Past Medical Records</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Upload prescription PDFs and lab reports. Gemini multimodal AI will analyze and index your history.
+              Upload prescription PDFs and lab reports. Groq AI will analyze and index your history.
             </p>
             <button
               onClick={handleStartNewConsultation}

@@ -1,4 +1,8 @@
-const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+const rawApiBase =
+  import.meta.env.VITE_API_BASE ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? `${window.location.origin}/api`
+    : 'http://localhost:5000/api');
 // Clean up any accidental double slashes or trailing slashes
 const API_BASE = rawApiBase.trim().replace(/\/+$/, '');
 
