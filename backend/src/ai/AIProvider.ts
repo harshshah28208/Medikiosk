@@ -575,58 +575,7 @@ export class UniversalClinicalEngine implements AIProvider {
     const isSymptomMentioned = /vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला|headache|सिरदर्द|માથા|chest|pain|दर्द|દુખાવો|ear|कान|કાન|stomach|पेट|પેટ|acidity|fever|बुखार|તાવ|cough|खांसी|ઉધરસ|rash|दाने|ધાબા|diarrhea|दस्त|ઝાડા|urine|पेशाब|પેશાબ|sciatica|कमर|spine|swelling|सूजन|સોજો/i.test(text);
 
     if (isNew) {
-      if (isSymptomMentioned && !state.chiefComplaint) {
-        update.chiefComplaint = text;
-        update.chiefComplaintOriginal = text;
-        update.symptoms = [
-          {
-            name: text,
-            originalText: text,
-            onset: null,
-            duration: null,
-            severity: null,
-            location: null,
-            character: null,
-            radiation: null,
-            aggravatingFactors: [],
-            relievingFactors: [],
-            timing: null,
-            progression: null,
-          },
-        ];
-        if (!state.lifestyle?.sleep) {
-          update.lifestyle = { sleep: 'Normal routine', diet: 'Home cooked', activity: 'Moderate', occupation: '', smoking: null, alcohol: null };
-        }
-        if ((state.pastMedicalHistory || []).length === 0) {
-          update.pastMedicalHistory = ['No chronic diseases reported'];
-          update.medications = [];
-          update.allergies = [{ allergen: 'None', reaction: 'None', severity: 'MILD' }];
-        }
-        return update;
-      }
-
-      // Step 1: Turn 0 answer is LIFESTYLE
-      if (turns === 0 || !state.lifestyle?.sleep) {
-        update.lifestyle = {
-          sleep: text,
-          diet: text,
-          activity: text,
-          occupation: state.lifestyle?.occupation || '',
-          smoking: state.lifestyle?.smoking || null,
-          alcohol: state.lifestyle?.alcohol || null,
-        };
-        return update;
-      }
-
-      // Step 2: Turn 1 answer is MEDICAL HISTORY & ALLERGIES
-      if (turns === 1 || (state.pastMedicalHistory || []).length === 0) {
-        update.pastMedicalHistory = [text];
-        update.medications = [{ name: text }];
-        update.allergies = [{ allergen: text, reaction: 'None', severity: 'MILD' }];
-        return update;
-      }
-
-      // Step 3: Turn 2 answer is PRIMARY COMPLAINT / SYMPTOM
+      // 1. Establish Chief Complaint if not yet present
       if (!state.chiefComplaint) {
         update.chiefComplaint = text;
         update.chiefComplaintOriginal = text;
@@ -649,8 +598,8 @@ export class UniversalClinicalEngine implements AIProvider {
         return update;
       }
 
-      // Step 4: Turn 3 answer is ONSET & TIMING
-      const currentSymptom = (state.symptoms && state.symptoms[0]) || {
+      // 2. Active Symptom Progression
+      const currentSymptom = (state.symptoms && state.symptoms[0]) ? { ...state.symptoms[0] } : {
         name: state.chiefComplaint,
         originalText: state.chiefComplaint,
         onset: null,
@@ -665,6 +614,7 @@ export class UniversalClinicalEngine implements AIProvider {
         progression: null,
       };
 
+      // Check if answer is Onset / Timing
       if (!currentSymptom.onset || !currentSymptom.duration) {
         currentSymptom.onset = text;
         currentSymptom.duration = text;
@@ -672,12 +622,32 @@ export class UniversalClinicalEngine implements AIProvider {
         return update;
       }
 
-      // Step 5: Turn 4 answer is SEVERITY & CHARACTER
+      // Check if answer is Severity / Character
       if (!currentSymptom.severity || !currentSymptom.character) {
         const numMatch = text.match(/\b([1-9]|10)\b/);
         currentSymptom.severity = numMatch ? parseInt(numMatch[1], 10) : 5;
         currentSymptom.character = text;
         update.symptoms = [currentSymptom];
+        return update;
+      }
+
+      // Check if answer mentions lifestyle
+      if (/sleep|diet|food|stress|routine|काम|नींद|खाना|ઊંઘ|ખોરાક/i.test(text)) {
+        update.lifestyle = {
+          sleep: text,
+          diet: text,
+          activity: text,
+          occupation: state.lifestyle?.occupation || '',
+          smoking: state.lifestyle?.smoking || null,
+          alcohol: state.lifestyle?.alcohol || null,
+        };
+        return update;
+      }
+
+      // Check if answer mentions chronic illness or allergy
+      if (/bp|blood pressure|sugar|diabetes|thyroid|allergy|एलर्जी|બીમારી|ડાયાબિટીસ/i.test(text)) {
+        update.pastMedicalHistory = [text];
+        update.allergies = [{ allergen: text, reaction: 'Reported during intake', severity: 'MILD' }];
         return update;
       }
 
@@ -1157,84 +1127,24 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // ==========================================
     // WORKFLOW B: NEW PATIENT INTAKE
-    // Step 1: Lifestyle & Daily Routine (Sleep, Diet, Physical Activity, Stress) FIRST
+    // Step 1: Chief Complaint / Primary Health Concern FIRST
     // ==========================================
-    if (!answeredDimensions.has('LIFESTYLE')) {
-      const qText = {
-        EN: isCaregiver
-          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
-          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
-        HI: isCaregiver
-          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
-          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
-        GU: isCaregiver
-          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
-          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
-      };
-      const touchOpts = {
-        EN: ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high work stress', 'Oily / fast food & irregular meals', 'Sedentary desk routine & physical fatigue'],
-        HI: ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
-        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'LIFESTYLE',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and metabolic routine context',
-      };
-    }
-
-    // Step 2: Medical Background, Medications & Drug Allergies SECOND
-    if (!answeredDimensions.has('PAST_HISTORY') && !answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES')) {
-      const qText = {
-        EN: isCaregiver
-          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
-          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
-        HI: isCaregiver
-          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
-          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
-        GU: isCaregiver
-          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
-          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
-      };
-      const touchOpts = {
-        EN: ['No chronic conditions & No known drug allergies (NKDA)', 'Taking regular BP / Diabetes medicines', 'Have Thyroid / Asthma / Breathing trouble', 'Known drug allergy to Penicillin / Sulfa drugs'],
-        HI: ['कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'थायराइड / अस्थमा / सांस की तकलीफ है', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है'],
-        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'થાયરોઇડ / અસ્થમા / શ્વાસની તકલીફ છે', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'PAST_HISTORY',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Screening chronic disease background and pharmacotherapy safety profile',
-      };
-    }
-
-    // Step 3: Chief Complaint / Primary Health Concern
     if (!state.chiefComplaint) {
       const qText = {
         EN: isCaregiver
-          ? `Now, please tell me what specific symptoms or health concerns the patient is experiencing today?`
-          : `Now, please tell me what specific symptoms or health concerns brought you to the hospital today?`,
+          ? `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns the patient is experiencing today?`
+          : `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns brought you to the hospital today?`,
         HI: isCaregiver
-          ? `अब कृपया बताएं कि मरीज को आज क्या मुख्य तकलीफ या लक्षण महसूस हो रहे हैं?`
-          : `अब कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?`,
+          ? `मेडीकियोस्क में स्वागत है। कृपया बताएं कि मरीज को आज क्या मुख्य तकलीफ या लक्षण महसूस हो रहे हैं?`
+          : `मेडीकियोस्क में आपका स्वागत है। कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?`,
         GU: isCaregiver
-          ? `હવે કૃપા કરીને જણાવો કે દર્દીને આજે કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`
-          : `હવે કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
+          ? `મેડીકિયોસ્ક માં સ્વાગત છે. કૃપા કરીને જણાવો કે દર્દીને આજે કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`
+          : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
       };
       const touchOpts = {
-        EN: ['Ear pain / Discharge / Blocked ear', 'Throbbing headache & eye strain', 'Stomach ache / Burning acidity', 'Chest tightness / Shortness of breath', 'Skin rash / Pimples / Itching', 'Fever, cough & sore throat'],
-        HI: ['कान में दर्द / मवाद / भारीपन', 'तेज सिरदर्द और आँखों में तनाव', 'पेट में दर्द / जलन / एसिडिटी', 'सीने में भारीपन / सांस लेने में तकलीफ', 'त्वचा में दाने / मुँहासे / खुजली', 'बुखार, खांसी और गले में दर्द'],
-        GU: ['કાનમાં દુખાવો / પરુ / ભારેપણું', 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ', 'પેટમાં દુખાવો / બળતરા / એસિડિટી', 'છાતીમાં ભારેપણું / શ્વાસ લેવામાં તકલીફ', 'ચામડી પર દાણા / ખીલ / ખંજવાળ', 'તાવ, ઉધરસ અને ગળામાં દુખાવો'],
+        EN: ['Vomiting, nausea & stomach upset', 'Throbbing headache & eye strain', 'Fever, body ache & chills', 'Joint or back pain with stiffness', 'Chest discomfort or breathlessness', 'Skin rash, pimples or itching'],
+        HI: ['उल्टी, जी मिचलाना व पेट दर्द', 'तेज सिरदर्द और आँखों में तनाव', 'बुखार, बदन दर्द और कंपकंपी', 'जोड़ों या कमर में दर्द व जकड़न', 'सीने में भारीपन या सांस की तकलीफ', 'त्वचा पर दाने, खुजली या मुँहासे'],
+        GU: ['ઉલટી, ઉબકા અને પેટમાં દુખાવો', 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ', 'તાવ, કળતર અને ધ્રુજારી', 'સાંધા કે કમરમાં દુખાવો અને જકડન', 'છાતીમાં ભારેપણું કે શ્વાસની તકલીફ', 'ચામડી પર દાણા, ખંજવાળ કે ખીલ'],
       };
       return {
         question: qText[lang],
@@ -1244,11 +1154,11 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Inquiring chief complaint after lifestyle and medical history baseline established',
+        clinicalRationale: 'Establishing active chief complaint on initial new patient intake turn',
       };
     }
 
-    // Step 4: Clinical Symptoms & Primary Complaint Exploration
+    // Step 2: Clinical Symptoms & Primary Complaint Exploration (Onset & Timing)
     if (!answeredDimensions.has('ONSET')) {
       let qText = {
         EN: isCaregiver
@@ -1993,13 +1903,18 @@ Turns Completed: ${state.turnsCompleted}
 CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
 
 1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Build baseline profile -> explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Goal: Explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
    - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
+   - CRITICAL RULE FOR LIFESTYLE, ROUTINE & PAST MEDICAL HISTORY:
+     * NEVER ASK LIFESTYLE, SLEEP, DIET, ROUTINE, PAST MEDICAL HISTORY, MEDICATIONS, OR ALLERGIES IF ALREADY ANSWERED OR PROVIDED IN CLINICAL CONTEXT.
+     * Once the patient states their chief complaint (e.g., vomiting, knee pain, fever, chest pain), FOCUS IMMEDIATELY ON THE ACTIVE COMPLAINT (onset, duration, severity 1-10, character, triggers, radiation, relieving factors).
+     * DO NOT interrupt symptom exploration to ask generic lifestyle/routine questions unless specifically relevant to the acute pathology (e.g. food poisoning diet).
+     * If the patient already answered a question about past history or lifestyle in a previous turn, NEVER ASK IT AGAIN.
    - Adaptive Branching:
      * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
      * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
-     * If patient reports a chronic condition (e.g., "I have diabetes"), ask only useful follow-ups (duration, meds). If they say "No prior major illnesses", do NOT interrogate them with unnecessary disease checklists.
-   - Completion: When chief complaint characteristics, duration, severity, relevant background, and red flags are addressed, set "isComplete": true with a final closing verification question.
+     * If patient reports a condition, ask only useful follow-ups. If they say "No prior major illnesses", NEVER interrogate them with disease checklists.
+   - Completion: When chief complaint characteristics, duration, severity, and red flags are addressed, set "isComplete": true with a final closing verification question.
 
 2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
    - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
@@ -2249,13 +2164,18 @@ Turns Completed: ${state.turnsCompleted}
 CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
 
 1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Build baseline profile -> explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
+   - Goal: Explore chief complaint -> adaptive complaint assessment -> red-flag screening -> wrap up.
    - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language ("Let's understand your health and what brings you in today") and ask what chief complaint or symptoms brought them to the hospital.
+   - CRITICAL RULE FOR LIFESTYLE, ROUTINE & PAST MEDICAL HISTORY:
+     * NEVER ASK LIFESTYLE, SLEEP, DIET, ROUTINE, PAST MEDICAL HISTORY, MEDICATIONS, OR ALLERGIES IF ALREADY ANSWERED OR PROVIDED IN CLINICAL CONTEXT.
+     * Once the patient states their chief complaint (e.g., vomiting, knee pain, fever, chest pain), FOCUS IMMEDIATELY ON THE ACTIVE COMPLAINT (onset, duration, severity 1-10, character, triggers, radiation, relieving factors).
+     * DO NOT interrupt symptom exploration to ask generic lifestyle/routine questions unless specifically relevant to the acute pathology (e.g. food poisoning diet).
+     * If the patient already answered a question about past history or lifestyle in a previous turn, NEVER ASK IT AGAIN.
    - Adaptive Branching:
      * If patient says "I have fever" -> explore duration, pattern, chills/sweats, and branching symptoms (urinary burning, throat, etc.).
      * If patient denies a symptom (e.g., "No cough"), NEVER ask follow-up questions about cough.
-     * If patient reports a chronic condition (e.g., "I have diabetes"), ask only useful follow-ups (duration, meds). If they say "No prior major illnesses", do NOT interrogate them with unnecessary disease checklists.
-   - Completion: When chief complaint characteristics, duration, severity, relevant background, and red flags are addressed, set "isComplete": true with a final closing verification question.
+     * If patient reports a condition, ask only useful follow-ups. If they say "No prior major illnesses", NEVER interrogate them with disease checklists.
+   - Completion: When chief complaint characteristics, duration, severity, and red flags are addressed, set "isComplete": true with a final closing verification question.
 
 2. RETURNING / EXISTING PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
    - Goal: Load history -> Change-First evaluation -> assess current complaint / new issue -> adaptive follow-up -> wrap up.
