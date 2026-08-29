@@ -74,20 +74,21 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const respType = (respondentType as 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED') || 'PATIENT';
   const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
 
-  // Check if patient is returning (only if visitType is RETURN/FOLLOW_UP or has past completed visits)
-  let priorVisits: any[] = [];
-  if (visit.visitType !== 'NEW') {
-    priorVisits = await prisma.visit.findMany({
-      where: {
-        patientId: visit.patientId,
-        id: { not: visit.id },
-        status: { in: ['COMPLETED', 'DISCHARGED'] },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 1,
-      include: { summary: true, prescriptions: { include: { items: true } }, department: true },
-    });
-  }
+  // Check if patient is returning (has any prior visit records in the hospital)
+  const priorVisits = await prisma.visit.findMany({
+    where: {
+      patientId: visit.patientId,
+      id: { not: visit.id },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    include: {
+      summary: true,
+      prescriptions: { include: { items: true } },
+      department: true,
+      doctor: { include: { user: true } },
+    },
+  });
 
   const isExistingPatient = priorVisits.length > 0;
   const isNewPatient = !isExistingPatient;
@@ -95,10 +96,12 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   let previousVisitInfo = undefined;
   if (isExistingPatient && priorVisits[0]) {
     const pv = priorVisits[0];
+    const prevDocName = pv.doctor?.user?.name ? `Dr. ${pv.doctor.user.name}` : undefined;
     previousVisitInfo = {
       lastVisitDate: pv.createdAt.toLocaleDateString(),
       lastComplaint: pv.reasonForVisit || (pv.summary?.summaryJson ? JSON.parse(pv.summary.summaryJson)?.chiefComplaint : null) || 'Prior Consultation',
       lastDepartment: pv.department?.name || 'General OPD',
+      lastDoctor: prevDocName,
       pastPrescriptions: pv.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || [],
     };
   }
@@ -124,13 +127,14 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   });
 
   // Tailored greetings for New vs. Returning Patients
-  const lastComplaintStr = previousVisitInfo?.lastComplaint ? ` (${previousVisitInfo.lastComplaint})` : '';
+  const docMention = previousVisitInfo?.lastDoctor ? ` with ${previousVisitInfo.lastDoctor}` : '';
+  const lastComplaintStr = previousVisitInfo?.lastComplaint ? ` for ${previousVisitInfo.lastComplaint}` : '';
 
   const initialGreetings = {
     EN: isExistingPatient
       ? (isCaregiver
-          ? `Welcome back. Compared to the patient's previous visit${lastComplaintStr}, what has changed with their health? Have their symptoms improved, worsened, or are you visiting for a new problem today?`
-          : `Welcome back to the hospital! Compared to your previous visit${lastComplaintStr}, what has changed with your health? Have your symptoms improved, worsened, or do you have a new problem today?`)
+          ? `Welcome back. Compared to the patient's previous visit${docMention}${lastComplaintStr}, how has their condition progressed? Have their symptoms improved, worsened, or are you visiting for a new problem today?`
+          : `Welcome back to the hospital! Compared to your previous visit${docMention}${lastComplaintStr}, what has changed with your health? Have your symptoms improved, worsened, or do you have a new problem today?`)
       : (isCaregiver
           ? `Hello and welcome! I am MediKiosk Clinical AI. To help the doctor understand the patient thoroughly, let's start with their lifestyle and daily routine. How is their sleep schedule (hours per night), dietary habits, and daily stress?`
           : `Hello and welcome! I am MediKiosk Clinical AI. To help your doctor understand you thoroughly, let's start with your lifestyle and daily routine. How is your sleep schedule (hours per night), dietary habits, and daily stress?`),
@@ -152,14 +156,14 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
 
   const initialOptions = {
     EN: isExistingPatient
-      ? ['Previous symptoms improved / Routine review', 'Symptoms worsened / No significant relief', 'Completely new symptom/problem today', 'Medicines finished / Need refill & checkup']
+      ? ['Previous symptoms improved (>70% relief)', 'Partial relief but symptoms still persist', 'No relief / Symptoms worsening', 'Completely new problem today']
       : ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high stress routine', 'Oily / fast food & irregular meal timing', 'Sedentary desk routine & physical fatigue'],
     HI: isExistingPatient
-      ? ['पुरानी तकलीफ में काफी सुधार है / फॉलो-अप', 'तकलीफ बढ़ गई है / आराम नहीं मिला', 'आज पूरी तरह नई समस्या है', 'दवाइयां समाप्त / दोबारा जांच']
+      ? ['लक्षणों में काफी सुधार (70%+ आराम)', 'थोड़ा आराम है पर तकलीफ बाकी है', 'कोई आराम नहीं / तकलीफ बढ़ गई', 'आज पूरी तरह नई समस्या है']
       : ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'कम नींद (<5 घंटे) और अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'बैठे रहने की दिनचर्या और कमजोरी'],
     GU: isExistingPatient
-      ? ['જૂની તકલીફમાં સારો સુધારો છે / ફોલો-અપ', 'તકલીફ વધી ગઈ છે / રાહત નથી', 'આજે સાવ નવી જ સમસ્યા છે', 'દવાઓ પૂર્ણ થઈ / ફરી તપાસ']
-      : ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઓછી ઊંઘ (<૫ કલાક) અને વધુ માનસિક તણાવ', 'તળેલું/બહારનું ભોજન અને અનિયમિત સમય', 'બેઠાડુ દિનચર્યા અને શારીરિક થાક'],
+      ? ['લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)', 'થોડી રાહત છે પણ તકલીફ ચાલુ છે', 'કોઈ રાહત નથી / તકલીફ વધી ગઈ', 'આજે સાવ નવી જ સમસ્યા છે']
+      : ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઓછી ઊંઘ (<૫ કલાક) અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ દિનચર્યા અને થાક'],
   };
 
   const welcomeMsg = await prisma.conversationMessage.create({
