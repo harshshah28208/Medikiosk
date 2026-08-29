@@ -212,238 +212,160 @@ export class UniversalClinicalEngine implements AIProvider {
 
     const isSkin = /pimple|acne|rash|skin|itch|boil|eczema|allergy|फुंसी|मुँहासे|खुजली|ખીલ|ચકામા/i.test(cLower);
     const isCardiacOrChest = /chest|heart|angina|palpitation|छाती|सीने|हृदय|છાતી/i.test(cLower);
+    const isCardiac = isCardiacOrChest;
     const isRespiratory = /cough|breath|cold|wheez|asthma|throat|खांसी|सांस|गला|તાવ|ઉધરસ|શ્વાસ/i.test(cLower);
     const isGIOrStomach = /stomach|abdom|vomit|diarrhea|acidity|gas|constipat|nausea|पेट|उल्टी|दस्त|પેટ|ઉલટી/i.test(cLower);
     const isOrthoOrJoint = /joint|bone|knee|back|pain|fracture|leg|shoulder|कमर|घुटने|जोड़ों|કમર|ઘૂંટણ/i.test(cLower);
 
-    // TURN 1: Temporal pattern & Onset in pure native phrasing
-    if (turn === 1) {
-      let specificOnset = {
-        EN: `When did your ${localizedLabel} begin, and does anything make it better or worse?`,
-        HI: `आपको ${localizedLabel} की शुरुआत कब से हुई, और क्या किसी विशेष स्थिति में यह कम या ज्यादा होता है?`,
-        GU: `તમને ${localizedLabel}ની શરૂઆત ક્યારથી થઈ છે, અને કોઈ ચોક્કસ સમયે તે વધે કે ઘટે છે?`,
+    // Dynamic Adaptive Clinical Questioning — Evaluates patient answers and missing dimensions
+    const answeredDimensions = new Set<string>();
+    if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
+    if (state.symptoms.some(s => s.severity || s.character)) answeredDimensions.add('CHARACTER');
+    if (state.pastMedicalHistory.length > 0) answeredDimensions.add('PAST_HISTORY');
+    if (state.medications.length > 0) answeredDimensions.add('MEDICATIONS');
+    if (state.allergies.length > 0) answeredDimensions.add('ALLERGIES');
+    if (state.lifestyle) answeredDimensions.add('LIFESTYLE');
+
+    // 1. Dynamic Symptom Follow-Up: If onset or character has not been explored for the primary complaint
+    if (!answeredDimensions.has('ONSET')) {
+      let qText = {
+        EN: `How long have you been experiencing ${localizedLabel}, and did it begin suddenly or gradually?`,
+        HI: `आपको ${localizedLabel} की समस्या कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?`,
+        GU: `તમને ${localizedLabel} કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?`,
       };
-      let options = {
-        EN: ['Started suddenly today (< 2 hrs)', 'Present for 2-3 days', 'Persistent for > 1 week', 'Chronic / Recurring for months'],
-        HI: ['आज अचानक शुरू हुआ (< 2 घंटे)', '2-3 दिनों से है', 'एक हफ्ते से अधिक समय से', 'काफी महीनों से बार-बार होता है'],
-        GU: ['આજે અચાનક શરૂ થયું (< 2 કલાક)', '2-3 દિવસથી છે', 'એક અઠવાડિયા કરતાં વધુ સમયથી', 'લાંબા સમયથી વારંવાર થાય છે'],
+      let touchOpts = {
+        EN: ['Since today / past few hours', '2 to 3 days', '1 to 2 weeks', 'More than a month (chronic)'],
+        HI: ['आज से / कुछ घंटों से', '2-3 दिनों से', '1-2 सप्ताह से', 'एक महीने से अधिक समय से'],
+        GU: ['આજથી / થોડા કલાકોથી', '૨-૩ દિવસથી', '૧-૨ અઠવાડિયાથી', 'એક મહિનાથી વધુ સમયથી'],
       };
 
-      if (isSkin) {
-        specificOnset.EN = `How many days have you had these ${localizedLabel}, and are they spreading to other areas?`;
-        specificOnset.HI = `आपको ये ${localizedLabel} कितने दिनों से निकल रहे हैं, और क्या ये चेहरे या शरीर के अन्य हिस्सों में भी फैल रहे हैं?`;
-        specificOnset.GU = `તમને આ ${localizedLabel} કેટલા દિવસથી નીકળી રહ્યા છે, અને શું તે ચહેરા કે શરીરના અન્ય ભાગોમાં ફેલાઈ રહ્યા છે?`;
-      } else if (isOrthoOrJoint) {
-        specificOnset.EN = `When did this ${localizedLabel} start, and does walking or resting worsen the pain?`;
-        specificOnset.HI = `आपको यह ${localizedLabel} कब से शुरू हुआ, और क्या चलने-फिरने या काम करने से दर्द बढ़ता है?`;
-        specificOnset.GU = `તમને આ ${localizedLabel} ક્યારથી શરૂ થયો, અને ચાલવાથી કે હલનચલન કરવાથી દુખાવો વધે છે?`;
-      } else if (isRespiratory) {
-        specificOnset.EN = `How long have you had this ${localizedLabel}, and is it worse at night or during physical activity?`;
-        specificOnset.HI = `आपको यह ${localizedLabel} कब से है, और क्या रात में या कोई काम करने पर सांस फूलती है?`;
-        specificOnset.GU = `તમને આ ${localizedLabel} કેટલા સમયથી છે, અને શું રાત્રે કે ચાલતી વખતે તકલીફ વધે છે?`;
+      if (isCardiac) {
+        qText.EN = `When did this chest discomfort begin, and does it spread to your left arm, jaw, or back?`;
+        qText.HI = `यह सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`;
+        qText.GU = `આ છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`;
+        touchOpts.EN = ['Just started (Severe / Heavy pressure)', 'Spreading to left arm / neck', 'Worse with walking / exertion', 'Mild discomfort only'];
+        touchOpts.HI = ['अभी शुरू हुआ (भारी दबाव/जकड़न)', 'बाएं हाथ/गर्दन में फैल रहा है', 'चलने-फिरने पर बढ़ता है', 'केवल हल्का दर्द'];
+        touchOpts.GU = ['હમણાં જ શરૂ થયો (ભારે દબાણ)', 'ડાબા હાથ/ગરદન તરફ ફેલાય છે', 'ચાલવાથી વધે છે', 'હળવો દુખાવો'];
       }
 
       return {
-        question: specificOnset[lang],
+        question: qText[lang],
         questionLanguage: lang,
         questionCategory: 'ONSET',
-        touchOptions: options[lang],
-        isRedFlag: false,
-        redFlagReason: null,
+        touchOptions: touchOpts[lang],
+        isRedFlag: isCardiac,
+        redFlagReason: isCardiac ? 'Potential cardiac angina screening' : null,
         isComplete: false,
-        clinicalRationale: 'Establishing temporal symptom pattern and trigger factors',
+        clinicalRationale: 'Dynamically evaluating onset, timing, and radiating patterns for reported complaint',
       };
     }
 
-    // TURN 2: Severity, Character & Clinical Sensation
-    if (turn === 2) {
-      let q = {
-        EN: `How does your ${localizedLabel} feel, and what is the severity on a scale of 1 to 10?`,
-        HI: `आपको ${localizedLabel} में किस तरह की परेशानी महसूस हो रही है, और 1 से 10 के पैमाने पर कितनी तकलीफ है?`,
-        GU: `તમને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને 1 થી 10 ના માપ પર કેટલી ગંભીરતા છે?`,
+    // 2. Dynamic Character & Severity Exploration
+    if (!answeredDimensions.has('CHARACTER')) {
+      let qText = {
+        EN: `How would you describe the sensation of your ${localizedLabel}, and how severe is it on a scale of 1 to 10?`,
+        HI: `आपको ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`,
+        GU: `તમને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`,
       };
-      let opt = {
-        EN: ['1-3 (Mild / Noticeable)', '4-6 (Moderate / Distracting)', '7-10 (Severe / Sharp / Unbearable)'],
+      let touchOpts = {
+        EN: ['1-3 (Mild / bearable)', '4-6 (Moderate / disturbing daily tasks)', '7-10 (Severe / sharp / unbearable)'],
         HI: ['1-3 (हल्की तकलीफ / सहनीय)', '4-6 (मध्यम / दैनिक काम में रुकावट)', '7-10 (अत्यधिक तीव्र व असहनीय)'],
-        GU: ['1-3 (હળવી તકલીફ / સામાન્ય)', '4-6 (મધ્યમ / કામમાં અડચણ)', '7-10 (અતિ તીવ્ર / અસહ્ય)'],
+        GU: ['૧-૩ (હળવી તકલીફ / સહન થાય તેવી)', '૪-૬ (મધ્યમ / કામમાં અડચણ)', '૭-૧૦ (અતિ તીવ્ર / અસહ્ય)'],
       };
 
-      if (isSkin) {
-        q.EN = `Is there any pain, itching, redness, or pus discharge with the ${localizedLabel}?`;
-        q.HI = `क्या इन ${localizedLabel} में दर्द, तेज खुजली, लालिमा, या पस/मवाद जैसा कुछ बन रहा है?`;
-        q.GU = `શું આ ${localizedLabel}માં દુખાવો, ખંજવાળ, લાલાશ, કે પરુ (પસ) જેવું જણાય છે?`;
-        opt.EN = ['Severe itching without pus', 'Painful & tender with redness', 'Pus filled / deep boils', 'Mild / purely cosmetic'];
-        opt.HI = ['तेज खुजली, मवाद नहीं', 'दर्दनाक और लालिमा युक्त', 'मवाद/पस वाले दाने', 'हल्की समस्या / सामान्य'];
-        opt.GU = ['તીવ્ર ખંજવાળ, પરુ નથી', 'દુખાવો અને લાલાશ સાથે', 'પરુ (પસ) વાળા ખીલ', 'હળવી તકલીફ'];
-      } else if (isGIOrStomach) {
-        q.EN = `Is there burning acidity, sharp cramping, or fullness after meals with this ${localizedLabel}?`;
-        q.HI = `क्या आपको ${localizedLabel} के साथ सीने-पेट में जलन, मरोड़ या खाना खाने के बाद भारीपन होता है?`;
-        q.GU = `શું તમને ${localizedLabel} સાથે બળતરા, ચૂંક કે જમ્યા પછી પેટમાં ભારેપણું લાગે છે?`;
-        opt.EN = ['Burning sensation (Acidity)', 'Sharp cramping pain', 'Dull continuous ache', 'Bloating / Fullness after meals'];
-        opt.HI = ['जलन / एसिडिटी', 'तेज मरोड़ वाला दर्द', 'लगातार हल्का दर्द', 'पेट फूलना / भारीपन'];
-        opt.GU = ['બળતરા / એસિડિટી', 'તીવ્ર ચૂંક આવવી', 'સતત દુખાવો', 'પેટ ફૂલવું / અપચો'];
+      if (isGIOrStomach) {
+        qText.EN = `Is your abdominal symptom mostly burning acidity, sharp cramping, or fullness after eating?`;
+        qText.HI = `क्या पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`;
+        qText.GU = `શું પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`;
+        touchOpts.EN = ['Burning sensation (Acidity / GERD)', 'Sharp cramping pain', 'Fullness / Bloating after meals', 'Continuous dull ache'];
+        touchOpts.HI = ['जलन / एसिडिटी', 'तेज मरोड़ वाला दर्द', 'खाना खाने के बाद भारीपन', 'लगातार हल्का दर्द'];
+        touchOpts.GU = ['બળતરા / એસિડિટી', 'તીવ્ર ચૂંક આવવી', 'જમ્યા પછી ભારેપણું', 'સતત દુખાવો'];
       } else if (isOrthoOrJoint) {
-        q.EN = `Is there visible swelling, morning stiffness, or difficulty bearing weight with this ${localizedLabel}?`;
-        q.HI = `क्या आपको ${localizedLabel} वाले हिस्से में सूजन, सुबह के समय अकड़न, या चलने में कठिनाई हो रही है?`;
-        q.GU = `શું તમને ${localizedLabel}વાળા ભાગમાં સોજો, સવારે જકડાઈ જવું, કે ચાલવામાં મુશ્કેલી પડે છે?`;
-        opt.EN = ['Morning stiffness > 30 mins', 'Visible swelling and warmth', 'Difficulty walking / moving', 'Mild intermittent ache'];
-        opt.HI = ['सुबह जोड़ों में अकड़न', 'सूजन और लाली', 'चलने-फिरने में भारी परेशानी', 'हल्का दर्द'];
-        opt.GU = ['સવારે સાંધા જકડાઈ જવા', 'સોજો આવવો', 'ચાલવામાં તકલીફ', 'હળવો દુખાવો'];
+        qText.EN = `Is there morning stiffness, swelling, or difficulty in joint movement?`;
+        qText.HI = `क्या सुबह उठने पर जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`;
+        qText.GU = `શું સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`;
+        touchOpts.EN = ['Morning stiffness > 30 mins', 'Swelling and warmth', 'Pain on climbing stairs / walking', 'Mild ache only'];
+        touchOpts.HI = ['सुबह 30 मिनट से ज्यादा अकड़न', 'सूजन और लाली', 'सीढ़ियां चढ़ने/चलने में दर्द', 'हल्का दर्द'];
+        touchOpts.GU = ['સવારે સાંધા જકડાઈ જવા', 'સોજો અને ગરમી', 'સીડી ચડવામાં દુખાવો', 'હળવો દુખાવો'];
+      } else if (isSkin) {
+        qText.EN = `Is the skin rash accompanied by intense itching, pain, or spreading to other parts?`;
+        qText.HI = `क्या त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`;
+        qText.GU = `શું ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`;
+        touchOpts.EN = ['Severe itching without pain', 'Painful and red tender skin', 'Spreading to other body areas', 'Dry peeling / scaling'];
+        touchOpts.HI = ['तेज खुजली, दर्द नहीं', 'दर्दनाक और लाल त्वचा', 'शरीर के अन्य हिस्सों में फैल रहा है', 'सूखापन व पपड़ी'];
+        touchOpts.GU = ['તીવ્ર ખંજવાળ', 'દુખાવો અને લાલાશ', 'બીજા ભાગોમાં ફેલાવવું', 'શુષ્કતા'];
       }
 
       return {
-        question: q[lang],
+        question: qText[lang],
         questionLanguage: lang,
         questionCategory: 'CHARACTER',
-        touchOptions: opt[lang],
+        touchOptions: touchOpts[lang],
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Characterizing symptom quality, sensation, and severity',
+        clinicalRationale: 'Dynamically tailoring symptom severity and qualitative sensation inquiry',
       };
     }
 
-    // TURN 3: Associated Findings / Prior Treatments
-    if (turn === 3) {
-      let q = {
-        EN: `Have you noticed any other symptoms (like fever, nausea, dizziness, or unusual weakness)?`,
-        HI: `क्या आपको इसके अलावा कोई अन्य समस्या जैसे बुखार, जी मिचलाना, चक्कर या असामान्य कमजोरी भी लग रही है?`,
-        GU: `શું તમને આ સિવાય તાવ, ઉબકા, ચક્કર આવવા કે અસામાન્ય નબળાઈ જેવી કોઈ તકલીફ જણાય છે?`,
+    // 3. Dynamic Chronic Medical History Check
+    if (!answeredDimensions.has('PAST_HISTORY')) {
+      const qText = {
+        EN: `Do you have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`,
+        HI: `क्या आपको पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`,
+        GU: `શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`,
       };
-      let opt = {
-        EN: ['Mild fever & fatigue', 'Nausea / Loss of appetite', 'Headache / Body ache', 'No other associated symptoms'],
-        HI: ['हल्का बुखार और थकान', 'जी मिचलाना / भूख न लगना', 'सिरदर्द / शरीर दर्द', 'अन्य कोई लक्षण नहीं'],
-        GU: ['હળવો તાવ અને થાક', 'ઉબકા / ભૂખ ન લાગવી', 'માથાનો દુખાવો / शरीरનો દુખાવો', 'અન્ય કોઈ લક્ષણ નથી'],
+      const touchOpts = {
+        EN: ['High Blood Pressure (Hypertension)', 'Diabetes (High Sugar)', 'Thyroid / Asthma', 'No ongoing chronic conditions'],
+        HI: ['हाई ब्लड प्रेशर (बीपी)', 'डायबिटीज (शुगर)', 'थायराइड / दमा (अस्थमा)', 'कोई पुरानी बीमारी नहीं है'],
+        GU: ['હાઈ બ્લડ પ્રેશર (બીપી)', 'ડાયાબિટીસ (સુગર)', 'થાયરોઇડ / અસ્થમા', 'કોઈ જૂની બીમારી નથી'],
       };
-
-      if (isSkin) {
-        q.EN = `Have you applied any skin ointments, steroid creams, or taken any home remedies for this?`;
-        q.HI = `क्या आपने इसके लिए पहले कोई मेडिकल क्रीम, ऑइंटमेंट या घरेलू उपचार का इस्तेमाल किया है?`;
-        q.GU = `શું તમે આ માટે પહેલાં કોઈ સ્કીન ક્રીમ, મલમ કે ઘરગથ્થુ ઉપચાર કર્યો છે?`;
-        opt.EN = ['Applied OTC creams / ointments', 'Used Ayurvedic/home remedies', 'No prior treatment used'];
-        opt.HI = ['क्रीम / ऑइंटमेंट लगाया है', 'घरेलू/आयुर्वेदिक उपाय किए हैं', 'कोई उपचार नहीं लिया'];
-        opt.GU = ['ક્રીમ કે મલમ વાપર્યો છે', 'ઘરગથ્થુ ઉપચાર કર્યો છે', 'કોઈ દવા લીધી નથી'];
-      }
-
       return {
-        question: q[lang],
-        questionLanguage: lang,
-        questionCategory: 'ASSOCIATED',
-        touchOptions: opt[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Screening for systemic involvement and prior medication exposure',
-      };
-    }
-
-    // TURN 4: Past Medical History & Drug Allergies
-    if (turn === 4) {
-      const q = {
-        EN: `Do you have any existing chronic conditions (High BP, Diabetes, Thyroid) or known drug allergies?`,
-        HI: `क्या आपको पहले से कोई पुरानी बीमारी (जैसे बीपी, शुगर, थायराइड) या किसी दवा से एलर्जी है?`,
-        GU: `શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ) કે કોઈ દવાની એલર્જી છે?`,
-      };
-      const opt = {
-        EN: ['High BP / Diabetes', 'Thyroid / Asthma', 'Known Drug Allergies', 'No chronic conditions / No allergies'],
-        HI: ['हाई बीपी / शुगर', 'थायराइड / अस्थमा', 'दवाओं से एलर्जी है', 'कोई पुरानी बीमारी या एलर्जी नहीं'],
-        GU: ['હાઈ બીપી / ડાયાબિટીસ', 'થાયરોઇડ / અસ્થમા', 'દવાની એલર્જી છે', 'કોઈ જૂની બીમારી કે એલર્જી નથી'],
-      };
-
-      return {
-        question: q[lang],
+        question: qText[lang],
         questionLanguage: lang,
         questionCategory: 'PAST_HISTORY',
-        touchOptions: opt[lang],
+        touchOptions: touchOpts[lang],
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Reviewing background systemic risk factors and drug allergies',
+        clinicalRationale: 'Evaluating baseline chronic medical history',
       };
     }
 
-    // TURN 5: Daily Routine & Lifestyle
-    if (turn === 5) {
-      const q = {
-        EN: `How would you describe your daily lifestyle? Please tell me about your sleep, diet, physical activity, and occupation.`,
-        HI: `आप अपनी दिनचर्या के बारे में बताइए — नींद कैसी है, खान-पान कैसा है, और किस तरह का काम करते हैं?`,
-        GU: `તમારી રોજની જીવનચર્યા વિશે જણાવો — ઊંઘ, ખાન-પાન, શારીરિક પ્રવૃત્તિ અને વ્યવસાય કેવો છે?`,
+    // 4. Dynamic Medications & Allergies Check
+    if (!answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
+      const qText = {
+        EN: `Are you currently taking any regular medications, or do you have any known drug/food allergies?`,
+        HI: `क्या आप नियमित रूप से कोई दवाईयां ले रहे हैं, या आपको किसी दवा या खाने से एलर्जी है?`,
+        GU: `શું તમે હાલ નિયમિત કોઈ દવા લો છો, કે તમને કોઈ દવા કે ખોરાકની એલર્જી છે?`,
       };
-      const opt = {
-        EN: ['Sedentary (desk job, low activity)', 'Moderate activity (occasional exercise)', 'Active (regular physical work)', 'Irregular lifestyle (night shifts, stress)'],
-        HI: ['कम सक्रिय (बैठे-बैठे काम)', 'मध्यम सक्रिय (कभी-कभी व्यायाम)', 'अधिक सक्रिय (शारीरिक श्रम)', 'अनियमित जीवनशैली (रात्रि पाली, तनाव)'],
-        GU: ['ઓછી સક્રિય (ડેસ્ક કામ)', 'સાધારણ સક્રિય (ક્યારેક-ક્યારેક વ્યાયામ)', 'વધુ સક્રિય (શારીરિક કામ)', 'અનિયમિત (નાઇટ શિફ્ટ, તણાવ)'],
-      };
-      return {
-        question: q[lang],
-        questionLanguage: lang,
-        questionCategory: 'LIFESTYLE',
-        touchOptions: opt[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Collecting daily routine and lifestyle factors — key for chronic disease risk and medication adherence',
-      };
-    }
-
-    // TURN 6: Current Medications (detailed)
-    if (turn === 6) {
-      const q = {
-        EN: `Are you currently taking any medicines regularly? Please mention the name, dose, and frequency if you know.`,
-        HI: `क्या आप अभी कोई दवाईयां नियमित रूप से ले रहे हैं? यदि हां, तो दवा का नाम, मात्रा और कितनी बार लेते हैं, बताएं।`,
-        GU: `શું તમે હાલ કોઈ દવા નિયમિત લો છો? જો હા, તો દવાનું નામ, ડોઝ અને ક્યારે લો છો તે જણાવો.`,
-      };
-      const opt = {
-        EN: ['No regular medicines', 'BP / Diabetes medicines', 'Thyroid / Cholesterol medicines', 'Pain killers / Antacids only'],
-        HI: ['कोई नियमित दवाई नहीं', 'ब्लड प्रेशर / शुगर की दवाई', 'थायराइड / कोलेस्ट्रॉल की दवाई', 'केवल दर्द निवारक / एंटासिड'],
-        GU: ['કોઈ નિયમિત દવા નહીં', 'બ્લડ પ્રેશર / ડાયાબિટીસ દવા', 'થાયરોઇડ / કોલેસ્ટ્રોલ દવા', 'માત્ર પેઇન કિલર / એન્ટાસિડ'],
+      const touchOpts = {
+        EN: ['Taking regular BP / Diabetes medicines', 'No regular medicines & No known allergies (NKDA)', 'Have known Penicillin / Drug allergy', 'Taking occasional painkillers / antacids'],
+        HI: ['नियमित बीपी/शुगर की दवाई ले रहे हैं', 'कोई नियमित दवा नहीं व कोई एलर्जी नहीं (NKDA)', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है', 'कभी-कभार दर्द निवारक लेते हैं'],
+        GU: ['નિયમિત બીપી/ડાયાબિટીસ દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ એલર્જી નથી (NKDA)', 'દવાની એલર્જી છે', 'ક્યારેક પેઇન કિલર લઈએ છીએ'],
       };
       return {
-        question: q[lang],
+        question: qText[lang],
         questionLanguage: lang,
         questionCategory: 'MEDICATIONS',
-        touchOptions: opt[lang],
+        touchOptions: touchOpts[lang],
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Documenting current medications to check interactions and chronic disease management',
+        clinicalRationale: 'Gathering active pharmacotherapy and allergy safety clearance',
       };
     }
 
-    // TURN 7: Allergies (detailed)
-    if (turn === 7) {
-      const q = {
-        EN: `Do you have any known allergies — to medicines, food, dust, pollen, or other substances?`,
-        HI: `क्या आपको किसी चीज़ से एलर्जी है — जैसे कोई दवाई, खाद्य पदार्थ, धूल, या कोई अन्य चीज़?`,
-        GU: `શું તમને કોઈ પ્રકારની એલર્જી છે — જેવી કે કોઈ દવા, ખાવાની વસ્તુ, ધૂળ, પરાગ, કે અન્ય કોઈ?`,
-      };
-      const opt = {
-        EN: ['No known drug allergies (NKDA)', 'Penicillin / Sulfa drug allergy', 'Food allergy (nuts, shellfish, dairy)', 'Dust / Pollen / Environmental allergy'],
-        HI: ['कोई ज्ञात दवाई एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा दवाई एलर्जी', 'खाने की एलर्जी (मेवे, समुद्री भोजन, दूध)', 'धूल / पराग / पर्यावरणीय एलर्जी'],
-        GU: ['કોઈ ઓળખાયેલ દવા એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા દવા એલર્જી', 'ખોરાક એલર્જી (નટ્સ, ડેઇરી)', 'ધૂળ / પરાગ / પર્યાવરણ એલર્જી'],
-      };
-      return {
-        question: q[lang],
-        questionLanguage: lang,
-        questionCategory: 'ALLERGIES',
-        touchOptions: opt[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Documenting allergies for safe prescription and anaesthesia planning',
-      };
-    }
-
-    // TURN 8+: Final Review and Ready to Submit
+    // 5. Final Adaptive Wrap-Up Question
     const qFinal = {
-      EN: `Thank you for completing the health intake. Is there anything else you would like your doctor to know before your consultation?`,
-      HI: `स्वास्थ्य विवरण भरने के लिए धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कुछ और बताना चाहते हैं?`,
-      GU: `આરોગ્ય વિગત ભરવા બદલ આભાર. ડૉક્ટરને મળતા પહેલાં શું તમે કંઈ વધારાનું જણાવવા માંગો છો?`,
+      EN: `Thank you. Is there any other symptom or specific detail you would like to share with your doctor?`,
+      HI: `धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कोई अन्य लक्षण या जरूरी बात बताना चाहते हैं?`,
+      GU: `આભાર. ડૉક્ટરને મળતા પહેલાં શું આપ કોઈ અન્ય લક્ષણ કે ખાસ વિગત જણાવવા માંગો છો?`,
     };
     const optFinal = {
-      EN: ['No, intake is complete — proceed to consultation', 'I want to add one more symptom or concern'],
-      HI: ['नहीं, सब बता दिया है — परामर्श शुरू करें', 'एक और लक्षण या समस्या जोड़नी है'],
-      GU: ['ના, સઘળું જણાવ્યું — ડૉક્ટર પાસે જવું છે', 'બીજું એક લક્ષણ ઉમેરવું છે'],
+      EN: ['No, that covers all symptoms — complete intake', 'Yes, I want to add one more detail'],
+      HI: ['नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें', 'हाँ, मुझे एक और लक्षण बताना है'],
+      GU: ['ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો', 'હા, મારે બીજું એક લક્ષણ જણાવવું છે'],
     };
 
     return {
@@ -454,7 +376,7 @@ export class UniversalClinicalEngine implements AIProvider {
       isRedFlag: false,
       redFlagReason: null,
       isComplete: true,
-      clinicalRationale: 'Intake fully collected across 8 stages; ready for patient to proceed to doctor consultation',
+      clinicalRationale: 'All critical clinical dimensions gathered; offering final patient review',
     };
   }
 

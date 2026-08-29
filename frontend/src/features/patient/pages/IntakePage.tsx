@@ -304,54 +304,21 @@ export function IntakePage() {
           </div>
         </header>
 
-        {/* 8-Stage Universal Health Intake Progress Bar */}
-        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700/80 shrink-0">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 mb-1.5">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              {language === 'hi' ? 'स्वास्थ्य विवरण प्रगति' : language === 'gu' ? 'આરોગ્ય વિગત પ્રગતિ' : 'Intake Journey'}
-            </span>
-            <span className="font-mono text-blue-300">
-              {Math.min(8, Math.max(1, messages.filter(m => m.role === 'AI').length))} / 8 {language === 'hi' ? 'चरण' : language === 'gu' ? 'તબક્કા' : 'Stages'}
+        {/* Dynamic Adaptive Clinical Intake Indicator */}
+        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700/80 shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>
+              {language === 'hi'
+                ? 'अनुकूली AI क्लिनिकल साक्षात्कार • आपके उत्तरों के आधार पर लाइव विश्लेषण'
+                : language === 'gu'
+                ? 'અનુકૂલી AI ક્લિનિકલ પૂછપરછ • આપના જવાબો અનુસાર લાઈવ પ્રશ્નો'
+                : 'Adaptive Clinical AI • Formulating dynamic follow-up questions tailored to your symptoms'}
             </span>
           </div>
-
-          <div className="grid grid-cols-8 gap-1">
-            {[
-              { label: 'Chief Complaint', hi: 'मुख्य लक्षण', gu: 'મુખ્ય લક્ષણ' },
-              { label: 'Onset', hi: 'शुरुआत', gu: 'શરૂઆત' },
-              { label: 'Severity', hi: 'तीव्रता', gu: 'તીવ્રતા' },
-              { label: 'Associated', hi: 'अन्य लक्षण', gu: 'અન્ય લક્ષણ' },
-              { label: 'Medical History', hi: 'इतिहास', gu: 'ઇતિહાસ' },
-              { label: 'Lifestyle', hi: 'दिनचर्या', gu: 'જીવનશૈલી' },
-              { label: 'Medications', hi: 'दवाएं', gu: 'દવાઓ' },
-              { label: 'Allergies', hi: 'एलर्जी', gu: 'એલર્જી' },
-            ].map((st, i) => {
-              const currentAiTurn = messages.filter(m => m.role === 'AI').length;
-              const isDone = i < currentAiTurn;
-              const isCurrent = i === currentAiTurn - 1 || (i === 0 && currentAiTurn === 0);
-              return (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <div
-                    className={`h-1.5 w-full rounded-full transition-all ${
-                      isDone
-                        ? 'bg-emerald-500'
-                        : isCurrent
-                        ? 'bg-blue-500 animate-pulse'
-                        : 'bg-slate-700'
-                    }`}
-                  />
-                  <span
-                    className={`hidden md:block text-[9px] truncate max-w-full font-medium ${
-                      isCurrent ? 'text-blue-300 font-bold' : isDone ? 'text-emerald-400' : 'text-slate-500'
-                    }`}
-                  >
-                    {language === 'hi' ? st.hi : language === 'gu' ? st.gu : st.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">
+            {messages.filter(m => m.role === 'AI').length} {language === 'hi' ? 'प्रश्न पूछे गए' : language === 'gu' ? 'પ્રશ્નો પૂછાયા' : 'Questions'}
+          </span>
         </div>
 
         {/* Emergency Red Flag Notice Banner */}

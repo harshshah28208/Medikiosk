@@ -205,10 +205,71 @@ export function RegistrationPage() {
               />
             </div>
 
-            {/* Department */}
-            <div>
+            {/* Medical System & Doctor Preference (Allopathy / Ayurveda / Homeopathy) */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Choose Medical System &amp; Doctor Type <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                {[
+                  {
+                    id: 'ALLOPATHY',
+                    title: 'Modern Medicine (Allopathy)',
+                    desc: 'General OPD, Specialist Physicians, Antibiotics & Surgery',
+                    icon: '🩺',
+                    deptCode: 'GEN',
+                    color: 'border-blue-500 bg-blue-50/50 text-blue-900',
+                  },
+                  {
+                    id: 'AYURVEDA',
+                    title: 'Ayurveda (AYUSH)',
+                    desc: 'Vaidya consultation, Prakriti analysis & herbal care',
+                    icon: '🌿',
+                    deptCode: 'AYUSH',
+                    color: 'border-amber-500 bg-amber-50/50 text-amber-900',
+                  },
+                  {
+                    id: 'HOMEOPATHY',
+                    title: 'Classical Homeopathy',
+                    desc: 'Constitutional remedy, Miasmatic analysis & repertory',
+                    icon: '💧',
+                    deptCode: 'AYUSH',
+                    color: 'border-teal-500 bg-teal-50/50 text-teal-900',
+                  },
+                ].map((sys) => {
+                  const targetDept = departments.find(d => d.code === sys.deptCode) || departments[0];
+                  const isSelected = formData.departmentId === targetDept?.id;
+                  return (
+                    <button
+                      key={sys.id}
+                      type="button"
+                      onClick={() => {
+                        if (targetDept) {
+                          setFormData(prev => ({ ...prev, departmentId: targetDept.id }));
+                        }
+                      }}
+                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                        isSelected ? `${sys.color} shadow-md scale-[1.02]` : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-2xl mb-1 block">{sys.icon}</span>
+                        <span className="text-xs font-bold block">{sys.title}</span>
+                        <span className="text-[11px] text-slate-500 mt-0.5 block leading-tight">{sys.desc}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] font-bold text-blue-700 mt-2 block">✓ Selected</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Department Selection */}
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {t('department')} <span className="text-red-500">*</span>
+                Specific Department / OPD Clinic <span className="text-red-500">*</span>
               </label>
               <select
                 name="departmentId"

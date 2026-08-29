@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
+import { api } from '../../../services/api';
 import {
   Upload, FileText, CheckCircle2, ArrowRight, ArrowLeft,
   AlertCircle, Sparkles, Eye, ShieldCheck, SkipForward
@@ -35,29 +36,43 @@ export function DocumentUploadPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !activePatient) return;
+    if (!selectedFile) return;
+
+    let patientId = activePatient?.id;
+    if (!patientId) {
+      const storedPatient = localStorage.getItem('medikiosk_active_patient');
+      if (storedPatient) {
+        try {
+          const parsed = JSON.parse(storedPatient);
+          patientId = parsed.id;
+        } catch {}
+      }
+    }
+
+    let resolvedVisitId = visitId && visitId !== 'current' && visitId !== 'active' ? visitId : '';
+    if (!resolvedVisitId) {
+      const storedVisit = localStorage.getItem('medikiosk_active_visit');
+      if (storedVisit) {
+        try {
+          const parsedV = JSON.parse(storedVisit);
+          resolvedVisitId = parsedV.id || '';
+          if (!patientId && parsedV.patientId) patientId = parsedV.patientId;
+        } catch {}
+      }
+    }
 
     setIsUploading(true);
     setExtractedResult(null);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('patientId', activePatient.id);
-    formData.append('visitId', visitId || '');
-    formData.append('title', title || 'Medical Record (PDF / Image)');
+    formData.append('patientId', patientId || 'default-patient');
+    formData.append('visitId', resolvedVisitId);
+    formData.append('title', title.trim() || selectedFile.name || 'Medical Document (PDF / Scan)');
     formData.append('fileType', fileType);
 
     try {
-      const token = localStorage.getItem('medikiosk_token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch('http://localhost:5000/api/documents/upload', {
-        method: 'POST',
-        headers,
-        body: formData,
-      });
-      const data = await res.json();
+      const data = await api.documents.upload(formData);
       if (data?.document) {
         setUploadedDocs((prev) => [data.document, ...prev]);
         let parsedData = data.extraction?.extractedData;
@@ -67,12 +82,13 @@ export function DocumentUploadPage() {
         setExtractedResult(parsedData || null);
         setSelectedFile(null);
         setTitle('');
+        alert('✅ Document uploaded and medical history extracted successfully!');
       } else if (data?.error) {
         alert(`Upload error: ${data.error}`);
       }
     } catch (err: any) {
       console.error('Upload failed:', err);
-      alert(`Network error during upload: ${err.message || 'Server unavailable'}`);
+      alert(`Upload error: ${err.message || 'Server unavailable'}`);
     } finally {
       setIsUploading(false);
     }
