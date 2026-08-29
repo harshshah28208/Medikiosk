@@ -104,8 +104,8 @@ Return ONLY valid JSON with no markdown fences:
 
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       return JSON.parse(text);
-    } catch (err) {
-      console.warn('Real Gemini OCR analysis fallback:', err);
+    } catch (err: any) {
+      console.log(`[OCR Engine] Notice: ${err?.message?.slice(0, 80) || 'fallback active'}`);
     }
   }
 

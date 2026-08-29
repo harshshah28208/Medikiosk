@@ -650,8 +650,8 @@ Return ONLY valid JSON (no markdown fences):
       const res = await this.model.generateContent(prompt);
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       return JSON.parse(text);
-    } catch (e) {
-      console.warn('Gemini generateNextQuestion fallback:', e);
+    } catch (e: any) {
+      console.log(`[AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
       return this.fallback.generateNextQuestion(state, language, isAyush);
     }
   }
