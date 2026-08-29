@@ -15,6 +15,8 @@ export function DoctorDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [expandedSection, setExpandedSection] = useState<string | null>('hpi');
+  const [showOriginalAnswers, setShowOriginalAnswers] = useState(false);
+  const [summaryStatus, setSummaryStatus] = useState<'DRAFT' | 'CONFIRMED' | 'EDITED'>('DRAFT');
 
   // Document Modal State
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
@@ -250,24 +252,99 @@ export function DoctorDashboard() {
                 </div>
               </div>
 
+              {/* Patient Snapshot Bar (Phase 10 — Doctor Snapshot) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Allergy Profile</span>
+                  <span className={`font-semibold ${selectedVisit.patient?.allergies?.length ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {selectedVisit.patient?.allergies?.length ? selectedVisit.patient.allergies.map((a: any) => a.allergen).join(', ') : 'NKDA (No Known Allergies)'}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Known Conditions</span>
+                  <span className="font-semibold text-slate-200 truncate block">
+                    {summaryData?.pastMedicalHistory || 'None on record'}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Active Medications</span>
+                  <span className="font-semibold text-slate-200 truncate block">
+                    {summaryData?.medications || 'None reported'}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Prior Visits (Timeline)</span>
+                  <span className="font-semibold text-indigo-400">
+                    {timeline.length} previous visits recorded
+                  </span>
+                </div>
+              </div>
+
+              {/* Contradiction Detection Banner (Item 31) */}
+              {selectedVisit.patient?.allergies?.length > 0 && /no known|nkda/i.test(summaryData?.allergies || '') && (
+                <div className="p-3.5 bg-amber-950/40 border border-amber-500/50 rounded-2xl flex items-center gap-3 text-amber-200 text-xs">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                  <div>
+                    <span className="font-bold block">⚠️ Information Requires Verification (Contradiction Detected)</span>
+                    <span>Patient profile records: <strong>{selectedVisit.patient.allergies.map((a: any) => a.allergen).join(', ')}</strong>, but kiosk intake reported No Known Allergies. Clinician verification required before prescribing.</span>
+                  </div>
+                </div>
+              )}
+
               {/* AI Structured Summary Draft Card */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-blue-400" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                       AI Clinical Intake Summary Draft
                     </h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                      summaryStatus === 'CONFIRMED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300'
+                    }`}>
+                      {summaryStatus === 'CONFIRMED' ? '✓ Clinician Confirmed' : 'AI Draft'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-mono font-bold">
-                      {summaryData?.completenessScore ?? 95}% Complete
-                    </span>
-                    <span className="text-[11px] px-2.5 py-0.5 bg-blue-500/20 text-blue-300 rounded-full font-mono font-bold">
-                      {summaryData?.confidenceScore ?? 98}% Confidence
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowOriginalAnswers(!showOriginalAnswers)}
+                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl font-medium border border-slate-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
+                      <span>{showOriginalAnswers ? 'Hide Raw Answers' : 'View Original Answers'}</span>
+                    </button>
+                    {summaryStatus !== 'CONFIRMED' && (
+                      <button
+                        type="button"
+                        onClick={() => setSummaryStatus('CONFIRMED')}
+                        className="px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs rounded-xl font-bold border border-emerald-500/30 transition-colors"
+                      >
+                        ✓ Confirm Summary
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Original Patient Answers Drawer (Item 29 — AI Transparency) */}
+                {showOriginalAnswers && (
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 space-y-2.5 max-h-60 overflow-y-auto">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300 pb-1 border-b border-slate-800">
+                      <span>Original Patient Dialogue &amp; Verbatim Transcripts</span>
+                      <span className="text-[10px] text-slate-500">Unfiltered Kiosk Session</span>
+                    </div>
+                    {selectedVisit.sessions?.[0]?.messages?.length ? (
+                      selectedVisit.sessions[0].messages.map((m: any, mIdx: number) => (
+                        <div key={mIdx} className={`p-2.5 rounded-lg text-xs ${m.role === 'AI' ? 'bg-slate-950 text-slate-400' : 'bg-blue-950/40 text-blue-200 border border-blue-900/30'}`}>
+                          <span className="font-bold text-[10px] uppercase block text-slate-500 mb-0.5">{m.role === 'AI' ? 'MediKiosk AI' : 'Patient Response'}:</span>
+                          <p>{m.content}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">No direct raw chat logs stored for this legacy visit.</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-300">
                   {/* Chief Complaint */}

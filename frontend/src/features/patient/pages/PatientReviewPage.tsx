@@ -133,6 +133,13 @@ export function PatientReviewPage() {
               </p>
             </div>
 
+            {summaryReport?.lifestyle && (
+              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Routine &amp; Lifestyle</span>
+                <p className="text-slate-800 text-xs">{summaryReport.lifestyle}</p>
+              </div>
+            )}
+
             {summaryReport?.pastMedicalHistory && (
               <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Past Medical History</span>
@@ -146,6 +153,13 @@ export function PatientReviewPage() {
                 <p className="text-slate-800 text-xs">{summaryReport.medications}</p>
               </div>
             )}
+
+            {summaryReport?.allergies && (
+              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergies &amp; Sensitivities</span>
+                <p className="text-slate-800 text-xs">{summaryReport.allergies}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -154,20 +168,27 @@ export function PatientReviewPage() {
           <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
           <p>
             {language === 'hi'
-              ? 'कृपया OPD प्रतीक्षालय या नर्स डेस्क पर पहुँचें। डिस्प्ले स्क्रीन पर आपका टोकન नंबर बुलाया जाएगा।'
+              ? 'कृपया OPD प्रतीक्षालय या नर्स डेस्क पर पहुँचें। डिस्प्ले स्क्रीन पर आपका टोकन नंबर बुलाया जाएगा।'
               : language === 'gu'
               ? 'કૃપા કરીને OPD પ્રતીક્ષાલય અથવા નર્સ ડેસ્ક પર જાઓ. ડિસ્પ્લે સ્ક્રીન પર આપનો ટોકન નંબર બોલાવવામાં આવશે.'
               : 'Please proceed to the OPD waiting area or nursing station. Your token number will be called on the queue display.'}
           </p>
         </div>
 
-        {/* Action Button */}
+        {/* Action Buttons (Item 32: Edit, Confirm, Submit) */}
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            onClick={() => navigate(`/kiosk/intake/${visitId || 'active'}`)}
+            className="px-6 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all"
+          >
+            ← Edit Intake Answers
+          </button>
+
           <button
             onClick={() => navigate('/kiosk/portal')}
             className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all touch-target-lg text-base"
           >
-            <span>Open Patient Health Portal</span>
+            <span>Confirm &amp; Open Patient Health Portal</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

@@ -76,6 +76,29 @@ export function ConsentPage() {
           </div>
         </div>
 
+        {/* Who is answering / Caregiver Mode (Item 37) */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            Who is providing health information today?
+          </label>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            {[
+              { id: 'PATIENT', label: 'Patient Themselves' },
+              { id: 'CAREGIVER', label: 'Family / Caregiver' },
+              { id: 'STAFF_ASSISTED', label: 'Staff Assisted' },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => localStorage.setItem('medikiosk_respondent_type', m.id)}
+                className="p-2.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50 font-semibold text-slate-700 transition-all text-center active:scale-95"
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Interactive Checkbox */}
         <label className="flex items-center gap-4 p-5 rounded-2xl border-2 border-blue-600/30 bg-blue-50/30 cursor-pointer hover:bg-blue-50/60 transition-colors mb-8 touch-target">
           <input

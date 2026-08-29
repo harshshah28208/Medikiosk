@@ -125,16 +125,19 @@ export function IdentificationPage() {
           </div>
         )}
 
-        {/* Found Patient Card */}
+        {/* Found Returning Patient Card (Item 20 — Returning Patient Flow) */}
         {foundPatient && (
-          <div className="p-6 bg-green-50/70 border-2 border-green-500/50 rounded-2xl mb-6">
+          <div className="p-6 bg-green-50/70 border-2 border-green-500/50 rounded-2xl mb-6 space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-bold">
+                <div className="w-11 h-11 bg-green-600 text-white rounded-full flex items-center justify-center font-bold shadow-md">
                   <UserCheck className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">{foundPatient.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-slate-900">{foundPatient.name}</h3>
+                    <span className="text-[10px] px-2 py-0.5 bg-green-600 text-white font-bold rounded-full uppercase">Returning Patient</span>
+                  </div>
                   <p className="text-xs text-slate-600">
                     MRN: <span className="font-semibold text-slate-800">{foundPatient.mrn}</span> • {foundPatient.age || 40}Y / {foundPatient.gender}
                   </p>
@@ -143,11 +146,41 @@ export function IdentificationPage() {
               </div>
             </div>
 
+            {/* Changes Since Last Visit Questionnaire */}
+            <div className="bg-white p-4 rounded-xl border border-green-200 space-y-2">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                What has changed since your last visit?
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  'No major changes (Routine Follow-up)',
+                  'New symptoms started recently',
+                  'Existing symptoms worsened',
+                  'Started new medications',
+                  'Stopped prior medications',
+                  'Brought new lab test / scan report',
+                ].map((changeOpt, cIdx) => (
+                  <button
+                    key={cIdx}
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem('medikiosk_recent_changes', changeOpt);
+                      handleProceedWithPatient();
+                    }}
+                    className="p-2.5 text-left rounded-lg border border-slate-200 hover:border-green-500 hover:bg-green-50 font-medium text-slate-700 transition-all flex items-center justify-between"
+                  >
+                    <span>{changeOpt}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-green-600 shrink-0 ml-1" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={handleProceedWithPatient}
-              className="w-full mt-4 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all touch-target"
+              className="w-full py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all touch-target"
             >
-              {t('continueBtn')}
+              <span>Confirm &amp; Proceed to Intake</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
