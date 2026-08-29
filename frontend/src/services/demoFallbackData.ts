@@ -5,6 +5,33 @@
 // ============================================================================
 
 export const DEMO_USERS: Record<string, any> = {
+  'dosanirudra@gmail.com': {
+    id: 'd60eedf9-67d1-4b90-b67d-bb355f50be67',
+    email: 'dosanirudra@gmail.com',
+    name: 'Dosani Rudra',
+    role: 'PATIENT',
+    phone: '9876549999',
+    patient: {
+      id: '970a3d4f-c4ef-455c-b263-7f1527e0a321',
+      mrn: 'MK-600754',
+      name: 'Dosani Rudra',
+      age: 24,
+      gender: 'MALE',
+      phone: '9876549999',
+      medicalHistory: 'General Health Consultation',
+      visits: [
+        {
+          id: 'vis-rudra-01',
+          token: 'P-109',
+          status: 'READY_FOR_DOCTOR',
+          priority: 'NORMAL',
+          department: { id: 'dept-gen', name: 'General Medicine' },
+          createdAt: new Date().toISOString(),
+          reasonForVisit: 'General OPD Follow-up & Vitals',
+        },
+      ],
+    },
+  },
   'doctor@demo.com': {
     id: 'doc-001',
     email: 'doctor@demo.com',

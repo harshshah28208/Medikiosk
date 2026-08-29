@@ -54,6 +54,7 @@ async function main() {
 
   // ─── 3. Users (all roles, doctors, and nurses) ───
   const usersData = [
+    { email: 'dosanirudra@gmail.com', name: 'Dosani Rudra', role: 'PATIENT', phone: '9876549999' },
     { email: 'patient@demo.com', name: 'Rahul Sharma', role: 'PATIENT', phone: '9876543210' },
     { email: 'patient2@demo.com', name: 'Meera Patel', role: 'PATIENT', phone: '9876541122' },
     { email: 'reception@demo.com', name: 'Suman Gupta', role: 'RECEPTION', phone: '9876543215' },
