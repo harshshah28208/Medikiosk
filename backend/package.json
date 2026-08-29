@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate && prisma db push --accept-data-loss && tsx prisma/seed.ts",
+    "build": "prisma generate",
+    "db:setup": "prisma generate && prisma db push --accept-data-loss && tsx prisma/seed.ts",
     "start": "tsx src/server.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

@@ -8,8 +8,8 @@ build/
 .env.local
 .env.production
 
-# Database
-*.db
+# Database (Sync local dev.db for cloud deployment)
+!backend/prisma/dev.db
 *.db-journal
 
 # IDE
