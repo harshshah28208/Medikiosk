@@ -55,6 +55,9 @@ export function App() {
                 <Route path="review/:visitId" element={<PatientReviewPage />} />
                 <Route path="portal" element={<PatientPortalPage />} />
               </Route>
+              <Route path="/patient" element={<KioskShell />}>
+                <Route index element={<PatientPortalPage />} />
+              </Route>
             </Route>
 
             {/* Reception Flow */}
