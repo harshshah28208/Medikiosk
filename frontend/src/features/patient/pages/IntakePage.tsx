@@ -63,8 +63,8 @@ export function IntakePage() {
         const currentLang = activeLangRef.current;
         const respondentType = localStorage.getItem('medikiosk_respondent_type') || 'PATIENT';
         const isReturning = Boolean(
-          recentChanges ||
-          (parsedPatient && (parsedPatient.visits?.length > 0 || parsedPatient.mrn))
+          !parsedPatient?.isNewPatient &&
+          (recentChanges || parsedPatient?.isReturning || (parsedPatient?.visits && parsedPatient.visits.length > 1))
         );
 
         const res = await api.conversation.start(vId, currentLang.toUpperCase(), false, respondentType, {

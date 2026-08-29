@@ -36,8 +36,8 @@ export function IdentificationPage() {
 
   const handleProceedWithPatient = () => {
     if (!foundPatient) return;
-    // Store active patient id & visit info into localStorage or state
-    localStorage.setItem('medikiosk_active_patient', JSON.stringify(foundPatient));
+    // Store active patient id & visit info into localStorage with explicit isReturning flag
+    localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: true, isNewPatient: false }));
     navigate('/kiosk/consent');
   };
 

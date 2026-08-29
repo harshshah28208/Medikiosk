@@ -143,9 +143,11 @@ export function RegistrationPage() {
       const res = await api.patients.register(payload);
 
       if (res?.patient) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.patient));
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...res.patient, isNewPatient: true, isReturning: false }));
         localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.visit));
         localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.queueEntry));
+        localStorage.removeItem('medikiosk_recent_changes');
+        localStorage.removeItem('medikiosk_temp_raw_transcript');
         if (selectedDoc) {
           localStorage.setItem('medikiosk_active_doctor', JSON.stringify(selectedDoc));
         }

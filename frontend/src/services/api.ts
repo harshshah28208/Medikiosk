@@ -228,15 +228,16 @@ export const api = {
           previousPatientInfo: options?.previousPatientInfo,
         }),
       }).catch(() => {
-        const isRet = options?.isReturningPatient || Boolean(options?.previousPatientInfo);
+        const isRet = Boolean(options?.isReturningPatient && !options?.previousPatientInfo?.isNewPatient);
+        const patientName = options?.previousPatientInfo?.name ? ` ${options.previousPatientInfo.name}` : '';
         return {
           session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
           message: {
             id: 'msg-start',
             role: 'AI',
             content: isRet
-              ? "Welcome back. Since your last visit for hypertension and morning throbbing headache, how have your symptoms been? Have they improved, worsened, or stayed the same?"
-              : "Welcome to MediKiosk. What main symptom or health concern brought you in today?",
+              ? `Welcome back${patientName}. Since your last visit, how have your symptoms been? Have they improved, worsened, or stayed the same?`
+              : `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`,
           },
           touchOptions: isRet
             ? ['My symptoms have improved', 'My symptoms have worsened', 'There is no change', 'I have a new problem']
