@@ -173,6 +173,163 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     GU: 'ખંજવાળ, લાલાશ અને ચામડી પર બળતરા',
   },
 
+  // Returning Progression Options
+  {
+    EN: 'Symptoms significantly improved (>70% relief)',
+    HI: 'लक्षणों में काफी सुधार (70%+ आराम)',
+    GU: 'લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)',
+  },
+  {
+    EN: 'Previous symptoms improved (>70% relief)',
+    HI: 'लक्षणों में काफी सुधार (70%+ आराम)',
+    GU: 'લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)',
+  },
+  {
+    EN: 'Previous symptoms improved / Routine review',
+    HI: 'पुरानी तकलीफ में काफी सुधार है / फॉलो-अप',
+    GU: 'જૂની તકલીફમાં સારો સુધારો છે / ફોલો-અપ',
+  },
+  {
+    EN: 'Partial relief but symptoms still persist',
+    HI: 'थोड़ा आराम है पर तकलीफ बाकी है',
+    GU: 'થોડી રાહત છે પણ તકલીફ ચાલુ છે',
+  },
+  {
+    EN: 'No relief / Symptoms worsening',
+    HI: 'कोई आराम नहीं / तकलीफ बढ़ गई',
+    GU: 'કોઈ રાહત નથી / તકલીફ વધી ગઈ',
+  },
+  {
+    EN: 'Symptoms worsened / No significant relief',
+    HI: 'तकलीफ बढ़ गई है / आराम नहीं मिला',
+    GU: 'તકલીફ વધી ગઈ છે / રાહત નથી',
+  },
+  {
+    EN: 'Completely new problem today',
+    HI: 'आज पूरी तरह नई समस्या है',
+    GU: 'આજે સાવ નવી જ સમસ્યા છે',
+  },
+  {
+    EN: 'Completely new symptom/problem today',
+    HI: 'आज पूरी तरह नई समस्या है',
+    GU: 'આજે સાવ નવી જ સમસ્યા છે',
+  },
+  {
+    EN: 'Medicines finished / Need refill & checkup',
+    HI: 'दवाइयां समाप्त / दोबारा जांच',
+    GU: 'દવાઓ પૂર્ણ થઈ / ફરી તપાસ',
+  },
+
+  // Returning Worsened Detail Options
+  {
+    EN: 'Pain increased with persistent stiffness',
+    HI: 'दर्द बढ़ गया व लगातार जकड़न है',
+    GU: 'દુખાવો વધી ગયો અને સતત જકડન છે',
+  },
+  {
+    EN: 'New swelling & redness noticed',
+    HI: 'नई सूजन व लाली आ गई है',
+    GU: 'નવી સોજો અને લાલાશ જણાય છે',
+  },
+  {
+    EN: 'Unable to sleep due to discomfort',
+    HI: 'तकलीफ के कारण नींद नहीं आ रही',
+    GU: 'તકલીફના લીધે ઊંઘ આવતી નથી',
+  },
+  {
+    EN: 'Developed fever & weakness',
+    HI: 'बुखार और कमजोरी शुरू हो गई है',
+    GU: 'તાવ અને નબળાઈ શરૂ થઈ ગઈ છે',
+  },
+
+  // Returning New Problem Options
+  {
+    EN: 'Started in last 1-2 days',
+    HI: 'पिछले 1-2 दिनों में शुरू हुई',
+    GU: 'છેલ્લા ૧-૨ દિવસમાં શરૂ થઈ',
+  },
+  {
+    EN: 'Severe acute onset today',
+    HI: 'आज अचानक तेज दर्द उठा',
+    GU: 'આજે અચાનક તીવ્ર દુખાવો થયો',
+  },
+  {
+    EN: 'Mild gradual discomfort',
+    HI: 'हल्की धीरे-धीरे बढ़ती तकलीफ',
+    GU: 'હળવી ધીમે-ધીમે વધતી તકલીફ',
+  },
+  {
+    EN: 'Intermittent episodes',
+    HI: 'रुक-रुक कर होने वाले दौरे',
+    GU: 'અવારનવાર થતો દુખાવો',
+  },
+
+  // Returning Residual Symptom Options
+  {
+    EN: 'Mild lingering ache during exertion',
+    HI: 'काम/मेहनत करने पर हल्का दर्द',
+    GU: 'કામ/શ્રમ કરતી વખતે હળવો દુખાવો',
+  },
+  {
+    EN: 'Occasional morning stiffness',
+    HI: 'सुबह उठने पर हल्की जकड़न',
+    GU: 'સવારે જાગતી વખતે હળવી જકડન',
+  },
+  {
+    EN: 'Discomfort returns after medicine stops',
+    HI: 'दवा बंद करने पर तकलीफ लौट आती है',
+    GU: 'દવા બંધ થતાં તકલીફ પાછી આવે છે',
+  },
+  {
+    EN: 'Almost back to normal, routine checkup',
+    HI: 'काफी आराम है, सामान्य फॉलो-अप जांच',
+    GU: 'ઘણી રાહત છે, સામાન્ય ફોલો-અપ તપાસ',
+  },
+
+  // Returning Medication Compliance
+  {
+    EN: 'Taking all medicines regularly on time',
+    HI: 'सभी दवाइयां समय पर नियमित लीं',
+    GU: 'બધી દવાઓ સમયસર નિયમિત લીધી',
+  },
+  {
+    EN: 'Missed doses occasionally / Stopped early',
+    HI: 'कभी-कभार दवा छूट गई / जल्दी बंद कर दी',
+    GU: 'ક્યારેક દવા છૂટી ગઈ / વહેલી બંધ કરી',
+  },
+  {
+    EN: 'Medicines finished / Need refill',
+    HI: 'दवा समाप्त हो गई / दोबारा चाहिए',
+    GU: 'દવા પૂર્ણ થઈ ગઈ / ફરી તપાસ',
+  },
+  {
+    EN: 'Experienced gastric upset / Nausea from medicines',
+    HI: 'दवा से पेट में गैस/उल्टी जैसा लगा',
+    GU: 'દવાથી પેટમાં ગેસ/ઉબકા જેવું થયું',
+  },
+
+  // Returning Lifestyle / Triggers Follow-Up
+  {
+    EN: 'Following diet & rest recommendations well',
+    HI: 'खान-पान व आराम का अच्छा पालन हो रहा है',
+    GU: 'ખોરાક અને આરામનું સારું પાલન થાય છે',
+  },
+  {
+    EN: 'Aggravated by physical strain / stress',
+    HI: 'अधिक मेहनत या तनाव से दर्द बढ़ता है',
+    GU: 'વધુ શ્રમ કે તણાવથી દુખાવો વધે છે',
+  },
+  {
+    EN: 'Irregular sleep & routine continues',
+    HI: 'अनियमित नींद व दिनचर्या जारी है',
+    GU: 'અનિયમિત ઊંઘ અને દિનચર્યા ચાલુ છે',
+  },
+  {
+    EN: 'No specific triggers identified',
+    HI: 'कोई खास कारण समझ नहीं आया',
+    GU: 'કોઈ ચોક્કસ કારણ સમજાયું નથી',
+  },
+
   // Vomiting / GI
   {
     EN: 'Frequent vomiting (>4-5 times), cannot retain water',
@@ -466,28 +623,44 @@ export class UniversalClinicalEngine implements AIProvider {
       }
     } else {
       // RETURNING PATIENT WORKFLOW
-      if (turns === 0 || !(state.symptoms || []).some(s => s.progression)) {
-        const currentSymptom = (state.symptoms && state.symptoms[0]) || {
-          name: state.chiefComplaint || 'Follow-up condition',
-          originalText: text,
-          onset: null,
-          duration: null,
-          severity: null,
-          location: null,
-          character: null,
-          radiation: null,
-          aggravatingFactors: [],
-          relievingFactors: [],
-          timing: null,
-          progression: text,
-        };
+      const syms = [...(state.symptoms || [])];
+      let currentSymptom = syms[0] || {
+        name: state.chiefComplaint || 'Follow-up condition',
+        originalText: text,
+        onset: null,
+        duration: null,
+        severity: null,
+        location: null,
+        character: null,
+        radiation: null,
+        aggravatingFactors: [],
+        relievingFactors: [],
+        timing: null,
+        progression: null,
+      };
+
+      if (!currentSymptom.progression) {
         currentSymptom.progression = text;
         update.symptoms = [currentSymptom];
         return update;
       }
 
-      if (turns === 1 || (state.medications || []).length === 0) {
+      if (!(currentSymptom as any).residualSymptoms) {
+        (currentSymptom as any).residualSymptoms = text;
+        update.symptoms = [currentSymptom];
+        return update;
+      }
+
+      if ((state.medications || []).length === 0) {
         update.medications = [{ name: text }];
+        return update;
+      }
+
+      if (!(state.lifestyle as any)?.followUpTriggers) {
+        update.lifestyle = {
+          ...(state.lifestyle || { sleep: '', diet: '', stress: '', activity: '' }),
+          followUpTriggers: text,
+        } as any;
         return update;
       }
     }

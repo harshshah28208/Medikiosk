@@ -110,6 +110,38 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   initialState.isNewPatient = isNewPatient;
   initialState.previousVisitInfo = previousVisitInfo;
 
+  // Fetch prior visit's conversation messages and consultation history for complete clinical memory
+  let priorVisitChatHistory: Array<{ role: string; content: string }> = [];
+  try {
+    const priorSession = await prisma.conversationSession.findFirst({
+      where: {
+        visit: {
+          patientId: visit.patientId,
+          id: { not: visit.id },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { timestamp: 'asc' },
+          select: { role: true, content: true },
+        },
+      },
+    });
+    if (priorSession?.messages?.length) {
+      priorVisitChatHistory = priorSession.messages.map(m => ({
+        role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
+        content: m.content,
+      }));
+    }
+  } catch (e) {
+    console.warn('Prior chat history fetch notice:', e);
+  }
+
+  // Generate dynamic opening question entirely from AI using stored prior history
+  const initialAIOutput = await aiProvider.generateNextQuestion(initialState, initialLang, isAyush, priorVisitChatHistory);
+  initialState.questionsAsked = [initialAIOutput.question];
+
   const session = await prisma.conversationSession.create({
     data: {
       visitId: visit.id,
@@ -126,54 +158,14 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     data: { status: 'IN_INTAKE' },
   });
 
-  // Tailored greetings for New vs. Returning Patients
-  const docMention = previousVisitInfo?.lastDoctor ? ` with ${previousVisitInfo.lastDoctor}` : '';
-  const lastComplaintStr = previousVisitInfo?.lastComplaint ? ` for ${previousVisitInfo.lastComplaint}` : '';
-
-  const initialGreetings = {
-    EN: isExistingPatient
-      ? (isCaregiver
-          ? `Welcome back. Compared to the patient's previous visit${docMention}${lastComplaintStr}, how has their condition progressed? Have their symptoms improved, worsened, or are you visiting for a new problem today?`
-          : `Welcome back to the hospital! Compared to your previous visit${docMention}${lastComplaintStr}, what has changed with your health? Have your symptoms improved, worsened, or do you have a new problem today?`)
-      : (isCaregiver
-          ? `Hello and welcome! I am MediKiosk Clinical AI. To help the doctor understand the patient thoroughly, let's start with their lifestyle and daily routine. How is their sleep schedule (hours per night), dietary habits, and daily stress?`
-          : `Hello and welcome! I am MediKiosk Clinical AI. To help your doctor understand you thoroughly, let's start with your lifestyle and daily routine. How is your sleep schedule (hours per night), dietary habits, and daily stress?`),
-    HI: isExistingPatient
-      ? (isCaregiver
-          ? `अस्पताल में पुनः स्वागत है। मरीज की पिछली मुलाकात${lastComplaintStr} के बाद से उनकी तबीयत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई परेशानी है?`
-          : `अस्पताल में आपका पुनः स्वागत है! आपकी पिछली मुलाकात${lastComplaintStr} के बाद से आपकी सेहत में क्या बदलाव आया है? क्या पहले से सुधार है, तकलीफ बढ़ी है, या कोई नई समस्या है?`)
-      : (isCaregiver
-          ? `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल AI सहायक हूँ। डॉक्टर को पूरी जानकारी देने के लिए, शुरुआत मरीज की जीवनशैली और दिनचर्या से करते हैं। मरीज की नींद (कितने घंटे), खान-पान की आदतें और दिनचर्या कैसी रहती है?`
-          : `नमस्ते और स्वागत है! मैं मेडीकियोस्क क्लिनिकल AI सहायक हूँ। डॉक्टर को पूरी जानकारी देने के लिए, शुरुआत आपकी जीवनशैली और दिनचर्या से करते हैं। आपकी नींद (कितने घंटे), खान-पान की आदतें और तनाव कैसा रहता है?`),
-    GU: isExistingPatient
-      ? (isCaregiver
-          ? `હોસ્પિટલમાં ફરી સ્વાગત છે. દર્દીની છેલ્લી મુલાકાત${lastComplaintStr} પછી તેમની સ્થિતિમાં શું બદલાવ આવ્યો છે? શું જૂની તકલીફમાં સુધારો છે, તકલીફ વધી છે, કે નવી સમસ્યા છે?`
-          : `હોસ્પિટલમાં આપનું ફરી સ્વાગત છે! આપની છેલ્લી મુલાકાત${lastComplaintStr} પછી આપની તબિયતમાં શું ફેરફાર થયો છે? જૂની તકલીફમાં રાહત છે, તકલીફ વધી છે, કે આજે કોઈ નવી ફરિયાદ છે?`)
-      : (isCaregiver
-          ? `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક ક્લિનિકલ AI સહાયક છું. ડૉક્ટરને સંપૂર્ણ વિગત આપવા માટે, શરૂઆત દર્દીની જીવનશૈલી અને દિનચર્યાથી કરીએ. દર્દીની ઊંઘ (કેટલા કલાક), ખોરાકની ટેવો અને દિનચર્યા કેવી છે?`
-          : `નમસ્તે અને સ્વાગત છે! હું મેડીકિયોસ્ક ક્લિનિકલ AI સહાયક છું. ડૉક્ટરને સંપૂર્ણ વિગત આપવા માટે, શરૂઆત તમારી જીવનશૈલી અને દિનચર્યાથી કરીએ. તમારી ઊંઘ (કેટલા કલાક), ખોરાકની આદતો અને તણાવ કેવો રહે છે?`),
-  };
-
-  const initialOptions = {
-    EN: isExistingPatient
-      ? ['Previous symptoms improved (>70% relief)', 'Partial relief but symptoms still persist', 'No relief / Symptoms worsening', 'Completely new problem today']
-      : ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high stress routine', 'Oily / fast food & irregular meal timing', 'Sedentary desk routine & physical fatigue'],
-    HI: isExistingPatient
-      ? ['लक्षणों में काफी सुधार (70%+ आराम)', 'थोड़ा आराम है पर तकलीफ बाकी है', 'कोई आराम नहीं / तकलीफ बढ़ गई', 'आज पूरी तरह नई समस्या है']
-      : ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'कम नींद (<5 घंटे) और अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'बैठे रहने की दिनचर्या और कमजोरी'],
-    GU: isExistingPatient
-      ? ['લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)', 'થોડી રાહત છે પણ તકલીફ ચાલુ છે', 'કોઈ રાહત નથી / તકલીફ વધી ગઈ', 'આજે સાવ નવી જ સમસ્યા છે']
-      : ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઓછી ઊંઘ (<૫ કલાક) અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ દિનચર્યા અને થાક'],
-  };
-
   const welcomeMsg = await prisma.conversationMessage.create({
     data: {
       sessionId: session.id,
       role: 'AI',
-      content: initialGreetings[initialLang],
+      content: initialAIOutput.question,
       contentLang: initialLang,
       inputMethod: 'TEXT',
-      metadata: JSON.stringify({ options: initialOptions[initialLang] }),
+      metadata: JSON.stringify({ options: initialAIOutput.touchOptions, category: initialAIOutput.questionCategory }),
     },
   });
 
@@ -194,7 +186,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
       clinicalState: initialState,
     },
     message: welcomeMsg,
-    touchOptions: initialOptions[initialLang],
+    touchOptions: initialAIOutput.touchOptions,
   });
 });
 
