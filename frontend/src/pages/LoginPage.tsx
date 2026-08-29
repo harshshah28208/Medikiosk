@@ -66,6 +66,29 @@ export function LoginPage() {
       .catch(() => {});
   }, []);
 
+  const getTargetWorkspace = (role: string, spec?: string) => {
+    switch (role) {
+      case 'PATIENT':
+        return '/kiosk';
+      case 'DOCTOR':
+      case 'SPECIALIST_DOCTOR':
+        return '/doctor';
+      case 'AYUSH_DOCTOR':
+        return spec?.toLowerCase().includes('homeopath') ? '/homeopathic' : '/ayush';
+      case 'NURSE':
+        return '/nurse';
+      case 'TRIAGE_STAFF':
+        return '/triage';
+      case 'RECEPTION':
+        return '/reception';
+      case 'HOSPITAL_ADMIN':
+      case 'SUPER_ADMIN':
+        return '/admin';
+      default:
+        return '/kiosk';
+    }
+  };
+
   const handleDemoLogin = async (role: string, path: string) => {
     try {
       await demoLogin(role);
@@ -79,7 +102,10 @@ export function LoginPage() {
     e.preventDefault();
     try {
       await login(email, password);
-      navigate('/', { replace: true });
+      const userStr = localStorage.getItem('medikiosk_user');
+      const userObj = userStr ? JSON.parse(userStr) : null;
+      const target = getTargetWorkspace(userObj?.role || 'PATIENT', userObj?.specialization);
+      navigate(target, { replace: true });
     } catch {
       // Handled by context
     }
@@ -114,7 +140,10 @@ export function LoginPage() {
       }
 
       await register(payload);
-      navigate('/', { replace: true });
+      const userStr = localStorage.getItem('medikiosk_user');
+      const userObj = userStr ? JSON.parse(userStr) : null;
+      const target = getTargetWorkspace(userObj?.role || selectedRole, specialization);
+      navigate(target, { replace: true });
     } catch {
       // Handled by context
     }

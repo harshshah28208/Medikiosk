@@ -204,10 +204,10 @@ export class UniversalClinicalEngine implements AIProvider {
 
   async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false): Promise<QuestionOutput> {
     const lang: 'EN' | 'HI' | 'GU' = (language?.toUpperCase() as 'EN' | 'HI' | 'GU') || (state.currentLanguage as 'EN' | 'HI' | 'GU') || 'EN';
+    const isNew = state.isNewPatient === true || state.isNewPatient === undefined || !state.previousVisitInfo;
     const complaintText = state.chiefComplaint || 'problem';
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
-    const isNew = state.isNewPatient !== false;
 
     // Track answered clinical dimensions to guarantee NO repetition
     const answeredDimensions = new Set<string>();

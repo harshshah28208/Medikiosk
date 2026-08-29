@@ -74,13 +74,20 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const respType = (respondentType as 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED') || 'PATIENT';
   const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
 
-  // Check if patient is returning / has previous visits
-  const priorVisits = await prisma.visit.findMany({
-    where: { patientId: visit.patientId, id: { not: visit.id } },
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-    include: { summary: true, prescriptions: { include: { items: true } }, department: true },
-  });
+  // Check if patient is returning (only if visitType is RETURN/FOLLOW_UP or has past completed visits)
+  let priorVisits: any[] = [];
+  if (visit.visitType !== 'NEW') {
+    priorVisits = await prisma.visit.findMany({
+      where: {
+        patientId: visit.patientId,
+        id: { not: visit.id },
+        status: { in: ['COMPLETED', 'DISCHARGED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      include: { summary: true, prescriptions: { include: { items: true } }, department: true },
+    });
+  }
 
   const isExistingPatient = priorVisits.length > 0;
   const isNewPatient = !isExistingPatient;
