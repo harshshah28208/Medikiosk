@@ -591,7 +591,11 @@ export const api = {
           } catch {}
         }
 
-        return { timeline: DEMO_TIMELINES.default, count: DEMO_TIMELINES.default.length };
+        // Return empty timeline for new/real patients instead of injecting demo data
+        if (patientId === 'pat-001' || patientId === '11111111-1111-1111-1111-111111111111') {
+          return { timeline: DEMO_TIMELINES.default, count: DEMO_TIMELINES.default.length };
+        }
+        return { timeline: [], count: 0 };
       }),
     patients: (all = false) =>
       request(`/doctor/patients${all ? '?all=true' : ''}`).catch(() => {

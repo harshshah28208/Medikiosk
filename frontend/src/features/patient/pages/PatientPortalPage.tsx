@@ -39,7 +39,7 @@ export function PatientPortalPage() {
       };
       localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
     } else if (!p) {
-      p = { id: 'pat-default', name: 'Rahul Sharma', mrn: 'MK-1001', phone: '9876543210', bloodGroup: 'B+', abhaId: '91-8822-1923-0019', age: 28, gender: 'MALE' };
+      p = null;
     }
     setPatient(p);
 
@@ -60,14 +60,7 @@ export function PatientPortalPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const latestSummary = activeVisit?.summary || (timeline[0]?.aiSummary) || {
-    chiefComplaint: activeVisit?.reasonForVisit || patient?.medicalHistory || 'Health Assessment & Follow-up',
-    historyOfPresentIllness: 'Patient completed multi-turn AI clinical intake at registration kiosk.',
-    lifestyle: 'Sleep: 7 hrs/night, balanced diet, moderate physical activity, office desk routine.',
-    pastMedicalHistory: patient?.medicalHistory || 'None reported',
-    allergies: 'No Known Drug Allergies (NKDA)',
-    medications: 'None reported',
-  };
+  const latestSummary = activeVisit?.summary || timeline[0]?.aiSummary || null;
 
   const handleDownloadIntakeSummary = () => {
     const p = patient;
@@ -240,15 +233,17 @@ Prescription: ${item.lastPrescription || 'None'}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold">{patient?.name || 'Rudra Patel'}</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold">{patient?.name || 'Welcome'}</h1>
               <span className="px-2.5 py-0.5 bg-blue-500/30 border border-blue-400/40 rounded-full text-xs font-semibold">
                 Patient
               </span>
             </div>
             <p className="text-xs sm:text-sm text-blue-100 mt-1 flex flex-wrap items-center gap-3">
-              <span>MRN: <strong className="font-mono">{patient?.mrn || 'MK-0001'}</strong></span>
-              <span>•</span>
-              <span>Phone: <strong>{patient?.phone || '9876543210'}</strong></span>
+              <span>MRN: <strong className="font-mono">{patient?.mrn || '—'}</strong></span>
+              {patient?.phone && (
+                <><span>•</span>
+                <span>Phone: <strong>{patient.phone}</strong></span></>
+              )}
               {patient?.abhaId && (
                 <>
                   <span>•</span>
@@ -414,19 +409,21 @@ Prescription: ${item.lastPrescription || 'None'}
           <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Patient Name</span>
-              <span className="text-slate-100 font-bold text-sm">{patient?.name || 'Rudra Patel'}</span>
+              <span className="text-slate-100 font-bold text-sm">{patient?.name || '—'}</span>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase block">MRN Identifier</span>
-              <span className="font-mono text-indigo-300 font-bold text-sm">{patient?.mrn || 'MK-0001'}</span>
+              <span className="font-mono text-indigo-300 font-bold text-sm">{patient?.mrn || '—'}</span>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Age / Gender</span>
-              <span className="text-slate-200 font-semibold">{patient?.age || '24'} Yrs / {patient?.gender || 'MALE'}</span>
+              <span className="text-slate-200 font-semibold">
+                {patient?.age ? `${patient.age} Yrs` : '—'}{patient?.gender ? ` / ${patient.gender}` : ''}
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase block">ABHA ID</span>
-              <span className="font-mono text-emerald-300">{patient?.abhaId || '91-8822-1923-0019'}</span>
+              <span className="font-mono text-emerald-300">{patient?.abhaId || '—'}</span>
             </div>
           </div>
 
@@ -439,10 +436,10 @@ Prescription: ${item.lastPrescription || 'None'}
               <span className="text-[9px] font-mono px-2 py-0.5 bg-indigo-900/40 text-indigo-300 rounded">Voice NLU Verified</span>
             </div>
             <p className="text-slate-100 font-bold text-sm">
-              {latestSummary?.chiefComplaint || activeVisit?.reasonForVisit || 'Health Assessment'}
+              {latestSummary?.chiefComplaint || activeVisit?.reasonForVisit || 'Not recorded — complete an AI intake first'}
             </p>
             <p className="text-slate-300 leading-relaxed text-xs">
-              {latestSummary?.historyOfPresentIllness || 'Patient completed conversational multilingual AI intake session at MediKiosk registration.'}
+              {latestSummary?.historyOfPresentIllness || (latestSummary ? '' : 'No intake summary available yet.')}
             </p>
           </div>
 
@@ -455,7 +452,7 @@ Prescription: ${item.lastPrescription || 'None'}
               <span className="text-[9px] font-mono px-2 py-0.5 bg-amber-900/40 text-amber-300 rounded">Patient Reported</span>
             </div>
             <p className="text-slate-200 leading-relaxed text-xs">
-              {latestSummary?.lifestyle || 'Sleep: 7 hrs/night, regular balanced diet, moderate physical activity, office work routine.'}
+              {latestSummary?.lifestyle || (latestSummary ? 'Not recorded' : 'No lifestyle assessment yet — complete an intake to see this.')}
             </p>
           </div>
 
@@ -482,8 +479,8 @@ Prescription: ${item.lastPrescription || 'None'}
             </span>
             <p className="text-slate-200 font-mono">
               {activeVisit?.vitals?.[0]
-                ? `Blood Pressure: ${activeVisit.vitals[0].bpSystolic || 120}/${activeVisit.vitals[0].bpDiastolic || 80} mmHg • Pulse Rate: ${activeVisit.vitals[0].pulse || 76} bpm • SpO2 Level: ${activeVisit.vitals[0].spo2 || 99}%`
-                : 'Blood Pressure: 120/80 mmHg • Pulse Rate: 76 bpm • SpO2 Level: 99% • Temperature: 98.6 °F'}
+                ? `Blood Pressure: ${activeVisit.vitals[0].bpSystolic}/${activeVisit.vitals[0].bpDiastolic} mmHg • Pulse Rate: ${activeVisit.vitals[0].pulse} bpm • SpO2 Level: ${activeVisit.vitals[0].spo2}%`
+                : 'Vitals not yet recorded — will be measured by nurse before consultation.'}
             </p>
           </div>
         </div>
@@ -511,7 +508,7 @@ Prescription: ${item.lastPrescription || 'None'}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs px-3 py-1 bg-blue-50 text-blue-700 font-bold rounded-full">
-              {Math.max(timeline.length, 1)} Medical Records
+              {timeline.length} Medical Record{timeline.length !== 1 ? 's' : ''}
             </span>
             <button
               type="button"
