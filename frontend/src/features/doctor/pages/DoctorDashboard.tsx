@@ -67,10 +67,16 @@ export function DoctorDashboard() {
     setSelectedVisit(visit);
     setSummaryData(null);
     setTimeline([]);
+    setClinicalNotes('');
+    setImpression('');
+    setTreatmentPlan('');
     setSoapSubjective('');
     setSoapObjective('');
     setSoapAssessment('');
     setSoapPlan('');
+    setPrescriptions([
+      { medicineName: '', dosage: '', frequency: 'Once daily (OD)', duration: '5 days', instructions: 'After food' },
+    ]);
     try {
       const res = await api.visits.get(visit.id);
       if (res?.visit) {
@@ -84,6 +90,20 @@ export function DoctorDashboard() {
           // Pre-fill SOAP from AI summary
           setSoapSubjective(sJson.historyOfPresentIllness || '');
           setSoapAssessment(sJson.chiefComplaint || '');
+        }
+        if (res.visit.consultation) {
+          setClinicalNotes(res.visit.consultation.clinicalNotes || '');
+          setImpression(res.visit.consultation.impression || res.visit.consultation.diagnosis || '');
+          setTreatmentPlan(res.visit.consultation.treatmentPlan || '');
+        }
+        if (res.visit.prescriptions && res.visit.prescriptions.length > 0 && res.visit.prescriptions[0].items?.length > 0) {
+          setPrescriptions(res.visit.prescriptions[0].items.map((item: any) => ({
+            medicineName: item.medicineName,
+            dosage: item.dosage,
+            frequency: item.frequency,
+            duration: item.duration,
+            instructions: item.instructions || 'After meals'
+          })));
         }
         // Load longitudinal timeline
         const patientId = res.visit.patientId || visit.patient?.id;

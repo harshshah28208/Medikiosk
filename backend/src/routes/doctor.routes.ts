@@ -91,19 +91,17 @@ router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Res
   const user = req.user;
   const showAll = req.query.all === 'true' || user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN';
 
-  let whereClause: any = {
-    createdAt: { gte: today },
-  };
+  let whereClause: any = {};
 
   if (!showAll && user) {
     if (user.role === 'DOCTOR' || user.role === 'SPECIALIST_DOCTOR' || user.role === 'AYUSH_DOCTOR') {
       const doc = await prisma.doctorProfile.findUnique({ where: { userId: user.id } });
       if (doc) {
         whereClause = {
-          createdAt: { gte: today },
           OR: [
             { doctorId: doc.id },
-            { doctorId: null, departmentId: doc.departmentId || undefined },
+            { departmentId: doc.departmentId || undefined },
+            { doctorId: null },
           ],
         };
       }
@@ -111,8 +109,11 @@ router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Res
       const nurse = await prisma.nurseProfile.findUnique({ where: { userId: user.id } });
       if (nurse && nurse.departmentId) {
         whereClause = {
-          createdAt: { gte: today },
-          departmentId: nurse.departmentId,
+          OR: [
+            { departmentId: nurse.departmentId },
+            { doctorId: nurse.assignedDoctorId || undefined },
+            { doctorId: null },
+          ],
         };
       }
     }
@@ -134,13 +135,20 @@ router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Res
         },
       },
       department: { select: { id: true, name: true, code: true } },
+      doctor: {
+        select: {
+          id: true,
+          specialization: true,
+          user: { select: { name: true } },
+        },
+      },
       queueEntry: true,
       vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
       emergencyAlerts: { where: { status: { not: 'RESOLVED' } } },
       clinicalHistory: { select: { id: true, chiefComplaint: true, status: true, completionScore: true } },
-      summary: { select: { id: true, status: true } },
+      summary: { select: { id: true, status: true, summaryJson: true } },
     },
-    orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+    orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
   });
 
   res.json({ visits, count: visits.length });
