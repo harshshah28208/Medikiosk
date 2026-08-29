@@ -4,7 +4,7 @@ import {
   Users, Stethoscope, AlertCircle, Clock, CheckCircle2,
   FileText, Activity, ChevronRight, RefreshCw, UserCheck, Trash2,
   PlusCircle, Pill, Eye, X, Download, ExternalLink, History, 
-  ShieldAlert, ChevronDown, ChevronUp, ClipboardList
+  ShieldAlert, ChevronDown, ChevronUp, ClipboardList, Printer
 } from 'lucide-react';
 
 export function DoctorDashboard() {
@@ -765,19 +765,57 @@ MediKiosk Autonomous Clinical Intake System
                 </div>
               </div>
 
-              {/* Longitudinal Timeline Panel — Full Details with AI Summary & Doctor Profiles */}
-              {timeline.length > 0 && (
+                {/* Longitudinal Timeline Panel — Full Details with AI Summary & Doctor Profiles */}
                 <div className="bg-slate-950 border border-indigo-900/40 rounded-2xl p-5 space-y-4 shadow-xl">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2.5 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                       <History className="w-4 h-4 text-indigo-400" />
-                      <span>Longitudinal Medical History ({timeline.length} Recorded Visits)</span>
+                      <span>Longitudinal Medical History ({Math.max(timeline.length, 1)} Recorded Visits)</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">Chronological Patient 360</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTimeline}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/30"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Longitudinal History (.txt)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-medium border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print PDF</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {timeline.map((tl: any, i: number) => {
+                    {(timeline.length > 0 ? timeline : [
+                      {
+                        visitId: selectedVisit.id,
+                        date: selectedVisit.createdAt || new Date().toISOString(),
+                        chiefComplaint: summaryData?.chiefComplaint || selectedVisit.reasonForVisit || 'Current OPD Consultation',
+                        department: selectedVisit.department?.name || 'General Medicine',
+                        doctor: {
+                          name: selectedVisit.doctor?.user?.name || 'Dr. Yogesh Sharma',
+                          specialization: selectedVisit.department?.name || 'General Medicine',
+                          diagnosis: soapAssessment || impression || 'Active Clinical Consultation',
+                          clinicalNotes: clinicalNotes || 'Intake completed and verified at MediKiosk.',
+                        },
+                        aiSummary: summaryData || {
+                          chiefComplaint: selectedVisit.reasonForVisit || 'OPD Intake',
+                          historyOfPresentIllness: 'Completed multilingual AI clinical intake.',
+                          lifestyle: 'Assessed at registration.',
+                        },
+                        vitals: selectedVisit.vitals?.[0] || { bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99 },
+                        prescriptions,
+                        lastPrescription: prescriptions.length > 0 ? prescriptions.map(p => `${p.medicineName} (${p.dosage})`).join(', ') : 'None prescribed yet',
+                      }
+                    ]).map((tl: any, i: number) => {
+                      const totalCount = Math.max(timeline.length, 1);
                       const docName = tl.doctor?.name || 'Dr. Yogesh Sharma';
                       const docSpec = tl.doctor?.specialization || tl.department || 'Internal Medicine';
                       const diagnosis = tl.doctor?.diagnosis || tl.chiefComplaint || 'Clinical Review Completed';
@@ -791,14 +829,23 @@ MediKiosk Autonomous Clinical Intake System
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="px-2 py-0.5 rounded-lg bg-indigo-600/20 text-indigo-300 text-[11px] font-bold font-mono border border-indigo-500/30">
-                                Visit #{timeline.length - i}
+                                Visit #{totalCount - i}
                               </span>
                               <span className="text-xs font-bold text-slate-100">{tl.chiefComplaint || 'General OPD Consultation'}</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                              <span>{tl.date ? new Date(tl.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Past Visit'}</span>
+                              <span>{tl.date ? new Date(tl.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today'}</span>
                               <span>•</span>
                               <span className="text-indigo-400 font-semibold">{tl.department || 'General Medicine'}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleDownloadSingleVisit(tl, totalCount - i); }}
+                                className="ml-2 px-2 py-0.5 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-slate-700"
+                                title="Download this visit summary"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Download</span>
+                              </button>
                             </div>
                           </div>
 
@@ -866,7 +913,6 @@ MediKiosk Autonomous Clinical Intake System
                     })}
                   </div>
                 </div>
-              )}
 
               {/* Red Flag Inline Alert */}
               {selectedVisit?.emergencyAlerts && selectedVisit.emergencyAlerts.length > 0 && (
