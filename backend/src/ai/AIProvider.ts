@@ -1608,7 +1608,7 @@ export class GeminiAIProvider implements AIProvider {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
     this.model = this.genAI.getGenerativeModel({ model: modelName });
   }
 
