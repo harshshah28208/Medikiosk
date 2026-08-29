@@ -243,8 +243,8 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
 
   // Check if patient selected completion option or completed intake
   const isFinalAnswer =
-    /covers all symptoms|complete intake|सब लक्षण बता दिए|इन्टेक पूरा|તમામ લક્ષણો જણાવી દીધા|ઇન્ટેક પૂર્ણ|no that covers|no further/i.test(content) ||
-    state.turnsCompleted >= 5;
+    /intake is complete|proceed to consultation|covers all symptoms|complete intake|सब लक्षण बता दिए|सब बता दिया|ઇન્ટેક પૂર્ણ|ડૉક્ટર પાસે જવું|no further/i.test(content) ||
+    state.turnsCompleted >= 8;
 
   // 3. Update Clinical State & Increment Turn
   state = {

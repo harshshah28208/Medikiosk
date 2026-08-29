@@ -27,6 +27,7 @@ import { DoctorDashboard } from './features/doctor/pages/DoctorDashboard';
 import { NurseDashboard } from './features/nurse/pages/NurseDashboard';
 import { TriageDashboard } from './features/triage/pages/TriageDashboard';
 import { AYUSHDashboard } from './features/ayush/pages/AYUSHDashboard';
+import { HomeopathicDashboard } from './features/ayush/pages/HomeopathicDashboard';
 import { AdminDashboard } from './features/admin/pages/AdminDashboard';
 import { PlaceholderPage } from './components/ui/PlaceholderPage';
 
@@ -89,11 +90,16 @@ export function App() {
               </Route>
             </Route>
 
-            {/* AYUSH Doctor Flow */}
+            {/* AYUSH & Integrative Doctor Flow */}
             <Route element={<ProtectedRoute roles={['AYUSH_DOCTOR', 'HOSPITAL_ADMIN']} />}>
               <Route path="/ayush" element={<StaffShell />}>
                 <Route index element={<AYUSHDashboard />} />
                 <Route path="patient/:visitId" element={<AYUSHDashboard />} />
+              </Route>
+              {/* Homeopathic Path */}
+              <Route path="/homeopathic" element={<StaffShell />}>
+                <Route index element={<HomeopathicDashboard />} />
+                <Route path="patient/:visitId" element={<HomeopathicDashboard />} />
               </Route>
             </Route>
 

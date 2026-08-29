@@ -3,7 +3,8 @@ import { api } from '../../../services/api';
 import {
   Users, Stethoscope, AlertCircle, Clock, CheckCircle2,
   FileText, Activity, ChevronRight, RefreshCw, UserCheck, Trash2,
-  PlusCircle, Pill, Eye, X, Download, ExternalLink
+  PlusCircle, Pill, Eye, X, Download, ExternalLink, History, 
+  ShieldAlert, ChevronDown, ChevronUp, ClipboardList
 } from 'lucide-react';
 
 export function DoctorDashboard() {
@@ -12,6 +13,8 @@ export function DoctorDashboard() {
   const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
   const [summaryData, setSummaryData] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [expandedSection, setExpandedSection] = useState<string | null>('hpi');
 
   // Document Modal State
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
@@ -19,6 +22,10 @@ export function DoctorDashboard() {
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [impression, setImpression] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [soapSubjective, setSoapSubjective] = useState('');
+  const [soapObjective, setSoapObjective] = useState('');
+  const [soapAssessment, setSoapAssessment] = useState('');
+  const [soapPlan, setSoapPlan] = useState('');
   const [prescriptions, setPrescriptions] = useState<any[]>([
     { medicineName: 'Paracetamol', dosage: '650 mg', frequency: 'Thrice daily (TID)', duration: '3 days', instructions: 'After meals' },
   ]);
@@ -47,6 +54,11 @@ export function DoctorDashboard() {
   const handleSelectPatient = async (visit: any) => {
     setSelectedVisit(visit);
     setSummaryData(null);
+    setTimeline([]);
+    setSoapSubjective('');
+    setSoapObjective('');
+    setSoapAssessment('');
+    setSoapPlan('');
     try {
       const res = await api.visits.get(visit.id);
       if (res?.visit) {
@@ -57,6 +69,17 @@ export function DoctorDashboard() {
             : res.visit.summary.summaryJson;
           setSummaryData(sJson);
           setImpression(sJson.chiefComplaint || visit.reasonForVisit || '');
+          // Pre-fill SOAP from AI summary
+          setSoapSubjective(sJson.historyOfPresentIllness || '');
+          setSoapAssessment(sJson.chiefComplaint || '');
+        }
+        // Load longitudinal timeline
+        const patientId = res.visit.patientId || visit.patient?.id;
+        if (patientId) {
+          try {
+            const tlRes = await api.doctor.timeline(patientId);
+            if (tlRes?.timeline) setTimeline(tlRes.timeline);
+          } catch {}
         }
       }
     } catch (e) {
@@ -85,27 +108,15 @@ export function DoctorDashboard() {
     if (!selectedVisit) return;
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('medikiosk_token');
-      const response = await fetch('http://localhost:5000/api/doctor/consultation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          visitId: selectedVisit.id,
-          patientId: selectedVisit.patientId || selectedVisit.patient?.id,
-          clinicalNotes,
-          impression,
-          treatmentPlan,
-          prescriptions: prescriptions.filter((p) => p.medicineName.trim()),
-        }),
+      await api.doctor.consultation({
+        visitId: selectedVisit.id,
+        patientId: selectedVisit.patientId || selectedVisit.patient?.id,
+        clinicalNotes: `${soapSubjective ? `S: ${soapSubjective}\n` : ''}${soapObjective ? `O: ${soapObjective}\n` : ''}${clinicalNotes}`.trim(),
+        impression: soapAssessment || impression,
+        diagnosis: soapAssessment || impression,
+        treatmentPlan: soapPlan || treatmentPlan,
+        prescriptions: prescriptions.filter((p) => p.medicineName.trim()),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save consultation');
-      }
-
       alert('✅ Consultation & E-Prescription signed and saved successfully! Patient timeline updated.');
       loadPatients();
     } catch (e: any) {
@@ -314,47 +325,107 @@ export function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* Physician Assessment & Clinical Notes */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                      Clinical Impression / Diagnosis
-                    </label>
-                    <input
-                      type="text"
-                      value={impression}
-                      onChange={(e) => setImpression(e.target.value)}
-                      placeholder="e.g. Acute Viral Upper Respiratory Infection"
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+              {/* Longitudinal Timeline Panel */}
+              {timeline.length > 0 && (
+                <div className="bg-slate-950 border border-slate-700 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-slate-300 text-xs font-bold uppercase tracking-wider">
+                    <History className="w-4 h-4 text-indigo-400" />
+                    <span>Longitudinal Patient History ({timeline.length} past visits)</span>
                   </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                      Treatment Plan & Advice
-                    </label>
-                    <input
-                      type="text"
-                      value={treatmentPlan}
-                      onChange={(e) => setTreatmentPlan(e.target.value)}
-                      placeholder="e.g. Warm saline gargles, adequate hydration, follow up if fever persists"
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {timeline.map((tl: any, i: number) => (
+                      <div key={i} className="flex items-start gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          V{timeline.length - i}
+                        </div>
+                        <div className="text-xs text-slate-300">
+                          <span className="font-semibold text-slate-100 block">{tl.chiefComplaint || 'OPD Visit'}</span>
+                          <span className="text-slate-500">{tl.date ? new Date(tl.date).toLocaleDateString() : 'Past Visit'} • {tl.department || 'General'}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                    Clinical Examination & Progress Notes
-                  </label>
-                  <textarea
-                    value={clinicalNotes}
-                    onChange={(e) => setClinicalNotes(e.target.value)}
-                    rows={3}
-                    placeholder="Enter objective physical examination findings (e.g. Chest: Clear bilaterally, Throat: Mild erythema without exudate)..."
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              {/* Red Flag Inline Alert */}
+              {selectedVisit?.emergencyAlerts && selectedVisit.emergencyAlerts.length > 0 && (
+                <div className="p-3.5 bg-red-950/40 border border-red-500/40 rounded-2xl flex items-center gap-3">
+                  <ShieldAlert className="w-5 h-5 text-red-400 animate-pulse shrink-0" />
+                  <div className="text-xs">
+                    <span className="font-bold text-red-300 block">🔴 Red Flag Detected by AI Triage</span>
+                    <span className="text-red-400/80">{selectedVisit.emergencyAlerts[0].description}</span>
+                  </div>
+                  <span className="ml-auto text-[10px] font-bold px-2 py-1 bg-red-500/20 text-red-300 rounded-full border border-red-500/30">
+                    {selectedVisit.emergencyAlerts[0].severity}
+                  </span>
+                </div>
+              )}
+
+              {/* SOAP Note Composer */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2 pb-1">
+                  <ClipboardList className="w-5 h-5 text-blue-400" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">SOAP Clinical Note</h3>
+                  <span className="text-[10px] text-slate-500 ml-auto">AI pre-filled from intake summary</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="w-5 h-5 bg-blue-600 text-white rounded font-black flex items-center justify-center text-[10px]">S</span>
+                      Subjective — Patient History & Complaints
+                    </label>
+                    <textarea
+                      value={soapSubjective}
+                      onChange={(e) => setSoapSubjective(e.target.value)}
+                      rows={3}
+                      placeholder="What the patient reports: symptoms, onset, duration, severity..."
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-blue-900/50 rounded-xl text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-green-400 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="w-5 h-5 bg-green-600 text-white rounded font-black flex items-center justify-center text-[10px]">O</span>
+                      Objective — Examination Findings & Vitals
+                    </label>
+                    <textarea
+                      value={soapObjective}
+                      onChange={(e) => setSoapObjective(e.target.value)}
+                      rows={3}
+                      placeholder="Vital signs, physical exam findings, lab results..."
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-green-900/50 rounded-xl text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="w-5 h-5 bg-amber-600 text-white rounded font-black flex items-center justify-center text-[10px]">A</span>
+                      Assessment — Clinical Impression / Diagnosis
+                    </label>
+                    <textarea
+                      value={soapAssessment}
+                      onChange={(e) => setSoapAssessment(e.target.value)}
+                      rows={3}
+                      placeholder="Diagnosis, differential diagnoses, clinical reasoning..."
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-amber-900/50 rounded-xl text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block flex items-center gap-1">
+                      <span className="w-5 h-5 bg-purple-600 text-white rounded font-black flex items-center justify-center text-[10px]">P</span>
+                      Plan — Treatment, Prescriptions & Follow-up
+                    </label>
+                    <textarea
+                      value={soapPlan}
+                      onChange={(e) => setSoapPlan(e.target.value)}
+                      rows={3}
+                      placeholder="Treatment plan, prescriptions, investigations, follow-up date..."
+                      className="w-full px-3 py-2.5 bg-slate-950 border border-purple-900/50 rounded-xl text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
               </div>
 

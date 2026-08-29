@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
-import { Ticket, ArrowRight, Clock, MapPin, User, CheckCircle2 } from 'lucide-react';
+import { api } from '../../../services/api';
+import { Ticket, ArrowRight, Clock, MapPin, User, CheckCircle2, Stethoscope } from 'lucide-react';
 
 export function TokenPage() {
   const { visitId } = useParams();
@@ -11,6 +12,7 @@ export function TokenPage() {
   const [activePatient, setActivePatient] = useState<any>(null);
   const [activeVisit, setActiveVisit] = useState<any>(null);
   const [activeQueue, setActiveQueue] = useState<any>(null);
+  const [assignedDoctor, setAssignedDoctor] = useState<string | null>(null);
 
   useEffect(() => {
     const p = localStorage.getItem('medikiosk_active_patient');
@@ -18,14 +20,27 @@ export function TokenPage() {
     const q = localStorage.getItem('medikiosk_active_queue');
 
     if (p) setActivePatient(JSON.parse(p));
-    if (v) setActiveVisit(JSON.parse(v));
+    if (v) {
+      const parsedV = JSON.parse(v);
+      setActiveVisit(parsedV);
+      // Auto-assign doctor for this visit
+      if (parsedV.id) {
+        api.visits.assignDoctor(parsedV.id)
+          .then((res) => {
+            if (res?.doctorName) {
+              setAssignedDoctor(`Dr. ${res.doctorName}`);
+            }
+          })
+          .catch(() => {});
+      }
+    }
     if (q) setActiveQueue(JSON.parse(q));
   }, []);
 
   const tokenNumber = activeVisit?.token || activeQueue?.tokenNumber || 'G-101';
   const patientName = activePatient?.name || 'Rahul Sharma';
   const mrn = activePatient?.mrn || 'MK-1001';
-  const departmentName = activeVisit?.department || 'General Medicine';
+  const departmentName = activeVisit?.department?.name || activeVisit?.department || 'General Medicine';
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50">
@@ -50,7 +65,7 @@ export function TokenPage() {
             {tokenNumber}
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t border-white/20 text-xs sm:text-sm text-blue-100">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 pt-4 border-t border-white/20 text-xs sm:text-sm text-blue-100">
             <div className="flex items-center gap-1.5">
               <User className="w-4 h-4" />
               <span>{patientName} ({mrn})</span>
@@ -59,6 +74,12 @@ export function TokenPage() {
               <MapPin className="w-4 h-4" />
               <span>{departmentName}</span>
             </div>
+            {assignedDoctor && (
+              <div className="flex items-center gap-1.5 text-emerald-200 font-semibold">
+                <Stethoscope className="w-4 h-4" />
+                <span>{assignedDoctor}</span>
+              </div>
+            )}
           </div>
         </div>
 

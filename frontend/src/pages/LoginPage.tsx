@@ -4,16 +4,18 @@ import { useAuth } from '../store/AuthContext';
 import {
   Hospital, User, Shield, Stethoscope, Heart, Leaf,
   UserCog, Activity, ClipboardList, LogIn, UserPlus, AlertCircle, Sparkles,
-  Key, Award, Clock, MapPin, Phone, Mail, Lock
+  Key, Award, Clock, MapPin, Phone, Mail, Lock, Droplets
 } from 'lucide-react';
 
 const ROLES = [
   { role: 'DOCTOR', label: 'Doctor / Specialist', icon: Stethoscope, color: 'bg-indigo-600', description: 'OPD physician, prescriptions & diagnosis' },
   { role: 'NURSE', label: 'Nurse / Triage', icon: Activity, color: 'bg-green-600', description: 'Vitals recording, triage & nursing desk' },
   { role: 'AYUSH_DOCTOR', label: 'AYUSH / Ayurvedic', icon: Leaf, color: 'bg-amber-600', description: 'Prakriti analysis & Ayurvedic care' },
+  { role: 'AYUSH_DOCTOR', label: 'Homeopathic Doctor', icon: Droplets, color: 'bg-teal-600', description: 'Miasm analysis, constitutional remedy & repertory', path: '/homeopathic' },
   { role: 'PATIENT', label: 'Patient Portal', icon: User, color: 'bg-blue-600', description: 'Health timeline, tokens & appointment records' },
   { role: 'HOSPITAL_ADMIN', label: 'Hospital Admin', icon: UserCog, color: 'bg-purple-600', description: 'Analytics, security audit & staff roles' },
 ];
+
 
 export function LoginPage() {
   const { demoLogin, login, register, error, isLoading, clearError } = useAuth();
@@ -506,10 +508,11 @@ export function LoginPage() {
                 { role: 'NURSE', label: 'Nurse / Triage', icon: Activity, color: 'bg-green-600', path: '/nurse' },
                 { role: 'TRIAGE_STAFF', label: 'Triage Center', icon: AlertCircle, color: 'bg-red-600', path: '/triage' },
                 { role: 'AYUSH_DOCTOR', label: 'AYUSH Doctor', icon: Leaf, color: 'bg-amber-700', path: '/ayush' },
+                { role: 'AYUSH_DOCTOR', label: 'Homeopathic Doctor', icon: Droplets, color: 'bg-teal-600', path: '/homeopathic' },
                 { role: 'HOSPITAL_ADMIN', label: 'Hospital Admin', icon: UserCog, color: 'bg-purple-600', path: '/admin' },
               ].map(({ role, label, icon: Icon, color, path }) => (
                 <button
-                  key={role}
+                  key={`${role}-${path}`}
                   onClick={() => handleDemoLogin(role, path)}
                   disabled={isLoading}
                   className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-all flex items-center gap-4 shadow-md touch-target"

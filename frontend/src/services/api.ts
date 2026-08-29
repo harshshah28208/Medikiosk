@@ -123,6 +123,19 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, doctorId }),
       }),
+    assignDoctor: (visitId: string) =>
+      request(`/visits/${visitId}/assign-doctor`, {
+        method: 'POST',
+      }),
+  },
+
+  vitals: {
+    record: (data: any) =>
+      request('/vitals', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getForVisit: (visitId: string) => request(`/vitals/visit/${visitId}`),
   },
 
   queue: {
@@ -167,6 +180,35 @@ export const api = {
       request(`/conversation/${sessionId}/complete`, {
         method: 'POST',
       }),
+  },
+
+  doctor: {
+    consultation: (data: any) =>
+      request('/doctor/consultation', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    summary: (visitId: string) => request(`/doctor/summary/${visitId}`),
+    timeline: (patientId: string) => request(`/doctor/timeline/${patientId}`),
+    patients: () => request('/doctor/patients'),
+  },
+
+  triage: {
+    alerts: (status?: string) => request(`/triage/alerts${status ? `?status=${status}` : ''}`),
+    acknowledge: (alertId: string, status: 'ACKNOWLEDGED' | 'RESOLVED', notes?: string) =>
+      request(`/triage/alerts/${alertId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, notes }),
+      }),
+  },
+
+  ayush: {
+    assessment: (data: any) =>
+      request('/ayush/assessment', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    list: () => request('/ayush/assessments'),
   },
 
   admin: {

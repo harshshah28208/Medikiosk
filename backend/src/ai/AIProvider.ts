@@ -362,16 +362,88 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // TURN 5+: Final Review and Ready to Submit
+    // TURN 5: Daily Routine & Lifestyle
+    if (turn === 5) {
+      const q = {
+        EN: `How would you describe your daily lifestyle? Please tell me about your sleep, diet, physical activity, and occupation.`,
+        HI: `आप अपनी दिनचर्या के बारे में बताइए — नींद कैसी है, खान-पान कैसा है, और किस तरह का काम करते हैं?`,
+        GU: `તમારી રોજની જીવનચર્યા વિશે જણાવો — ઊંઘ, ખાન-પાન, શારીરિક પ્રવૃત્તિ અને વ્યવસાય કેવો છે?`,
+      };
+      const opt = {
+        EN: ['Sedentary (desk job, low activity)', 'Moderate activity (occasional exercise)', 'Active (regular physical work)', 'Irregular lifestyle (night shifts, stress)'],
+        HI: ['कम सक्रिय (बैठे-बैठे काम)', 'मध्यम सक्रिय (कभी-कभी व्यायाम)', 'अधिक सक्रिय (शारीरिक श्रम)', 'अनियमित जीवनशैली (रात्रि पाली, तनाव)'],
+        GU: ['ઓછી સક્રિય (ડેસ્ક કામ)', 'સાધારણ સક્રિય (ક્યારેક-ક્યારેક વ્યાયામ)', 'વધુ સક્રિય (શારીરિક કામ)', 'અનિયમિત (નાઇટ શિફ્ટ, તણાવ)'],
+      };
+      return {
+        question: q[lang],
+        questionLanguage: lang,
+        questionCategory: 'LIFESTYLE',
+        touchOptions: opt[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Collecting daily routine and lifestyle factors — key for chronic disease risk and medication adherence',
+      };
+    }
+
+    // TURN 6: Current Medications (detailed)
+    if (turn === 6) {
+      const q = {
+        EN: `Are you currently taking any medicines regularly? Please mention the name, dose, and frequency if you know.`,
+        HI: `क्या आप अभी कोई दवाईयां नियमित रूप से ले रहे हैं? यदि हां, तो दवा का नाम, मात्रा और कितनी बार लेते हैं, बताएं।`,
+        GU: `શું તમે હાલ કોઈ દવા નિયમિત લો છો? જો હા, તો દવાનું નામ, ડોઝ અને ક્યારે લો છો તે જણાવો.`,
+      };
+      const opt = {
+        EN: ['No regular medicines', 'BP / Diabetes medicines', 'Thyroid / Cholesterol medicines', 'Pain killers / Antacids only'],
+        HI: ['कोई नियमित दवाई नहीं', 'ब्लड प्रेशर / शुगर की दवाई', 'थायराइड / कोलेस्ट्रॉल की दवाई', 'केवल दर्द निवारक / एंटासिड'],
+        GU: ['કોઈ નિયમિત દવા નહીં', 'બ્લડ પ્રેશર / ડાયાબિટીસ દવા', 'થાયરોઇડ / કોલેસ્ટ્રોલ દવા', 'માત્ર પેઇન કિલર / એન્ટાસિડ'],
+      };
+      return {
+        question: q[lang],
+        questionLanguage: lang,
+        questionCategory: 'MEDICATIONS',
+        touchOptions: opt[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Documenting current medications to check interactions and chronic disease management',
+      };
+    }
+
+    // TURN 7: Allergies (detailed)
+    if (turn === 7) {
+      const q = {
+        EN: `Do you have any known allergies — to medicines, food, dust, pollen, or other substances?`,
+        HI: `क्या आपको किसी चीज़ से एलर्जी है — जैसे कोई दवाई, खाद्य पदार्थ, धूल, या कोई अन्य चीज़?`,
+        GU: `શું તમને કોઈ પ્રકારની એલર્જી છે — જેવી કે કોઈ દવા, ખાવાની વસ્તુ, ધૂળ, પરાગ, કે અન્ય કોઈ?`,
+      };
+      const opt = {
+        EN: ['No known drug allergies (NKDA)', 'Penicillin / Sulfa drug allergy', 'Food allergy (nuts, shellfish, dairy)', 'Dust / Pollen / Environmental allergy'],
+        HI: ['कोई ज्ञात दवाई एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा दवाई एलर्जी', 'खाने की एलर्जी (मेवे, समुद्री भोजन, दूध)', 'धूल / पराग / पर्यावरणीय एलर्जी'],
+        GU: ['કોઈ ઓળખાયેલ દવા એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા દવા એલર્જી', 'ખોરાક એલર્જી (નટ્સ, ડેઇરી)', 'ધૂળ / પરાગ / પર્યાવરણ એલર્જી'],
+      };
+      return {
+        question: q[lang],
+        questionLanguage: lang,
+        questionCategory: 'ALLERGIES',
+        touchOptions: opt[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Documenting allergies for safe prescription and anaesthesia planning',
+      };
+    }
+
+    // TURN 8+: Final Review and Ready to Submit
     const qFinal = {
-      EN: `Is there anything else you would like to share with the doctor before finalizing your intake?`,
-      HI: `डॉक्टर से मिलने से पहले क्या आप अपनी किसी अन्य परेशानी या दवा के बारे में कुछ बताना चाहते हैं?`,
-      GU: `ડૉક્ટરને મળતા પહેલાં શું તમે આપની કોઈ અન્ય તકલીફ કે દવા વિશે કંઈ જણાવવા માંગો છો?`,
+      EN: `Thank you for completing the health intake. Is there anything else you would like your doctor to know before your consultation?`,
+      HI: `स्वास्थ्य विवरण भरने के लिए धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कुछ और बताना चाहते हैं?`,
+      GU: `આરોગ્ય વિગત ભરવા બદલ આભાર. ડૉક્ટરને મળતા પહેલાં શું તમે કંઈ વધારાનું જણાવવા માંગો છો?`,
     };
     const optFinal = {
-      EN: ['No, that covers all symptoms (Complete Intake)', 'Need to add another symptom'],
-      HI: ['नहीं, सब लक्षण बता दिए हैं (इन्टेक पूरा करें)', 'एक और लक्षण जोड़ना है'],
-      GU: ['ના, તમામ લક્ષણો જણાવી દીધા છે (ઇન્ટેક પૂર્ણ કરો)', 'બીજું લક્ષણ ઉમેરવું છે'],
+      EN: ['No, intake is complete — proceed to consultation', 'I want to add one more symptom or concern'],
+      HI: ['नहीं, सब बता दिया है — परामर्श शुरू करें', 'एक और लक्षण या समस्या जोड़नी है'],
+      GU: ['ના, સઘળું જણાવ્યું — ડૉક્ટર પાસે જવું છે', 'બીજું એક લક્ષણ ઉમેરવું છે'],
     };
 
     return {
@@ -382,7 +454,7 @@ export class UniversalClinicalEngine implements AIProvider {
       isRedFlag: false,
       redFlagReason: null,
       isComplete: true,
-      clinicalRationale: 'Intake fully collected; ready for patient to proceed to appointment and review',
+      clinicalRationale: 'Intake fully collected across 8 stages; ready for patient to proceed to doctor consultation',
     };
   }
 

@@ -141,3 +141,95 @@ export async function listVisits(req: AuthRequest, res: Response): Promise<void>
 
   res.json({ visits });
 }
+
+/**
+ * Smart Doctor Auto-Assignment
+ * Finds an available doctor in the visit's department and assigns them.
+ * Falls back to any available doctor if no department-specific doctor is found.
+ */
+export async function assignDoctor(req: AuthRequest, res: Response): Promise<void> {
+  const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+
+  const visit = await prisma.visit.findUnique({
+    where: { id },
+    include: { department: true, patient: true },
+  });
+
+  if (!visit) {
+    res.status(404).json({ error: 'Visit not found.' });
+    return;
+  }
+
+  // Already has a doctor assigned
+  if (visit.doctorId) {
+    const currentDoctor = await prisma.doctorProfile.findUnique({
+      where: { id: visit.doctorId },
+      include: { user: { select: { name: true } } },
+    });
+    res.json({
+      message: 'Doctor already assigned',
+      doctorId: visit.doctorId,
+      doctorName: currentDoctor?.user?.name || 'Assigned Doctor',
+      isNew: false,
+    });
+    return;
+  }
+
+  // Find available doctor in same department
+  let doctor = await prisma.doctorProfile.findFirst({
+    where: {
+      departmentId: visit.departmentId,
+      isAvailable: true,
+    },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { id: 'asc' }, // Round-robin by creation order
+  });
+
+  // Fallback: Any available doctor
+  if (!doctor) {
+    doctor = await prisma.doctorProfile.findFirst({
+      where: { isAvailable: true },
+      include: { user: { select: { name: true, email: true } } },
+    });
+  }
+
+  if (!doctor) {
+    res.status(200).json({
+      message: 'No available doctor found. Patient added to waiting queue.',
+      doctorId: null,
+      doctorName: null,
+      isNew: false,
+    });
+    return;
+  }
+
+  // Assign the doctor to the visit
+  await prisma.visit.update({
+    where: { id },
+    data: { doctorId: doctor.id },
+  });
+
+  // Update queue entry
+  await prisma.queueEntry.updateMany({
+    where: { visitId: id },
+    data: { doctorId: doctor.id },
+  });
+
+  await createAuditLog({
+    userId: req.user?.id,
+    role: req.user?.role,
+    action: 'DOCTOR_ASSIGNED',
+    resourceType: 'VISIT',
+    resourceId: id,
+    details: { doctorId: doctor.id, doctorName: doctor.user?.name, departmentId: visit.departmentId },
+    ipAddress: req.ip,
+  });
+
+  res.json({
+    message: `Dr. ${doctor.user?.name} assigned successfully`,
+    doctorId: doctor.id,
+    doctorName: doctor.user?.name,
+    specialization: doctor.specialization,
+    isNew: true,
+  });
+}

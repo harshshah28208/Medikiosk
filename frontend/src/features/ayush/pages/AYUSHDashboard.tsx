@@ -43,30 +43,24 @@ export function AYUSHDashboard() {
     if (!selectedVisit) return;
     setIsSaving(true);
     try {
-      await fetch('http://localhost:5000/api/ayush/assessment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
-        },
-        body: JSON.stringify({
-          visitId: selectedVisit.id,
-          patientId: selectedVisit.patientId || selectedVisit.patient?.id,
-          prakriti: { primaryDosha: prakriti },
-          vikriti: { imbalance: vikriti },
-          agni,
-          koshtha,
-          nadi,
-          jihva,
-          ahara: { habits: aharaVihara },
-          notes: ayushNotes,
-        }),
+      await api.ayush.assessment({
+        visitId: selectedVisit.id,
+        patientId: selectedVisit.patientId || selectedVisit.patient?.id,
+        prakriti: { primaryDosha: prakriti },
+        vikriti: { imbalance: vikriti },
+        agni,
+        koshtha,
+        nadi,
+        jihva,
+        ahara: { habits: aharaVihara },
+        notes: ayushNotes,
       });
 
       alert('🌿 AYUSH Prakriti Assessment & Ashtavidha Pariksha saved to medical record!');
       loadPatients();
-    } catch (e) {
+    } catch (e: any) {
       console.error('AYUSH save error:', e);
+      alert(`Error saving AYUSH assessment: ${e.message || 'Please check your connection.'}`);
     } finally {
       setIsSaving(false);
     }

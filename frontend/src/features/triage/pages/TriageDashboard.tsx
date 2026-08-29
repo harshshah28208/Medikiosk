@@ -1,25 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { api } from '../../../services/api';
 import {
   AlertCircle, ShieldAlert, CheckCircle2,
-  RefreshCw, Clock, ArrowUpRight, Check
+  RefreshCw, Clock, ArrowUpRight, Check, Activity, Flame
 } from 'lucide-react';
 
 export function TriageDashboard() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const rawApiBase = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
-  const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
-
   const loadAlerts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${cleanApiBase}/triage/alerts`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
-        },
-      });
-      const data = await res.json();
+      const data = await api.triage.alerts();
       if (data?.alerts) {
         setAlerts(data.alerts);
       }
@@ -32,23 +25,22 @@ export function TriageDashboard() {
 
   useEffect(() => {
     loadAlerts();
+    const interval = setInterval(loadAlerts, 20000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleUpdateStatus = async (alertId: string, status: string) => {
+  const handleUpdateStatus = async (alertId: string, status: 'ACKNOWLEDGED' | 'RESOLVED') => {
     try {
-      await fetch(`${cleanApiBase}/triage/alerts/${alertId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('medikiosk_token')}`,
-        },
-        body: JSON.stringify({ status }),
-      });
+      await api.triage.acknowledge(alertId, status);
       loadAlerts();
     } catch (e) {
       console.error('Update alert error:', e);
     }
   };
+
+  const criticalCount = alerts.filter(a => a.severity === 'CRITICAL' && a.status !== 'RESOLVED').length;
+  const highCount = alerts.filter(a => a.severity === 'HIGH' && a.status !== 'RESOLVED').length;
+  const activeTotal = alerts.filter(a => a.status !== 'RESOLVED').length;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -70,6 +62,39 @@ export function TriageDashboard() {
           <RefreshCw className="w-4 h-4" />
           <span>Refresh Alerts</span>
         </button>
+      </div>
+
+      {/* Triage Stats Counter Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Active Triage Alerts</span>
+            <span className="text-2xl font-black text-white">{activeTotal}</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
+            <Activity className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-red-950/30 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider block">CRITICAL Alerts</span>
+            <span className="text-2xl font-black text-red-400">{criticalCount}</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center font-bold">
+            <Flame className="w-5 h-5 animate-pulse" />
+          </div>
+        </div>
+
+        <div className="bg-amber-950/30 border border-amber-500/30 p-4 rounded-2xl flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider block">HIGH / URGENT Alerts</span>
+            <span className="text-2xl font-black text-amber-400">{highCount}</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold">
+            <AlertCircle className="w-5 h-5" />
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">

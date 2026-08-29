@@ -25,9 +25,27 @@ export function NurseDashboard() {
     spo2: '',
     weight: '',
     height: '',
+    bloodGlucose: '',
     painScore: '0',
     notes: '',
   });
+
+  const calculateBMI = () => {
+    const w = parseFloat(vitals.weight);
+    const h = parseFloat(vitals.height) / 100; // in meters
+    if (w > 0 && h > 0) {
+      const bmi = w / (h * h);
+      return bmi.toFixed(1);
+    }
+    return null;
+  };
+
+  const getBMICategory = (bmiVal: number) => {
+    if (bmiVal < 18.5) return { label: 'Underweight', color: 'text-amber-400' };
+    if (bmiVal < 25) return { label: 'Normal Weight', color: 'text-emerald-400' };
+    if (bmiVal < 30) return { label: 'Overweight', color: 'text-amber-400' };
+    return { label: 'Obese', color: 'text-red-400' };
+  };
 
   const loadPatients = async () => {
     setIsLoading(true);
@@ -68,6 +86,7 @@ export function NurseDashboard() {
             spo2: v.spo2?.toString() || '',
             weight: v.weight?.toString() || '',
             height: v.height?.toString() || '',
+            bloodGlucose: v.bloodGlucose?.toString() || '',
             painScore: v.painScore?.toString() || '0',
             notes: v.notes || '',
           });
@@ -81,6 +100,7 @@ export function NurseDashboard() {
             spo2: '',
             weight: '',
             height: '',
+            bloodGlucose: '',
             painScore: '0',
             notes: '',
           });
@@ -106,34 +126,22 @@ export function NurseDashboard() {
     setSuccessMessage(null);
 
     try {
-      const token = localStorage.getItem('medikiosk_token');
-      const response = await fetch('http://localhost:5000/api/vitals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          visitId: selectedVisit.id,
-          patientId: selectedVisit.patientId || selectedVisit.patient?.id,
-          temperature: vitals.temperature ? parseFloat(vitals.temperature) : undefined,
-          pulse: vitals.pulse ? parseInt(vitals.pulse, 10) : undefined,
-          bpSystolic: vitals.bpSystolic ? parseInt(vitals.bpSystolic, 10) : undefined,
-          bpDiastolic: vitals.bpDiastolic ? parseInt(vitals.bpDiastolic, 10) : undefined,
-          respRate: vitals.respRate ? parseInt(vitals.respRate, 10) : undefined,
-          spo2: vitals.spo2 ? parseInt(vitals.spo2, 10) : undefined,
-          weight: vitals.weight ? parseFloat(vitals.weight) : undefined,
-          height: vitals.height ? parseFloat(vitals.height) : undefined,
-          painScore: vitals.painScore ? parseInt(vitals.painScore, 10) : 0,
-          notes: vitals.notes || undefined,
-        }),
+      await api.vitals.record({
+        visitId: selectedVisit.id,
+        patientId: selectedVisit.patientId || selectedVisit.patient?.id,
+        temperature: vitals.temperature ? parseFloat(vitals.temperature) : undefined,
+        pulse: vitals.pulse ? parseInt(vitals.pulse, 10) : undefined,
+        bpSystolic: vitals.bpSystolic ? parseInt(vitals.bpSystolic, 10) : undefined,
+        bpDiastolic: vitals.bpDiastolic ? parseInt(vitals.bpDiastolic, 10) : undefined,
+        respRate: vitals.respRate ? parseInt(vitals.respRate, 10) : undefined,
+        spo2: vitals.spo2 ? parseInt(vitals.spo2, 10) : undefined,
+        weight: vitals.weight ? parseFloat(vitals.weight) : undefined,
+        height: vitals.height ? parseFloat(vitals.height) : undefined,
+        painScore: vitals.painScore ? parseInt(vitals.painScore, 10) : 0,
+        notes: `${vitals.bloodGlucose ? `Blood Glucose: ${vitals.bloodGlucose} mg/dL. ` : ''}${vitals.notes || ''}`.trim(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to record vitals');
-      }
-
-      setSuccessMessage('Vitals recorded successfully. Triage priority updated.');
+      setSuccessMessage('✅ Vitals recorded successfully. Physician queue updated.');
       loadPatients();
     } catch (err: any) {
       console.error('Error submitting vitals:', err);
@@ -366,6 +374,18 @@ export function NurseDashboard() {
                 </div>
 
                 <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Random Blood Glucose (mg/dL)</label>
+                  <input
+                    type="number"
+                    name="bloodGlucose"
+                    value={vitals.bloodGlucose}
+                    onChange={handleChange}
+                    placeholder="e.g. 110"
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Pain Scale (0-10)</label>
                   <select
                     name="painScore"
@@ -380,6 +400,19 @@ export function NurseDashboard() {
                     ))}
                   </select>
                 </div>
+
+                {/* Auto-computed BMI Card */}
+                {calculateBMI() && (
+                  <div className="p-3 bg-slate-950 border border-slate-700 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Calculated BMI</span>
+                      <span className="text-base font-mono font-bold text-white">{calculateBMI()} kg/m²</span>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700 ${getBMICategory(parseFloat(calculateBMI()!)).color}`}>
+                      {getBMICategory(parseFloat(calculateBMI()!)).label}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>

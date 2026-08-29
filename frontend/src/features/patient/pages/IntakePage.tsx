@@ -304,6 +304,56 @@ export function IntakePage() {
           </div>
         </header>
 
+        {/* 8-Stage Universal Health Intake Progress Bar */}
+        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700/80 shrink-0">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+              {language === 'hi' ? 'स्वास्थ्य विवरण प्रगति' : language === 'gu' ? 'આરોગ્ય વિગત પ્રગતિ' : 'Intake Journey'}
+            </span>
+            <span className="font-mono text-blue-300">
+              {Math.min(8, Math.max(1, messages.filter(m => m.role === 'AI').length))} / 8 {language === 'hi' ? 'चरण' : language === 'gu' ? 'તબક્કા' : 'Stages'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-8 gap-1">
+            {[
+              { label: 'Chief Complaint', hi: 'मुख्य लक्षण', gu: 'મુખ્ય લક્ષણ' },
+              { label: 'Onset', hi: 'शुरुआत', gu: 'શરૂઆત' },
+              { label: 'Severity', hi: 'तीव्रता', gu: 'તીવ્રતા' },
+              { label: 'Associated', hi: 'अन्य लक्षण', gu: 'અન્ય લક્ષણ' },
+              { label: 'Medical History', hi: 'इतिहास', gu: 'ઇતિહાસ' },
+              { label: 'Lifestyle', hi: 'दिनचर्या', gu: 'જીવનશૈલી' },
+              { label: 'Medications', hi: 'दवाएं', gu: 'દવાઓ' },
+              { label: 'Allergies', hi: 'एलर्जी', gu: 'એલર્જી' },
+            ].map((st, i) => {
+              const currentAiTurn = messages.filter(m => m.role === 'AI').length;
+              const isDone = i < currentAiTurn;
+              const isCurrent = i === currentAiTurn - 1 || (i === 0 && currentAiTurn === 0);
+              return (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <div
+                    className={`h-1.5 w-full rounded-full transition-all ${
+                      isDone
+                        ? 'bg-emerald-500'
+                        : isCurrent
+                        ? 'bg-blue-500 animate-pulse'
+                        : 'bg-slate-700'
+                    }`}
+                  />
+                  <span
+                    className={`hidden md:block text-[9px] truncate max-w-full font-medium ${
+                      isCurrent ? 'text-blue-300 font-bold' : isDone ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
+                    {language === 'hi' ? st.hi : language === 'gu' ? st.gu : st.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Emergency Red Flag Notice Banner */}
         {redFlagAlert && (
           <div className="p-4 bg-red-600 text-white flex items-center justify-between shadow-inner shrink-0">

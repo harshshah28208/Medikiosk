@@ -30,8 +30,18 @@ export interface ClinicalState {
   pastSurgicalHistory: string[];
 
   // Medications & Allergies
-  medications: Array<{ name: string; dose?: string; frequency?: string }>;
+  medications: Array<{ name: string; dose?: string; frequency?: string; duration?: string }>;
   allergies: Array<{ allergen: string; reaction?: string; severity?: string }>;
+
+  // Daily Routine & Lifestyle (NEW — Turn 5)
+  lifestyle: {
+    sleep: string | null;        // Sleep quality / duration
+    diet: string | null;         // Dietary habits (veg/non-veg, oily, fast food)
+    activity: string | null;     // Physical activity level
+    occupation: string | null;   // Occupation / stress exposure
+    smoking: string | null;      // Smoking status
+    alcohol: string | null;      // Alcohol use
+  };
 
   // Family & Social History
   familyHistory: string[];
@@ -79,7 +89,7 @@ export interface ClinicalState {
 export interface QuestionOutput {
   question: string;
   questionLanguage: 'EN' | 'HI' | 'GU';
-  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH' | 'CLOSING';
+  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'LIFESTYLE' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH' | 'CLOSING';
   touchOptions: string[];
   isRedFlag: boolean;
   redFlagReason: string | null;
@@ -97,6 +107,14 @@ export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN'):
     pastSurgicalHistory: [],
     medications: [],
     allergies: [],
+    lifestyle: {
+      sleep: null,
+      diet: null,
+      activity: null,
+      occupation: null,
+      smoking: null,
+      alcohol: null,
+    },
     familyHistory: [],
     socialHistory: {
       smoking: null,
@@ -109,9 +127,10 @@ export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN'):
     questionsAsked: [],
     turnsCompleted: 0,
     completenessScore: 0,
-    missingFields: ['chiefComplaint', 'onset', 'duration', 'severity', 'character', 'associatedSymptoms', 'pastMedicalHistory'],
+    missingFields: ['chiefComplaint', 'onset', 'duration', 'severity', 'character', 'associatedSymptoms', 'pastMedicalHistory', 'lifestyle', 'medications', 'allergies'],
     confidence: 1.0,
     currentLanguage: language,
     languageHistory: [{ lang: language, switchedAt: new Date().toISOString() }],
   };
 }
+

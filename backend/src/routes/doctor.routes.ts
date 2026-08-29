@@ -240,4 +240,44 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
   });
 });
 
+/**
+ * GET /api/doctor/timeline/:patientId
+ * Get the longitudinal clinical history for a patient (past visits, complaints, summaries).
+ */
+router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthRequest, res: Response): Promise<void> => {
+  const patientId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
+
+  const visits = await prisma.visit.findMany({
+    where: { patientId },
+    include: {
+      clinicalHistory: {
+        select: { chiefComplaint: true, status: true, completionScore: true, createdAt: true },
+      },
+      department: { select: { name: true } },
+      vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+      prescriptions: {
+        include: { items: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  });
+
+  const timeline = visits.map((v) => ({
+    visitId: v.id,
+    date: v.createdAt,
+    chiefComplaint: v.clinicalHistory?.chiefComplaint || v.reasonForVisit || 'OPD Visit',
+    department: v.department?.name || 'General',
+    status: v.status,
+    priority: v.priority,
+    completionScore: v.clinicalHistory?.completionScore || 0,
+    vitals: v.vitals?.[0] || null,
+    lastPrescription: v.prescriptions?.[0]?.items?.map((i: any) => i.medicineName).join(', ') || null,
+  }));
+
+  res.json({ timeline, count: timeline.length });
+});
+
 export default router;
