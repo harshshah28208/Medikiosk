@@ -45,9 +45,191 @@ const CLINICAL_TRANSLATIONS: Record<string, { HI: string; GU: string; EN: string
   },
 };
 
-/**
- * Native Multilingual Clinical Terminology & Grammar Synthesizer
- */
+const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
+  // Lifestyle Options
+  {
+    EN: 'Normal 7-8 hrs sleep & balanced home food',
+    HI: 'सामान्य 7-8 घंटे नींद और घर का सादा खाना',
+    GU: 'સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક',
+  },
+  {
+    EN: 'Disturbed sleep (<5 hrs) & high work stress',
+    HI: 'नींद में रुकावट व अधिक काम का तनाव',
+    GU: 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ',
+  },
+  {
+    EN: 'Disturbed sleep (<5 hrs) & high stress routine',
+    HI: 'कम नींद (<5 घंटे) और अधिक काम का तनाव',
+    GU: 'ઓછી ઊંઘ (<૫ કલાક) અને વધુ માનસિક તણાવ',
+  },
+  {
+    EN: 'Oily / fast food & irregular meals',
+    HI: 'तला-भुना/बाहर का खाना व अनियमित समय',
+    GU: 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન',
+  },
+  {
+    EN: 'Oily / fast food & irregular meal timing',
+    HI: 'तला-भुना/बाहर का खाना व अनियमित समय',
+    GU: 'તળેલું/બહારનું ભોજન અને અનિયમિત સમય',
+  },
+  {
+    EN: 'Sedentary desk routine & physical fatigue',
+    HI: 'बैठे रहने की दिनचर्या और कमजोरी',
+    GU: 'બેઠાડુ દિનચર્યા અને શારીરિક થાક',
+  },
+  {
+    EN: 'Sedentary routine & Physical fatigue',
+    HI: 'शारीरिक निष्क्रियता व थकान',
+    GU: 'બેઠાડુ જીવન અને થાક',
+  },
+
+  // Medical History & Allergies
+  {
+    EN: 'No chronic conditions & No known drug allergies (NKDA)',
+    HI: 'कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)',
+    GU: 'કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)',
+  },
+  {
+    EN: 'Taking regular BP / Diabetes medicines',
+    HI: 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं',
+    GU: 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ',
+  },
+  {
+    EN: 'Have Thyroid / Asthma / Breathing trouble',
+    HI: 'थायराइड / अस्थमा / सांस की तकलीफ है',
+    GU: 'થાયરોઇડ / અસ્થમા / શ્વાસની તકલીફ છે',
+  },
+  {
+    EN: 'Known drug allergy to Penicillin / Sulfa drugs',
+    HI: 'दवाओं (पेनिसिलिन आदि) से एलर्जी है',
+    GU: 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)',
+  },
+
+  // Onset & Duration
+  {
+    EN: 'Since today / past few hours',
+    HI: 'आज से / कुछ घंटों से',
+    GU: 'આજથી / થોડા કલાકોથી',
+  },
+  {
+    EN: '2 to 3 days',
+    HI: '2-3 दिनों से',
+    GU: '૨-૩ દિવસથી',
+  },
+  {
+    EN: '1 to 2 weeks',
+    HI: '1-2 सप्ताह से',
+    GU: '૧-૨ અઠવાડિયાથી',
+  },
+  {
+    EN: 'More than a month (chronic)',
+    HI: 'एक महीने से अधिक समय से',
+    GU: 'એક મહિનાથી વધુ समयથી',
+  },
+
+  // Severity & Character
+  {
+    EN: 'Mild discomfort / Manageable',
+    HI: 'हल्की तकलीफ / सामान्य काम कर पा रहे हैं',
+    GU: 'હળવી તકલીફ / સામાન્ય કામ થઈ શકે છે',
+  },
+  {
+    EN: 'Moderate pain / Limits daily activities',
+    HI: 'मध्यम दर्द / दैनिक काम में परेशानी',
+    GU: 'મધ્યમ દુખાવો / રોજિંદા કામમાં તકલીફ',
+  },
+  {
+    EN: 'Severe throbbing / Burning pain',
+    HI: 'तेज दर्द / जलन / असहनीय',
+    GU: 'તીવ્ર દુખાવો / બળતરા / અસહ્ય',
+  },
+  {
+    EN: 'Intermittent episodes coming and going',
+    HI: 'रुक-रुक कर होने वाली तकलीफ',
+    GU: 'વારંવાર આવતી-જતી તકલીફ',
+  },
+
+  // Returning Progression
+  {
+    EN: 'Previous symptoms improved / Routine review',
+    HI: 'पुरानी तकलीफ में काफी सुधार है / फॉलो-अप',
+    GU: 'જૂની તકલીફમાં સારો સુધારો છે / ફોલો-અપ',
+  },
+  {
+    EN: 'Symptoms worsened / No significant relief',
+    HI: 'तकलीफ बढ़ गई है / आराम नहीं मिला',
+    GU: 'તકલીફ વધી ગઈ છે / રાહત નથી',
+  },
+  {
+    EN: 'Completely new symptom/problem today',
+    HI: 'आज पूरी तरह नई समस्या है',
+    GU: 'આજે સાવ નવી જ સમસ્યા છે',
+  },
+  {
+    EN: 'Medicines finished / Need refill & checkup',
+    HI: 'दवाइयां समाप्त / दोबारा जांच',
+    GU: 'દવાઓ પૂર્ણ થઈ / ફરી તપાસ',
+  },
+
+  // Returning Medication Compliance
+  {
+    EN: 'Taking all medicines regularly on time',
+    HI: 'सभी दवाइयां समय पर नियमित लीं',
+    GU: 'બધી દવાઓ સમયસર નિયમિત લીધી',
+  },
+  {
+    EN: 'Missed doses occasionally / Stopped early',
+    HI: 'कभी-कभार दवा छूट गई / जल्दी बंद कर दी',
+    GU: 'ક્યારેક દવા છૂટી ગઈ / વહેલી બંધ કરી',
+  },
+  {
+    EN: 'Medicines finished / Need refill',
+    HI: 'दवा समाप्त हो गई / दोबारा चाहिए',
+    GU: 'દવા પૂર્ણ થઈ ગઈ / ફરી તપાસ',
+  },
+  {
+    EN: 'Experienced gastric upset / Nausea from medicines',
+    HI: 'दवा से पेट में गैस/उल्टी जैसा लगा',
+    GU: 'દવાથી પેટમાં ગેસ/ઉબકા જેવું થયું',
+  },
+
+  // Closing
+  {
+    EN: 'No, that covers all symptoms — complete intake',
+    HI: 'नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें',
+    GU: 'ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો',
+  },
+  {
+    EN: 'Yes, I want to add one more detail',
+    HI: 'हाँ, मुझे एक और लक्षण बताना है',
+    GU: 'હા, મારે બીજું એક લક્ષણ જણાવવું છે',
+  },
+];
+
+function translateOptionDirectly(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): string | null {
+  if (!text) return null;
+  const clean = text.trim().toLowerCase();
+  
+  for (const opt of OPTION_TRANSLATIONS) {
+    if (opt.EN.toLowerCase() === clean || opt.HI.trim() === text.trim() || opt.GU.trim() === text.trim()) {
+      return opt[targetLanguage];
+    }
+  }
+  
+  // Loose matching for slight phrasing differences
+  for (const opt of OPTION_TRANSLATIONS) {
+    if (opt.EN.toLowerCase().includes(clean) || clean.includes(opt.EN.toLowerCase())) {
+      return opt[targetLanguage];
+    }
+    if (opt.HI.includes(text.trim()) || text.trim().includes(opt.HI)) {
+      return opt[targetLanguage];
+    }
+    if (opt.GU.includes(text.trim()) || text.trim().includes(opt.GU)) {
+      return opt[targetLanguage];
+    }
+  }
+  return null;
+}
 function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): string {
   const c = complaint.toLowerCase();
   
@@ -152,6 +334,14 @@ export class UniversalClinicalEngine implements AIProvider {
   }
 
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
+    if (!text) return text;
+
+    // 1. Direct Option Translation
+    const directOpt = translateOptionDirectly(text, targetLanguage);
+    if (directOpt) {
+      return directOpt;
+    }
+
     const tLower = text.toLowerCase();
 
     // Check Stage 1: Lifestyle & Daily Routine
