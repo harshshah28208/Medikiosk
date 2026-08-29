@@ -217,6 +217,42 @@ export function IntakePage() {
   const handleCompleteIntake = async () => {
     setIsProcessing(true);
     try {
+      // Build a summary from the conversation messages
+      const allPatientAnswers = messages
+        .filter((m) => m.role === 'PATIENT')
+        .map((m) => m.content)
+        .join(' | ');
+
+      const firstAiQ = messages.find((m) => m.role === 'AI')?.content || '';
+      const allAiQs = messages
+        .filter((m) => m.role === 'AI')
+        .map((m) => m.content)
+        .join('\n');
+
+      // Extract key clinical fields from conversation
+      const chiefComplaint = messages[1]?.content || messages.find((m) => m.role === 'PATIENT')?.content || 'Clinical intake completed';
+
+      const summaryFromConversation = {
+        chiefComplaint,
+        historyOfPresentIllness: allPatientAnswers,
+        lifestyle: messages.filter((m) => m.role === 'PATIENT').slice(1, 3).map((m) => m.content).join('. '),
+        pastMedicalHistory: messages.filter((m) => m.role === 'PATIENT').slice(3, 5).map((m) => m.content).join('. ') || 'None reported',
+        medications: 'As discussed during intake',
+        allergies: 'As reported during intake',
+        fullConversation: messages.map((m) => `${m.role === 'AI' ? 'MediKiosk AI' : 'Patient'}: ${m.content}`).join('\n'),
+        generatedAt: new Date().toISOString(),
+      };
+
+      // Save summary to active visit in localStorage
+      const storedVisitRaw = localStorage.getItem('medikiosk_active_visit');
+      if (storedVisitRaw) {
+        try {
+          const storedVisit = JSON.parse(storedVisitRaw);
+          storedVisit.summary = summaryFromConversation;
+          localStorage.setItem('medikiosk_active_visit', JSON.stringify(storedVisit));
+        } catch {/* ignore */}
+      }
+
       if (session?.id) {
         await api.conversation.complete(session.id);
       }

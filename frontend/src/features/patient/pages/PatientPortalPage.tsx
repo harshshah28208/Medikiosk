@@ -44,11 +44,32 @@ export function PatientPortalPage() {
     setPatient(p);
 
     const activeVisitRaw = localStorage.getItem('medikiosk_active_visit');
-    if (activeVisitRaw) {
-      setActiveVisit(JSON.parse(activeVisitRaw));
-    } else if (p.visits?.[0]) {
-      setActiveVisit(p.visits[0]);
-    }
+    const parsedVisit = activeVisitRaw ? JSON.parse(activeVisitRaw) : (p.visits?.[0] || null);
+    if (parsedVisit) setActiveVisit(parsedVisit);
+
+    // Fetch full visit from API to get the complete AI summary
+    const targetVisitId = parsedVisit?.id;
+    const loadFull = async () => {
+      if (targetVisitId) {
+        try {
+          const res = await api.visits.get(targetVisitId);
+          if (res?.visit) {
+            setActiveVisit(res.visit);
+            // Parse summaryJson if present (backend format)
+            if (res.visit.summary?.summaryJson) {
+              const parsed = typeof res.visit.summary.summaryJson === 'string'
+                ? JSON.parse(res.visit.summary.summaryJson)
+                : res.visit.summary.summaryJson;
+              // Merge parsed fields back into the visit summary
+              setActiveVisit((prev: any) => ({ ...prev, summary: { ...prev.summary, ...parsed } }));
+            }
+          }
+        } catch (e) {
+          // Backend unavailable, use stored visit
+        }
+      }
+    };
+    loadFull();
 
     api.doctor.timeline(p.id)
       .then((data: any) => {
@@ -60,7 +81,20 @@ export function PatientPortalPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const latestSummary = activeVisit?.summary || timeline[0]?.aiSummary || null;
+  // Parse summary from the active visit - handles both flat and nested summaryJson
+  const parseSummaryFromVisit = (visit: any) => {
+    if (!visit) return null;
+    const s = visit.summary;
+    if (!s) return null;
+    // If summaryJson is present (backend format), parse it
+    if (s.summaryJson) {
+      const parsed = typeof s.summaryJson === 'string' ? JSON.parse(s.summaryJson) : s.summaryJson;
+      return { ...s, ...parsed };
+    }
+    return s;
+  };
+
+  const latestSummary = parseSummaryFromVisit(activeVisit) || timeline[0]?.aiSummary || null;
 
   const handleDownloadIntakeSummary = () => {
     const p = patient;
@@ -428,7 +462,7 @@ Prescription: ${item.lastPrescription || 'None'}
           </div>
 
           {/* Section 2: Chief Complaint & Full HPI */}
-          <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2">
+          <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider block">
                 1. Chief Complaint &amp; History of Present Illness (HPI)
@@ -438,9 +472,26 @@ Prescription: ${item.lastPrescription || 'None'}
             <p className="text-slate-100 font-bold text-sm">
               {latestSummary?.chiefComplaint || activeVisit?.reasonForVisit || 'Not recorded — complete an AI intake first'}
             </p>
-            <p className="text-slate-300 leading-relaxed text-xs">
-              {latestSummary?.historyOfPresentIllness || (latestSummary ? '' : 'No intake summary available yet.')}
-            </p>
+            {/* Full conversation transcript */}
+            {latestSummary?.fullConversation ? (
+              <div className="bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-2 max-h-64 overflow-y-auto">
+                {latestSummary.fullConversation.split('\n').filter(Boolean).map((line: string, idx: number) => {
+                  const isAI = line.startsWith('MediKiosk AI:');
+                  return (
+                    <div key={idx} className={`flex gap-2 text-xs ${isAI ? 'text-indigo-300' : 'text-slate-200'}`}>
+                      <span className={`shrink-0 font-bold text-[10px] ${isAI ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                        {isAI ? '🤖' : '🧑'}
+                      </span>
+                      <span className="leading-relaxed">{line.replace(/^MediKiosk AI:|^Patient:/, '').trim()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-slate-300 leading-relaxed text-xs">
+                {latestSummary?.historyOfPresentIllness || (latestSummary ? '' : 'No intake summary available yet.')}
+              </p>
+            )}
           </div>
 
           {/* Section 3: Daily Routine & Lifestyle Assessment */}
