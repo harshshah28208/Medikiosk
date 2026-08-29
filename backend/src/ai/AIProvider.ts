@@ -502,6 +502,24 @@ function translateOptionDirectly(text: string, targetLanguage: 'EN' | 'HI' | 'GU
 function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): string {
   const c = complaint.toLowerCase();
   
+  if (/vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला/i.test(c)) {
+    return lang === 'HI' ? 'उल्टी और जी मिचलाने' : lang === 'GU' ? 'ઉલટી અને ઉબકા' : 'vomiting and nausea';
+  }
+  if (/dizz|vertigo|gidd|चक्कर|ચક્કર/i.test(c)) {
+    return lang === 'HI' ? 'चक्कर आने' : lang === 'GU' ? 'ચક્કર આવવા' : 'dizziness and vertigo';
+  }
+  if (/diarrhea|loose motion|motions|दस्त|ઝાડા|મરોડ/i.test(c)) {
+    return lang === 'HI' ? 'दस्त और पेट में मरोड़' : lang === 'GU' ? 'ઝાડા અને પેટમાં ચૂંક' : 'loose motions and diarrhea';
+  }
+  if (/breath|dyspnea|asthma|wheez|सांस|શ્વાસ/i.test(c)) {
+    return lang === 'HI' ? 'सांस लेने में तकलीफ' : lang === 'GU' ? 'શ્વાસ લેવામાં તકલીફ' : 'breathing difficulty and shortness of breath';
+  }
+  if (/eye|vision|आँख|આંખ/i.test(c)) {
+    return lang === 'HI' ? 'आँखों में दर्द और लाली' : lang === 'GU' ? 'આંખોમાં દુખાવો અને લાલાશ' : 'eye pain and irritation';
+  }
+  if (/ear|hear|कान|કાન/i.test(c)) {
+    return lang === 'HI' ? 'कान में दर्द और भारीपन' : lang === 'GU' ? 'કાનમાં દુખાવો અને પરુ' : 'ear pain and discharge';
+  }
   if (/pimple|acne|boil|मुँहासे|फुंसी|ખીલ/i.test(c)) {
     return lang === 'HI' ? 'मुँहासे / दानों' : lang === 'GU' ? 'ખીલ' : 'pimples / skin spots';
   }
@@ -511,23 +529,35 @@ function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): str
   if (/chest|heart|सीने|छाती/i.test(c)) {
     return lang === 'HI' ? 'सीने में दर्द व भारीपन' : lang === 'GU' ? 'છાતીમાં દુખાવો અને ભારેપણું' : 'chest discomfort';
   }
-  if (/knee|joint|bone|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(c)) {
+  if (/knee|joint|bone|arthritis|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(c)) {
     return lang === 'HI' ? 'घुटने और जोड़ों के दर्द' : lang === 'GU' ? 'ઘૂંટણ અને સાંધાના દુખાવા' : 'knee and joint pain';
   }
-  if (/back|spine|कमर|પીઠ/i.test(c)) {
-    return lang === 'HI' ? 'कमर और पीठ के दर्द' : lang === 'GU' ? 'કમરના દુખાવા' : 'back pain';
+  if (/back|spine|lumbar|sciatica|कमर|पीठ|પીઠ|વાંસો/i.test(c)) {
+    return lang === 'HI' ? 'कमर और पीठ के दर्द' : lang === 'GU' ? 'કમરના દુખાવા' : 'back pain and stiffness';
   }
-  if (/stomach|abdom|acidity|vomit|पेट|પેટ/i.test(c)) {
+  if (/urine|urina|burning urine|पेशाब|પેશાબ/i.test(c)) {
+    return lang === 'HI' ? 'पेशाब में जलन और दर्द' : lang === 'GU' ? 'પેશાબમાં બળતરા અને દુખાવો' : 'urinary burning and discomfort';
+  }
+  if (/stomach|abdom|acidity|gas|मरोड़|पेट|પેટ/i.test(c)) {
     return lang === 'HI' ? 'पेट दर्द, जलन और तकलीफ' : lang === 'GU' ? 'પેટમાં દુખાવો અને બળતરા' : 'stomach discomfort and acidity';
   }
-  if (/headache|head|migraine|सिरदर्द|માથા/i.test(c)) {
+  if (/headache|head|migraine|सिरदर्द|माथा|માથા/i.test(c)) {
     return lang === 'HI' ? 'सिरदर्द' : lang === 'GU' ? 'માથાના દુખાવા' : 'headache';
   }
-  if (/cough|cold|throat|खांसी|गला|ઉધરસ|ગળું/i.test(c)) {
+  if (/cough|cold|throat|sore throat|खांसी|गला|ઉધરસ|ગળું/i.test(c)) {
     return lang === 'HI' ? 'खांसी और गले की खराश' : lang === 'GU' ? 'ઉધરસ અને ગળાની તકલીફ' : 'cough and throat irritation';
   }
-  if (/fever|temperature|बुखार|તાવ/i.test(c)) {
+  if (/fever|temperature|shiver|chills|बुखार|તાવ/i.test(c)) {
     return lang === 'HI' ? 'बुखार और शारीरिक कमजोरी' : lang === 'GU' ? 'તાવ અને શારીરિક નબળાઈ' : 'fever and body weakness';
+  }
+  if (/injury|wound|trauma|fall|चोट|घाव|ઈજા/i.test(c)) {
+    return lang === 'HI' ? 'चोट और घाव' : lang === 'GU' ? 'ઈજા અને સોજો' : 'injury and swelling';
+  }
+
+  // Clean raw phrases (e.g. "I feel like vomitting" -> "vomitting")
+  const cleaned = complaint.replace(/^i feel like |i have |there is |severe |mild /gi, '').trim();
+  if (cleaned.length > 2 && cleaned.length < 35) {
+    return cleaned;
   }
 
   return lang === 'HI' ? 'इस समस्या' : lang === 'GU' ? 'આ તકલીફ' : 'this symptom';
@@ -540,7 +570,40 @@ export class UniversalClinicalEngine implements AIProvider {
     const turns = state.turnsCompleted || 0;
     const isNew = state.isNewPatient !== false;
 
+    // Direct Symptom / Chief Complaint Detection across all inputs
+    const isSymptomMentioned = /vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला|headache|सिरदर्द|માથા|chest|pain|दर्द|દુખાવો|ear|कान|કાન|stomach|पेट|પેટ|acidity|fever|बुखार|તાવ|cough|खांसी|ઉધરસ|rash|दाने|ધાબા|diarrhea|दस्त|ઝાડા|urine|पेशाब|પેશાબ|sciatica|कमर|spine|swelling|सूजन|સોજો/i.test(text);
+
     if (isNew) {
+      if (isSymptomMentioned && !state.chiefComplaint) {
+        update.chiefComplaint = text;
+        update.chiefComplaintOriginal = text;
+        update.symptoms = [
+          {
+            name: text,
+            originalText: text,
+            onset: null,
+            duration: null,
+            severity: null,
+            location: null,
+            character: null,
+            radiation: null,
+            aggravatingFactors: [],
+            relievingFactors: [],
+            timing: null,
+            progression: null,
+          },
+        ];
+        if (!state.lifestyle?.sleep) {
+          update.lifestyle = { sleep: 'Normal routine', diet: 'Home cooked', activity: 'Moderate', occupation: '', smoking: null, alcohol: null };
+        }
+        if ((state.pastMedicalHistory || []).length === 0) {
+          update.pastMedicalHistory = ['No chronic diseases reported'];
+          update.medications = [];
+          update.allergies = [{ allergen: 'None', reaction: 'None', severity: 'MILD' }];
+        }
+        return update;
+      }
+
       // Step 1: Turn 0 answer is LIFESTYLE
       if (turns === 0 || !state.lifestyle?.sleep) {
         update.lifestyle = {
@@ -1214,11 +1277,191 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 5: Disease-Specific Dynamic Clinical Follow-Up Inquiries
+    // Step 5: Universal Multi-System Dynamic Clinical Exploration (Covers ALL Diseases)
     if (!answeredDimensions.has('CHARACTER')) {
       const complaintLower = (state.chiefComplaint || state.latestAnswer || '').toLowerCase();
 
-      // 1. LOWER BACK PAIN & SCIATICA
+      // 1. EMESIS / NAUSEA / GASTROINTESTINAL
+      if (/vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला|bile|dehydrat/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `How many times has the patient vomited or felt nauseous, does it contain food, bile, or blood, and are they able to retain water and fluids?`
+            : `How many times have you vomited or felt nauseous, does it contain food, bile, or blood, and are you able to retain water and fluids?`,
+          HI: isCaregiver
+            ? `मरीज को कितनी बार उल्टी या जी मिचलाने की तकलीफ हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`
+            : `आपको कितनी बार उल्टी या जी मिचलाने की तकलीफ हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`,
+          GU: isCaregiver
+            ? `દર્દીને કેટલી વાર ઉલટી કે ઉબકા થયા છે, શું ઉલટીમાં ખોરાક કે પિત્ત (પીળું પાણી) નીકળે છે, અને પાણી પચી શકે છે?`
+            : `તમને કેટલી વાર ઉલટી કે ઉબકા થયા છે, શું ઉલટીમાં ખોરાક કે પિત્ત (પીળું પાણી) નીકળે છે, અને પાણી પચી શકે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Frequent vomiting (>4-5 times), cannot retain water', 'Vomited 1-2 times after meals with nausea', 'Sour yellow bile vomiting with stomach cramps', 'Accompanied by loose watery stools & weakness'],
+          HI: ['लगातार उल्टियां (>4-5 बार), पानी भी नहीं रुक रहा', 'खाने के बाद 1-2 बार उल्टी व जी मिचलाना', 'खट्टी डकारें व पीले पित्त की उल्टी', 'दस्त (loose motions) और कमजोरी के साथ'],
+          GU: ['વારંવાર ઉલટી (>૪-૫ વાર), પાણી પણ ટકતું નથી', 'જમ્યા પછી ૧-૨ વાર ઉલટી અને ઉબકા', 'ખાટા ઓડકાર અને પીળા પિત્તની ઉલટી', 'ઝાડા (લૂઝ મોશન) અને ભારે અશક્તિ સાથે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Evaluating emesis frequency, electrolyte loss risk, and oral hydration tolerance',
+        };
+      }
+
+      // 2. DIZZINESS / VERTIGO / NEUROLOGICAL
+      if (/dizz|vertigo|gidd|faint|चक्कर|ચક્કર/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient feel the room spinning (vertigo), does it occur when changing head position or standing up, and is there any nausea or ringing in the ears?`
+            : `Do you feel the room spinning (vertigo), does it happen when changing posture or standing up, and is there any nausea or ringing in your ears?`,
+          HI: isCaregiver
+            ? `क्या मरीज को कमरा घूमता हुआ (चक्कर) महसूस होता है, क्या सिर हिलाने या खड़े होने पर यह बढ़ता है, और क्या जी मिचलाना या कान में आवाज आ रही है?`
+            : `क्या आपको सिर घूमता हुआ (चक्कर) महसूस होता है, क्या झुकने या खड़े होने पर यह बढ़ता है, और क्या जी मिचलाना या कान में सीटी जैसी आवाज है?`,
+          GU: isCaregiver
+            ? `શું દર્દીને માથું કે ઓરડો ફરતો હોય (ચક્કર) તેવું લાગે છે, શું ઊભા થતાં કે હલનચલનથી વધે છે, અને ઉબકા કે કાનમાં અવાજ આવે છે?`
+            : `શું આપને ચક્કર આવે છે, શું અચાનક ઊભા થવાથી વધે છે, અને ઉબકા કે કાનમાં અવાજ આવે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Spinning sensation triggered by head movement', 'Lightheadedness & unsteadiness when standing up', 'Accompanied by nausea & ear ringing (tinnitus)', 'Constant floating sensation with fatigue'],
+          HI: ['सिर हिलाने पर कमरा घूमने लगता है', 'खड़े होने पर आँखों के आगे अंधेरा व कमजोरी', 'जी मिचलाना और कान में आवाज के साथ', 'लगातार सिर में भारीपन व असंतुलन'],
+          GU: ['માથું હલાવવાથી ચક્કર આવે છે', 'ઊભા થતાં આંખે અંધારા અને અશક્તિ', 'ઉબકા અને કાનમાં અવાજ સાથે', 'સતત માથામાં ભારેપણું અને અસંતુલન'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing vestibular vertigo vs orthostatic hypotension and neurological stability',
+        };
+      }
+
+      // 3. DIARRHEA / LOOSE MOTIONS / DYSENTERY
+      if (/diarrhea|loose motion|motions|दस्त|ઝાડા|મરોડ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `How many loose stools has the patient passed today, is there any blood/mucus, and do they have severe stomach cramps or fever?`
+            : `How many loose stools have you passed today, is there any blood or mucus, and do you feel severe stomach cramps or fever?`,
+          HI: isCaregiver
+            ? `मरीज को आज कितनी बार पतले दस्त हुए हैं, क्या दस्त में खून या आंव (mucus) आया है, और क्या पेट में तेज मरोड़ या बुखार है?`
+            : `आपको आज कितनी बार पतले दस्त हुए हैं, क्या दस्त में खून या आंव (mucus) आया है, और क्या पेट में मरोड़ या बुखार है?`,
+          GU: isCaregiver
+            ? `દર્દીને આજે કેટલી વાર ઝાડા થયા છે, શું તેમાં લોહી કે ચીકાશ આવે છે, અને પેટમાં ચૂંક કે તાવ છે?`
+            : `આપને આજે કેટલી વાર ઝાડા થયા છે, શું તેમાં લોહી કે ચીકાશ આવે છે, અને પેટમાં ચૂંક કે તાવ છે?`,
+        };
+        const touchOpts = {
+          EN: ['Watery diarrhea >5-6 times with dehydration', 'Frequent loose stools with severe stomach cramps', 'Blood or sticky mucus noticed in stool', 'Mild loose stools 2-3 times without vomiting'],
+          HI: ['पानी जैसे पतले दस्त (>5-6 बार) व कमजोरी', 'पेट में तेज मरोड़ के साथ बार-बार दस्त', 'दस्त में खून या चिकना आंव आ रहा है', 'दिन में 2-3 बार सामान्य पतले दस्त'],
+          GU: ['પાતળા ઝાડા (>૫-૬ વાર) અને ભારે અશક્તિ', 'પેટમાં ચૂંક સાથે વારંવાર ઝાડા', 'ઝાડામાં લોહી કે ચીકાશ જણાય છે', 'દિવસમાં ૨-૩ વાર હળવા ઝાડા'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Investigating acute infectious enteritis, dehydration risk, and dysentery markers',
+        };
+      }
+
+      // 4. RESPIRATORY / BREATHLESSNESS / ASTHMA / WHEEZING
+      if (/breath|dyspnea|asthma|wheez|सांस|શ્વાસ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient have difficulty breathing at rest or during walking, is there wheezing/whistling sounds in the chest, and does lying flat worsen it?`
+            : `Do you have difficulty breathing at rest or during exertion, is there any wheezing in your chest, and does lying down make it worse?`,
+          HI: isCaregiver
+            ? `क्या मरीज को बैठे-बैठे या चलने पर सांस फूलती है, सीने से सीटी जैसी आवाज (wheezing) आ रही है, और क्या लेटने पर तकलीफ बढ़ती है?`
+            : `क्या आपकी बैठे-बैठे या चलने पर सांस फूलती है, सीने से सीटी जैसी आवाज आ रही है, और क्या लेटने पर तकलीफ बढ़ जाती है?`,
+          GU: isCaregiver
+            ? `શું દર્દીને બેઠા-બેઠા કે ચાલતી વખતે શ્વાસ ચડે છે, છાતીમાંથી સીટી જેવો અવાજ આવે છે, અને સૂવાથી તકલીફ વધે છે?`
+            : `શું આપને બેઠા-બેઠા કે ચાલતી વખતે શ્વાસ ચડે છે, છાતીમાંથી અવાજ આવે છે, અને સૂવાથી તકલીફ વધે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Breathlessness even while resting / speaking', 'Wheezing sound with night-time cough flares', 'Breathless only during climbing stairs / exertion', 'Chest tightness triggered by dust / cold air'],
+          HI: ['बैठे-बैठे और बोलने में भी सांस फूल रही है', 'सीने में सीटी की आवाज व रात में खांसी का दौरा', 'सीढ़ियां चढ़ने या चलने पर ही सांस फूलती है', 'धूल या ठंडी हवा से सीने में जकड़न होती है'],
+          GU: ['બેઠા-બેઠા અને વાત કરતાં પણ શ્વાસ ચડે છે', 'છાતીમાં સીટીનો અવાજ અને રાત્રે ઉધરસ', 'પગથિયાં ચડતી વખતે કે ચાલતાં શ્વાસ ચડે છે', 'ધૂળ કે ઠંડી હવાથી છાતીમાં ભીંસ થાય છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: true,
+          redFlagReason: 'Evaluating acute bronchospasm, asthma flare, or respiratory distress',
+          isComplete: false,
+          clinicalRationale: 'Assessing respiratory distress severity, wheezing patterns, and orthopnea',
+        };
+      }
+
+      // 5. EYE COMPLAINT / OPHTHALMOLOGY
+      if (/eye|vision|आँख|આંખ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient have red eyes, pus or watery discharge, blurred vision, or sharp gritty pain in the eye?`
+            : `Do you have eye redness, pus or watery discharge, blurred vision, or sharp gritty pain in your eye?`,
+          HI: isCaregiver
+            ? `क्या मरीज की आँखों में लाली, मवाद या पानी का स्राव, धुंधलापन, या चुभन जैसा दर्द है?`
+            : `क्या आपकी आँखों में लाली, कीचड़/पानी आना, धुंधला दिखाई देना, या चुभन जैसा दर्द है?`,
+          GU: isCaregiver
+            ? `શું દર્દીની આંખમાં લાલાશ, પરુ કે પાણી આવવું, ઝાંખું દેખાવું, કે ખૂંચતો દુખાવો છે?`
+            : `શું આપની આંખમાં લાલાશ, ચીકાશ કે પાણી આવવું, ઝાંખું દેખાવું, કે ખૂંચતો દુખાવો છે?`,
+        };
+        const touchOpts = {
+          EN: ['Severe redness with yellow crusting discharge', 'Sharp gritty foreign body sensation & pain', 'Blurred or decreased vision in affected eye', 'Mild itching & watery allergy sensation'],
+          HI: ['आँखों में तेज लाली और पीला कीचड़ आना', 'आँख में कुछ गड़ने जैसी तेज चुभन व दर्द', 'धुंधला दिखाई देना व रोशनी में परेशानी', 'हल्की खुजली और पानी बहना'],
+          GU: ['આંખમાં તીવ્ર લાલાશ અને ચીકાશ નીકળવી', 'આંખમાં કશુંક ખૂંચતું હોય તેવો તીવ્ર દુખાવો', 'ઝાંખું દેખાવું અને પ્રકાશમાં તકલીફ', 'હળવી ખંજવાળ અને પાણી આવવું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Screening for acute conjunctivitis, corneal abrasion, keratitis, and visual acuity loss',
+        };
+      }
+
+      // 6. EAR COMPLAINT / OTOLOGY
+      if (/ear|hear|कान|કાન/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient have any ear discharge (pus/fluid), reduced hearing, blocked sensation, or ringing in the ear?`
+            : `Do you have any ear discharge (pus/watery fluid), hearing loss, blocked ear sensation, or ringing sounds?`,
+          HI: isCaregiver
+            ? `क्या मरीज के कान से मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`
+            : `क्या आपके कान से कोई मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`,
+          GU: isCaregiver
+            ? `શું દર્દીના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`
+            : `શું આપના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Yellow / foul smelling ear discharge', 'Reduced hearing & blocked ear feeling', 'Severe sharp pulling pain inside ear', 'No discharge, only aching discomfort'],
+          HI: ['पीला / दुर्गंधयुक्त मवाद आ रहा है', 'सुनने में कमी और कान बंद लग रहा है', 'कान के अंदर तेज खींचने वाला दर्द', 'कोई मवाद नहीं, सिर्फ सामान्य दर्द है'],
+          GU: ['પીળું / વાસવાળું પરુ આવે છે', 'ઓછું સંભળાય છે અને કાન બંધ જણાય છે', 'કાનની અંદર તીવ્ર દુખાવો થાય છે', 'કોઈ પરુ નથી, માત્ર સામાન્ય દુખાવો છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Investigating ENT otitis media / otitis externa symptoms and acoustic involvement',
+        };
+      }
+
+      // 7. LOWER BACK PAIN & SCIATICA
       if (/back|spine|lumbar|sciatica|कमर|पीठ|પીઠ|વાંસો/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
@@ -1248,23 +1491,23 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // 2. PENIS / GENITOURINARY / UROLOGICAL
-      if (/penis|urina|urine|discharge|genital|पेशाब|मूत्र|लिंग|ઇન્દ્રિય/i.test(complaintLower)) {
+      // 8. KNEE / JOINT / ARTHRITIS
+      if (/knee|joint|bone|arthritis|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
-            ? `Does the patient have severe burning during urination, any discharge (pus/clear fluid), genital irritation, or difficulty passing urine?`
-            : `Do you have burning or pain during urination, any discharge (pus/clear fluid), irritation, or difficulty passing urine?`,
+            ? `Does the patient experience knee swelling, grating sounds (crepitus), and difficulty climbing stairs or squatting?`
+            : `Do you experience joint swelling, grating sensations (crepitus), and pain when climbing stairs or bending your knees?`,
           HI: isCaregiver
-            ? `क्या मरीज को पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव (discharge) आ रहा है, या पेशाब में रुकावट है?`
-            : `क्या आपको पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव (discharge) आ रहा है, या पेशाब रुक-रुक कर आ रहा है?`,
+            ? `क्या मरीज के जोड़ों में सूजन, कट-कट की आवाज, और सीढ़ियां चढ़ने या पालथी मारने में तेज दर्द होता है?`
+            : `क्या आपके जोड़ों/घुटनों में सूजन, कट-कट की आवाज, और सीढ़ियां चढ़ने या बैठने में तेज दर्द होता है?`,
           GU: isCaregiver
-            ? `શું દર્દીને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે પેશાબ કરવામાં અટકાવ છે?`
-            : `શું આપને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે પેશાબ કરવામાં અટકાવ છે?`,
+            ? `શું દર્દીના સાંધા/ઘૂંટણમાં સોજો, કટ-કટ અવાજ અને પગથિયાં ચડવામાં તીવ્ર દુખાવો થાય છે?`
+            : `શું આપના ઘૂંટણમાં સોજો, કટ-કટ અવાજ અને પગથિયાં ચડવામાં કે બેસવામાં તીવ્ર દુખાવો થાય છે?`,
         };
         const touchOpts = {
-          EN: ['Severe burning sensation while urinating', 'Whitish / yellowish pus discharge from penis', 'Frequent urge to urinate with reduced flow', 'Itching, redness, or skin irritation'],
-          HI: ['पेशाब में तेज जलन और दर्द', 'लिंग से मवाद/सफेद पानी का स्राव', 'बार-बार पेशाब की इच्छा व धार कम', 'खुजली, लाली और त्वचा में जलन'],
-          GU: ['પેશાબ કરતી વખતે તીવ્ર બળતરા', 'ઇન્દ્રિયમાંથી પરુ કે સફેદ પાણીનો સ્ત્રાવ', 'વારંવાર પેશાબ જવું પડે છે અને પ્રવાહ ધીમો', 'ખંજવાળ, લાલાશ અને ચામડી પર બળતરા'],
+          EN: ['Severe pain while climbing stairs or walking', 'Visible swelling, warmth & morning stiffness', 'Grating clicking sound when bending knee', 'Dull ache relieved by sitting / resting'],
+          HI: ['सीढ़ियां चढ़ने व चलने पर तेज दर्द', 'घुटने में सूजन, गर्माहट व सुबह जकड़न', 'मोड़ते समय कट-कट की आवाज आना', 'बैठने या आराम करने पर हल्का आराम'],
+          GU: ['પગથિયાં ચડતી વખતે કે ચાલતાં તીવ્ર દુખાવો', 'ઘૂંટણમાં સોજો અને સવારે જકડન', 'વાળતી વખતે કટ-કટ અવાજ આવવો', 'બેસવાથી કે આરામ કરવાથી રાહત'],
         };
         return {
           question: qText[lang],
@@ -1274,72 +1517,12 @@ export class UniversalClinicalEngine implements AIProvider {
           isRedFlag: false,
           redFlagReason: null,
           isComplete: false,
-          clinicalRationale: 'Investigating urethritis, UTI, STI infection markers, and urinary outflow symptoms',
+          clinicalRationale: 'Evaluating osteoarthritis severity, joint effusion, and functional mobility impairment',
         };
       }
 
-      // 3. VOMITING, NAUSEA & GASTROINTESTINAL
-      if (/vomit|उल्टी|ઉલટી|nausea|dehydrat/i.test(complaintLower)) {
-        const qText = {
-          EN: isCaregiver
-            ? `How many times has the patient vomited, does it contain food, bile, or blood, and are they able to retain fluids?`
-            : `How many times have you vomited, does it contain food, bile, or blood, and are you able to retain water and fluids?`,
-          HI: isCaregiver
-            ? `मरीज को कितनी बार उल्टी हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`
-            : `आपको कितनी बार उल्टी हुई है, क्या उल्टी में खाना या पित्त (पीला पानी) आया है, और क्या पानी पच पा रहा है?`,
-          GU: isCaregiver
-            ? `દર્દીને કેટલી વાર ઉલટી થઈ છે, શું ઉલટીમાં ખોરાક કે પિત્ત નીકળે છે, અને પાણી ટકે છે?`
-            : `તમને કેટલી વાર ઉલટી થઈ છે, શું ઉલટીમાં ખોરાક કે પિત્ત (પીળું પાણી) નીકળે છે, અને પાણી પચી શકે છે?`,
-        };
-        const touchOpts = {
-          EN: ['Frequent vomiting (>4-5 times), cannot retain water', 'Vomited 1-2 times after meals with nausea', 'Sour yellow bile vomiting with stomach cramps', 'Accompanied by loose watery stools & weakness'],
-          HI: ['लगातार उल्टियां (>4-5 बार), पानी भी नहीं रुक रहा', 'खाने के बाद 1-2 बार उल्टी व जी मिचलाना', 'खट्टी डकारें व पीले पित्त की उल्टी', 'दस्त (loose motions) और कमजोरी के साथ'],
-          GU: ['વારંવાર ઉલટી (>૪-૫ વાર), પાણી પણ ટકતું નથી', 'જમ્યા પછી ૧-૨ વાર ઉલટી અને ઉબકા', 'ખાટા ઓડકાર અને પીળા પિત્તની ઉલટી', 'ઝાડા (લૂઝ મોશન) અને ભારે અશક્તિ સાથે'],
-        };
-        return {
-          question: qText[lang],
-          questionLanguage: lang,
-          questionCategory: 'CHARACTER',
-          touchOptions: touchOpts[lang],
-          isRedFlag: false,
-          redFlagReason: null,
-          isComplete: false,
-          clinicalRationale: 'Assessing acute gastroenteritis, emesis frequency, electrolyte loss risk, and hydration status',
-        };
-      }
-
-      // 4. EAR COMPLAINT
-      if (/ear|कान|કાન/i.test(complaintLower)) {
-        const qText = {
-          EN: isCaregiver
-            ? `Does the patient have any ear discharge (pus/fluid), reduced hearing, blocked sensation, or ringing in the ear?`
-            : `Do you have any ear discharge (pus/watery fluid), hearing loss, blocked ear sensation, or ringing sounds?`,
-          HI: isCaregiver
-            ? `क्या मरीज के कान से मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`
-            : `क्या आपके कान से कोई मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`,
-          GU: isCaregiver
-            ? `શું દર્દીના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`
-            : `શું આપના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`,
-        };
-        const touchOpts = {
-          EN: ['Yellow / foul smelling ear discharge', 'Reduced hearing & blocked ear feeling', 'Severe sharp pulling pain inside ear', 'No discharge, only aching discomfort'],
-          HI: ['पीला / दुर्गंधयुक्त मवाद आ रहा है', 'सुनने में कमी और कान बंद लग रहा है', 'कान के अंदर तेज खींचने वाला दर्द', 'कोई मवाद नहीं, सिर्फ सामान्य दर्द है'],
-          GU: ['પીળું / વાસવાળું પરુ આવે છે', 'ઓછું સંભળાય છે અને કાન બંધ જણાય છે', 'કાનની અંદર તીવ્ર દુખાવો થાય છે', 'કોઈ પરુ નથી, માત્ર સામાન્ય દુખાવો છે'],
-        };
-        return {
-          question: qText[lang],
-          questionLanguage: lang,
-          questionCategory: 'CHARACTER',
-          touchOptions: touchOpts[lang],
-          isRedFlag: false,
-          redFlagReason: null,
-          isComplete: false,
-          clinicalRationale: 'Investigating ENT otitis media / otitis externa symptoms and acoustic involvement',
-        };
-      }
-
-      // 2. HEADACHE COMPLAINT
-      if (/headache|head|सिर|માથ/i.test(complaintLower)) {
+      // 9. HEADACHE / MIGRAINE
+      if (/headache|head|migraine|सिरदर्द|माथा|માથા/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
             ? `Is the patient's headache one-sided and throbbing, and are they sensitive to bright lights or loud noises?`
@@ -1368,23 +1551,23 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // 3. STOMACH / ABDOMEN / ACIDITY
-      if (/stomach|abdom|acidity|gas|vomit|पेट|પેટ/i.test(complaintLower)) {
+      // 10. UROLOGICAL / BURNING URINE
+      if (/urine|urina|burning urine|penis|पेशाब|પેશાબ/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
-            ? `Is the patient's stomach discomfort burning in the upper chest/abdomen, cramping, and does eating food make it better or worse?`
-            : `Is your stomach discomfort burning in the chest/upper abdomen, and does eating food make it better or worse?`,
+            ? `Does the patient have severe burning during urination, any discharge (pus/fluid), or frequent urge to urinate with reduced flow?`
+            : `Do you have severe burning during urination, any discharge (pus/clear fluid), or frequent urge with reduced flow?`,
           HI: isCaregiver
-            ? `क्या मरीज के पेट या सीने में जलन/मरोड़ है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`
-            : `क्या आपके पेट या सीने में जलन/मरोड़ हो रही है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`,
+            ? `क्या मरीज को पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव आ रहा है, या बार-बार पेशाब की इच्छा होती है?`
+            : `क्या आपको पेशाब करते समय तेज जलन/दर्द है, कोई मवाद या स्राव आ रहा है, या बार-बार थोड़ी मात्रा में पेशाब आता है?`,
           GU: isCaregiver
-            ? `શું દર્દીના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને ભોજન પછી તકલીફ વધે છે કે ઘટે છે?`
-            : `શું આપના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને જમ્યા પછી તકલીફ વધે છે કે ઘટે છે?`,
+            ? `શું દર્દીને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે વારંવાર પેશાબ જવું પડે છે?`
+            : `શું આપને પેશાબ કરતી વખતે તીવ્ર બળતરા/દુખાવો થાય છે, કોઈ પરુ કે સ્ત્રાવ આવે છે, કે વારંવાર પેશાબ જવું પડે છે?`,
         };
         const touchOpts = {
-          EN: ['Burning sensation & sour acid reflux', 'Cramping pain with bloating & gas', 'Worse immediately after spicy/oily food', 'Relieved temporarily after drinking milk/food'],
-          HI: ['सीने व पेट में जलन और खट्टी डकारें', 'पेट में मरोड़, गैस और भारीपन', 'मसालेदार/तला खाना खाने के तुरंत बाद दर्द', 'दूध पीने या खाने के बाद थोड़ा आराम'],
-          GU: ['છાતી અને પેટમાં બળતરા અને ખાટા ઓડકાર', 'પેટમાં ચૂંક, ગેસ અને ભારેપણું', 'મસાલેદાર ખોરાક પછી તરત તકલીફ', 'દૂધ પીવાથી કે જમવાથી થોડી રાહત'],
+          EN: ['Severe burning sensation while urinating', 'Frequent urge to urinate with reduced flow', 'Cloudy urine or discharge noticed', 'Pain in lower abdomen / pelvis'],
+          HI: ['पेशाब में तेज जलन और चुभन', 'बार-बार पेशाब की इच्छा व धार कम', 'पेशाब में मवाद या रंग गहरा होना', 'पेड़ू (निचले पेट) में भारी दर्द'],
+          GU: ['પેશાબ કરતી વખતે તીવ્ર બળતરા', 'વારંવાર પેશાબ જવું પડે છે અને પ્રવાહ ધીમો', 'પેશાબમાં ચીકાશ કે ડાર્ક રંગ', 'પેડૂના ભાગમાં દુખાવો'],
         };
         return {
           question: qText[lang],
@@ -1394,11 +1577,11 @@ export class UniversalClinicalEngine implements AIProvider {
           isRedFlag: false,
           redFlagReason: null,
           isComplete: false,
-          clinicalRationale: 'Assessing GERD, peptic acid disease, and gastrointestinal symptoms',
+          clinicalRationale: 'Investigating urethritis, UTI, cystitis markers, and urinary tract involvement',
         };
       }
 
-      // 4. CHEST / CARDIAC
+      // 11. CHEST / CARDIAC
       if (/chest|heart|सीने|छाती/i.test(complaintLower)) {
         const qText = {
           EN: isCaregiver
@@ -1428,22 +1611,82 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // Generic Symptom Character
+      // 12. DERMATOLOGY / SKIN RASH / ITCHING / PIMPLES
+      if (/rash|skin|itch|pimple|acne|boil|खुजली|चकत्ते|દાણા|ખીલ|ખંજવાળ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient's skin condition have severe itching, burning, redness, or spreading blisters/pus?`
+            : `Does your skin condition have severe itching, burning, redness, or spreading blisters/pus?`,
+          HI: isCaregiver
+            ? `क्या मरीज की त्वचा में तेज खुजली, जलन, लाली, या मवाद/छाले फैल रहे हैं?`
+            : `क्या आपकी त्वचा में तेज खुजली, जलन, लाली, या मवाद/छाले फैल रहे हैं?`,
+          GU: isCaregiver
+            ? `શું દર્દીની ચામડીમાં તીવ્ર ખંજવાળ, બળતરા, લાલાશ, કે પરુ/ફોલ્લા ફેલાય છે?`
+            : `શું આપની ચામડી પર તીવ્ર ખંજવાળ, બળતરા, લાલાશ, કે પરુ/ફોલ્લા ફેલાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Intense itching especially at night', 'Red inflamed spots / pimples on face/body', 'Dry peeling skin with burning sensation', 'Spreading rash after new soap/medicine/food'],
+          HI: ['रात में बहुत तेज खुजली होती है', 'चेहरे/शरीर पर लाल दाने और मुँहासे', 'सूखी पपड़ीदार त्वचा और जलन', 'नई दवा/साबुन/खाने के बाद फैले चकत्ते'],
+          GU: ['રાત્રે ખૂબ તીવ્ર ખંજવાળ આવે છે', 'ચહેરા/શરીર પર લાલ દાણા અને ખીલ', 'સૂકી પોપડીવાળી ચામડી અને બળતરા', 'નવી દવા/સાબુ/ખોરાક પછી ફેલાયેલા ચકામા'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Evaluating dermatological morphology, pruritus severity, and contact allergy triggers',
+        };
+      }
+
+      // 13. STOMACH / ABDOMEN / ACIDITY / GASTRIC
+      if (/stomach|abdom|acidity|gas|मरोड़|पेट|પેટ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Is the patient's stomach discomfort burning in the chest/upper abdomen, cramping, and does eating food make it better or worse?`
+            : `Is your stomach discomfort burning in the chest/upper abdomen, and does eating food make it better or worse?`,
+          HI: isCaregiver
+            ? `क्या मरीज के पेट या सीने में जलन/मरोड़ है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`
+            : `क्या आपके पेट या सीने में जलन/मरोड़ हो रही है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`,
+          GU: isCaregiver
+            ? `શું દર્દીના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને ભોજન પછી તકલીફ વધે છે કે ઘટે છે?`
+            : `શું આપના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને જમ્યા પછી તકલીફ વધે છે કે ઘટે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Burning sensation & sour acid reflux', 'Cramping pain with bloating & gas', 'Worse immediately after spicy/oily food', 'Relieved temporarily after drinking milk/food'],
+          HI: ['सीने व पेट में जलन और खट्टी डकारें', 'पेट में मरोड़, गैस और भारीपन', 'मसालेदार/तला खाना खाने के तुरंत बाद दर्द', 'दूध पीने या खाने के बाद थोड़ा आराम'],
+          GU: ['છાતી અને પેટમાં બળતરા અને ખાટા ઓડકાર', 'પેટમાં ચૂંક, ગેસ અને ભારેપણું', 'મસાલેદાર ખોરાક પછી તરત તકલીફ', 'દૂધ પીવાથી કે જમવાથી થોડી રાહત'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing GERD, peptic acid disease, and gastrointestinal symptoms',
+        };
+      }
+
+      // 14. UNIVERSAL DYNAMIC SENSATION & SEVERITY EXPLORATION (For ANY other condition)
       const qText = {
         EN: isCaregiver
-          ? `How would you describe the severity and nature of the patient's ${localizedLabel}?`
-          : `How would you describe the severity and nature of your ${localizedLabel}?`,
+          ? `How would you describe the severity and nature of the patient's ${localizedLabel}? Does any specific movement or time of day make it worse?`
+          : `How would you describe the severity and nature of your ${localizedLabel}? Does any specific movement or time of day make it worse?`,
         HI: isCaregiver
-          ? `मरीज की ${localizedLabel} की गंभीरता और प्रकार कैसा है?`
-          : `आपकी ${localizedLabel} की गंभीरता और प्रकार कैसा है?`,
+          ? `मरीज की ${localizedLabel} की गंभीरता और प्रकार कैसा है? क्या किसी खास काम या समय पर तकलीफ बढ़ती है?`
+          : `आपकी ${localizedLabel} की गंभीरता और प्रकार कैसा है? क्या किसी खास गतिविधि या समय पर यह बढ़ती है?`,
         GU: isCaregiver
-          ? `દર્દીની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે?`
-          : `આપની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે?`,
+          ? `દર્દીની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે? શું કોઈ ચોક્કસ પ્રવૃત્તિ કે સમયે તકલીફ વધે છે?`
+          : `આપની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે? શું કોઈ ચોક્કસ પ્રવૃત્તિ કે સમયે તકલીફ વધે છે?`,
       };
       const touchOpts = {
-        EN: ['Mild discomfort / Manageable', 'Moderate pain / Limits daily activities', 'Severe throbbing / Sharp pain', 'Intermittent episodes coming and going'],
-        HI: ['हल्की तकलीफ / सामान्य काम कर पा रहे हैं', 'मध्यम दर्द / दैनिक काम में परेशानी', 'तेज दर्द / जलन / असहनीय', 'रुक-रुक कर होने वाली तकलीफ'],
-        GU: ['હળવી તકલીફ / સામાન્ય કામ થઈ શકે છે', 'મધ્યમ દુખાવો / રોજિંદા કામમાં તકલીફ', 'તીવ્ર દુખાવો / બળતરા / અસહ્ય', 'વારંવાર આવતી-જતી તકલીફ'],
+        EN: ['Mild discomfort / Manageable daily routine', 'Moderate discomfort limiting work & physical activity', 'Severe continuous pain / discomfort disturbing sleep', 'Intermittent flares triggered by exertion'],
+        HI: ['हल्की तकलीफ / सामान्य दिनचर्या चल रही है', 'मध्यम परेशानी जिससे काम में रुकावट है', 'लगातार तेज तकलीफ जिससे नींद नहीं आ रही', 'अधिक मेहनत करने पर रुक-रुक कर दर्द'],
+        GU: ['હળવી તકલીફ / સામાન્ય દિનચર્યા ચાલુ છે', 'મધ્યમ તકલીફ જેનાથી કામમાં મુશ્કેલી છે', 'સતત તીવ્ર તકલીફ જેથી ઊંઘ આવતી નથી', 'શ્રમ કરવાથી અવારનવાર થતી તકલીફ'],
       };
       return {
         question: qText[lang],
@@ -1453,7 +1696,7 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Evaluating disease severity and symptomatic character for clinical triage',
+        clinicalRationale: 'Evaluating disease severity, symptom character, and functional impact across all organ systems',
       };
     }
 
