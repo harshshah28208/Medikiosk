@@ -572,33 +572,50 @@ Do NOT add extra conversational text or explanations. Return ONLY the translated
   async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
+      const isNew = state.isNewPatient !== false;
+      const prevInfo = state.previousVisitInfo;
+
       const prompt = `You are MediKiosk Autonomous Clinical AI Intake Engine powered by Google Gemini.
-Patient Primary Complaint: "${state.chiefComplaint || ''}"
-Original Phrasing: "${state.chiefComplaintOriginal || ''}"
+Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
+${!isNew && prevInfo ? `Previous Visit Record: Last visit date: ${prevInfo.lastVisitDate}, Last complaint: ${prevInfo.lastComplaint}, Last department: ${prevInfo.lastDepartment}, Past medications: ${prevInfo.pastPrescriptions.join(', ') || 'None'}` : ''}
+Primary Complaint: "${state.chiefComplaint || ''}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
 Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of the patient (ask questions in 3rd person about the patient)' : 'Patient themselves'}
 Current Clinical State: ${JSON.stringify(state)}
 Questions already asked: ${JSON.stringify(state.questionsAsked)}
 Total turns completed: ${state.turnsCompleted}
 
-CRITICAL CLINICAL INTAKE RULES:
-1. Generate an intelligent, highly relevant DISEASE-SPECIFIC follow-up question tailored directly to the patient's specific health complaint (e.g., if chest pain: ask about cardiac radiation, exertion, breathlessness; if headache: ask about unilateral/throbbing/aura/screen time; if joint pain: ask about morning stiffness/swelling; if rash: ask about itching/spreading/pus; if abdominal: ask about meal relationship/burning/bowels; if fever: ask about chills/cough/duration, etc.).
-2. NEVER repeat any question or topic already in questionsAsked.
-3. If ${isCaregiver ? 'true' : 'false'}, phrase the question in 3rd person about the patient (e.g. in EN: "How long has the patient had...", in HI: "मरीज को यह समस्या कब से है...", in GU: "દર્દીને આ તકલીફ ક્યારથી છે...").
-4. Provide 3-4 natural, one-tap touchOptions in ${language} for quick kiosk answering.
-5. If all critical clinical dimensions (onset, severity/character, chronic history, medications/allergies) have been adequately covered or turns >= 5, set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
-6. Language MUST be 100% natural, culturally fluent ${language} (Hindi, Gujarati, or English).
+CRITICAL CLINICAL INTAKE WORKFLOW:
+${isNew ? `
+[NEW PATIENT WORKFLOW]
+1. If Lifestyle / Daily Routine has NOT been asked yet (state.lifestyle is empty): Ask about daily routine, sleep pattern (hours/night), and diet habits.
+2. If Medical History / Regular Medications / Allergies have NOT been asked yet: Ask about prior chronic illnesses (BP, Diabetes, Thyroid, Asthma) and drug allergies (NKDA).
+3. Then conduct deep DISEASE-SPECIFIC dynamic clinical follow-up inquiries tailored directly to their primary complaint ("${state.chiefComplaint}") (e.g. if headache: throbbing vs tension, aura, triggers; if chest: crushing/radiation/exertion; if ear: discharge/pulling pain/hearing loss; if GI: acidity/meal timing/nausea).
+` : `
+[EXISTING / RETURNING PATIENT WORKFLOW]
+1. If Progression has NOT been asked: Inquire about longitudinal change since previous visit (symptoms improved, worsened, or new problem).
+2. If Medication Response has NOT been asked: Inquire how the previously prescribed medicines worked and if any side-effects occurred.
+3. Then conduct dynamic disease-specific follow-ups tailored specifically to the active complaint.
+`}
+
+STRICT CLINICAL RULES:
+1. Every question must be a natural, conversational FOLLOW-UP question building on what the patient just said.
+2. ABSOLUTE ANTI-REPETITION: NEVER re-ask any question, symptom onset, or dimension that appears in "questionsAsked".
+3. Provide 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} for quick kiosk interaction.
+4. If ${isCaregiver ? 'true' : 'false'}, formulate the question in 3rd person about the patient (e.g. in EN: "How is the patient's...", in HI: "मरीज को...", in GU: "દર્દીને...").
+5. When all relevant dimensions are gathered (turns >= 4 or full clinical picture clear), set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
+6. Language MUST be 100% natural, culturally fluent ${language}.
 
 Return ONLY valid JSON (no markdown fences):
 {
-  "question": "disease-specific question in pure ${language}",
+  "question": "dynamic follow-up question in pure ${language}",
   "questionLanguage": "${language}",
-  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | ASSOCIATED | MEDICATIONS | PAST_HISTORY | AYUSH | CLOSING",
+  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | CLOSING",
   "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
   "isRedFlag": boolean,
   "redFlagReason": "string | null",
   "isComplete": boolean,
-  "clinicalRationale": "Disease-specific rationale for this question"
+  "clinicalRationale": "Clinical rationale for this follow-up inquiry"
 }`;
 
       const res = await this.model.generateContent(prompt);

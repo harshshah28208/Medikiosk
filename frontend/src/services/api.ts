@@ -195,6 +195,7 @@ export const api = {
   },
 
   doctor: {
+    roster: () => request('/doctor/roster'),
     consultation: (data: any) =>
       request('/doctor/consultation', {
         method: 'POST',
@@ -202,7 +203,7 @@ export const api = {
       }),
     summary: (visitId: string) => request(`/doctor/summary/${visitId}`),
     timeline: (patientId: string) => request(`/doctor/timeline/${patientId}`),
-    patients: () => request('/doctor/patients'),
+    patients: (all = false) => request(`/doctor/patients${all ? '?all=true' : ''}`),
   },
 
   triage: {

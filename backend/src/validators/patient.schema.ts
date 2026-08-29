@@ -12,6 +12,7 @@ export const registerPatientSchema = z.object({
   preferredLang: z.string().optional().default('EN'),
   abhaId: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
+  doctorId: z.string().optional().nullable(),
   reasonForVisit: z.string().optional().nullable(),
   pastMedicalHistory: z.string().optional().nullable(),
   currentMedications: z.string().optional().nullable(),

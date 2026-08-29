@@ -19,8 +19,18 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
     });
   }
 
+  let doctor = null;
+  if (input.doctorId) {
+    doctor = await prisma.doctorProfile.findUnique({
+      where: { id: input.doctorId },
+      include: { department: true, user: true },
+    });
+  }
+
   let department = null;
-  if (input.departmentId) {
+  if (doctor?.department) {
+    department = doctor.department;
+  } else if (input.departmentId) {
     department = await prisma.department.findUnique({
       where: { id: input.departmentId },
       select: { id: true, code: true, name: true },
@@ -71,6 +81,7 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
         data: {
           patientId: existing.id,
           departmentId: department.id,
+          doctorId: doctor?.id || null,
           token,
           reasonForVisit: input.reasonForVisit || 'Follow-up Consultation',
           priority: 'NORMAL',
@@ -84,6 +95,7 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
           visitId: visit.id,
           patientId: existing.id,
           departmentId: department.id,
+          doctorId: doctor?.id || null,
           tokenNumber: token,
           priority: 'NORMAL',
           status: 'WAITING',
@@ -99,7 +111,7 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
       action: AUDIT_ACTIONS.REGISTER_PATIENT,
       resourceType: 'PATIENT',
       resourceId: existing.id,
-      details: { mrn: existing.mrn, visitId: result.visit.id, department: department.name, isReturning: true },
+      details: { mrn: existing.mrn, visitId: result.visit.id, department: department.name, isReturning: true, doctorId: doctor?.id },
       ipAddress: req.ip,
     });
 
@@ -153,6 +165,7 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
       data: {
         patientId: patient.id,
         departmentId: department.id,
+        doctorId: doctor?.id || null,
         token,
         visitType: 'NEW',
         status: 'REGISTERED',
@@ -167,6 +180,7 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
         visitId: visit.id,
         patientId: patient.id,
         departmentId: department.id,
+        doctorId: doctor?.id || null,
         tokenNumber: token,
         priority: 'NORMAL',
         status: 'WAITING',

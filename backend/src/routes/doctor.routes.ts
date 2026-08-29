@@ -1,26 +1,125 @@
 import { Router, Response } from 'express';
 import prisma from '../config/db.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { requireClinicalRole, requireDoctorRole } from '../middleware/rbac.js';
 import { createAuditLog } from '../middleware/audit.js';
 import { AUDIT_ACTIONS, SOCKET_EVENTS } from '../config/constants.js';
 import type { AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+
+/**
+ * GET /api/doctor/roster
+ * Public/Kiosk Roster of all doctors grouped with their assigned nurse and room details.
+ */
+router.get('/roster', optionalAuth, async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const doctors = await prisma.doctorProfile.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { employeeId: 'asc' },
+    });
+
+    const nurses = await prisma.nurseProfile.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        department: true,
+      },
+    });
+
+    const roster = doctors.map((doc) => {
+      const assignedNurse = nurses.find((n) => n.departmentId === doc.departmentId);
+
+      let system = 'ALLOPATHY';
+      if (doc.department?.code === 'AYUSH') {
+        if (doc.specialization?.toLowerCase().includes('homeopathy')) {
+          system = 'HOMEOPATHY';
+        } else {
+          system = 'AYURVEDA';
+        }
+      }
+
+      return {
+        id: doc.id,
+        userId: doc.userId,
+        name: doc.user.name,
+        email: doc.user.email,
+        specialization: doc.specialization,
+        qualifications: doc.qualifications || 'MBBS, MD',
+        departmentId: doc.departmentId,
+        departmentName: doc.department?.name || 'General Medicine',
+        departmentCode: doc.department?.code || 'GEN',
+        system,
+        isAvailable: doc.isAvailable,
+        roomNumber: doc.employeeId === 'DOC-YOGESH-101' ? 'Room 204 (Cardiology)' :
+                    doc.employeeId === 'DOC-VIKRAM-102' ? 'Room 101 (General OPD)' :
+                    doc.employeeId === 'DOC-RAJESH-103' ? 'Room 105 (Pediatrics)' :
+                    doc.employeeId === 'DOC-DESAI-104' ? 'Room 210 (Orthopedics)' :
+                    doc.employeeId === 'DOC-NEHA-105' ? 'Room 302 (Dermatology)' :
+                    doc.employeeId === 'DOC-ALOK-106' ? 'Room 208 (ENT)' :
+                    doc.employeeId === 'DOC-HARISH-201' ? 'Room 103 (Ayurveda OPD)' :
+                    doc.employeeId === 'DOC-SNEHAL-202' ? 'Room 104 (Homeopathy OPD)' : 'Room 101',
+        opdTimings: '09:00 AM - 02:00 PM',
+        assignedNurse: assignedNurse ? {
+          id: assignedNurse.id,
+          name: assignedNurse.user.name,
+          email: assignedNurse.user.email,
+        } : null,
+      };
+    });
+
+    res.json({ doctors: roster });
+  } catch (err: any) {
+    console.error('Error fetching doctor roster:', err);
+    res.status(500).json({ error: 'Failed to fetch doctor roster' });
+  }
+});
+
 router.use(authenticateToken);
 
 /**
  * GET /api/doctor/patients
  * Get list of today's assigned and waiting patients for doctor dashboard.
+ * Doctors see their assigned patients, Nurses see their paired doctor's patients.
  */
 router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Response): Promise<void> => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const user = req.user;
+  const showAll = req.query.all === 'true' || user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN';
+
+  let whereClause: any = {
+    createdAt: { gte: today },
+  };
+
+  if (!showAll && user) {
+    if (user.role === 'DOCTOR' || user.role === 'SPECIALIST_DOCTOR' || user.role === 'AYUSH_DOCTOR') {
+      const doc = await prisma.doctorProfile.findUnique({ where: { userId: user.id } });
+      if (doc) {
+        whereClause = {
+          createdAt: { gte: today },
+          OR: [
+            { doctorId: doc.id },
+            { doctorId: null, departmentId: doc.departmentId || undefined },
+          ],
+        };
+      }
+    } else if (user.role === 'NURSE') {
+      const nurse = await prisma.nurseProfile.findUnique({ where: { userId: user.id } });
+      if (nurse && nurse.departmentId) {
+        whereClause = {
+          createdAt: { gte: today },
+          departmentId: nurse.departmentId,
+        };
+      }
+    }
+  }
+
   const visits = await prisma.visit.findMany({
-    where: {
-      createdAt: { gte: today },
-    },
+    where: whereClause,
     include: {
       patient: {
         select: {

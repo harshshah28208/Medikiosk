@@ -12,6 +12,9 @@ export function RegistrationPage() {
   const { language, t } = useLanguage();
 
   const [departments, setDepartments] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [selectedSystem, setSelectedSystem] = useState<'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'>('ALLOPATHY');
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,6 +28,7 @@ export function RegistrationPage() {
     emergencyContact: '',
     abhaId: '',
     departmentId: '',
+    doctorId: '',
     reasonForVisit: '',
     pastMedicalHistory: '',
     currentMedications: '',
@@ -37,22 +41,45 @@ export function RegistrationPage() {
       .then((res: any) => {
         if (res?.departments?.length > 0) {
           setDepartments(res.departments);
-          setFormData((prev) => ({ ...prev, departmentId: res.departments[0].id }));
         }
       })
       .catch((err: any) => {
         console.error('Failed to fetch departments:', err);
-        const fallback = [
-          { id: 'a2e79414-0be8-4925-bfa5-b5737cb4f8f8', name: 'General Medicine', code: 'GEN' },
-        ];
-        setDepartments(fallback);
-        setFormData((prev) => ({ ...prev, departmentId: fallback[0].id }));
+      });
+
+    api.doctor
+      .roster()
+      .then((res: any) => {
+        if (res?.doctors?.length > 0) {
+          setDoctors(res.doctors);
+          const firstAllopathy = res.doctors.find((d: any) => d.system === 'ALLOPATHY') || res.doctors[0];
+          if (firstAllopathy) {
+            setSelectedDoctorId(firstAllopathy.id);
+            setFormData((prev) => ({
+              ...prev,
+              doctorId: firstAllopathy.id,
+              departmentId: firstAllopathy.departmentId,
+            }));
+          }
+        }
+      })
+      .catch((err: any) => {
+        console.error('Failed to fetch doctors:', err);
       });
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectDoctor = (doc: any) => {
+    setSelectedDoctorId(doc.id);
+    setFormData((prev) => ({
+      ...prev,
+      doctorId: doc.id,
+      departmentId: doc.departmentId,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +91,8 @@ export function RegistrationPage() {
       return;
     }
 
-    const selectedDeptId = formData.departmentId || departments[0]?.id || 'GEN';
+    const selectedDoc = doctors.find((d) => d.id === selectedDoctorId);
+    const selectedDeptId = selectedDoc?.departmentId || formData.departmentId || departments[0]?.id || 'GEN';
 
     setIsSubmitting(true);
     try {
@@ -79,6 +107,7 @@ export function RegistrationPage() {
         preferredLang: (language || 'en').toUpperCase(),
         abhaId: formData.abhaId.trim() || undefined,
         departmentId: selectedDeptId,
+        doctorId: selectedDoctorId || undefined,
         reasonForVisit: formData.reasonForVisit.trim() || undefined,
         pastMedicalHistory: formData.pastMedicalHistory.trim() || undefined,
         currentMedications: formData.currentMedications.trim() || undefined,
@@ -91,6 +120,9 @@ export function RegistrationPage() {
         localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.patient));
         localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.visit));
         localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.queueEntry));
+        if (selectedDoc) {
+          localStorage.setItem('medikiosk_active_doctor', JSON.stringify(selectedDoc));
+        }
         navigate('/kiosk/consent');
       } else if (res?.error) {
         setErrorMsg(res.error);
@@ -103,9 +135,11 @@ export function RegistrationPage() {
     }
   };
 
+  const filteredDoctors = doctors.filter((d) => d.system === selectedSystem);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50">
-      <div className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-100 flex flex-col">
+      <div className="w-full max-w-4xl bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-100 flex flex-col">
         
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100">
@@ -126,7 +160,9 @@ export function RegistrationPage() {
         )}
 
         {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Personal Information */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* Full Name */}
@@ -139,13 +175,13 @@ export function RegistrationPage() {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g. Ramesh Kumar Patel"
                 required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
+                placeholder="e.g. Rahul Sharma"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
               />
             </div>
 
-            {/* Mobile Phone */}
+            {/* Mobile Number */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 {t('phone')} <span className="text-red-500">*</span>
@@ -155,47 +191,46 @@ export function RegistrationPage() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="e.g. 9876543210"
                 required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
+                placeholder="10-digit mobile number"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
               />
             </div>
 
-            {/* Age */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {t('age')}
-              </label>
-              <input
-                type="number"
-                name="age"
-                value={formData.age}
-                onChange={handleChange}
-                placeholder="e.g. 45"
-                min="0"
-                max="125"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
-              />
+            {/* Age & Gender */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  {t('age')}
+                </label>
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  placeholder="e.g. 45"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  {t('gender')}
+                </label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
+                >
+                  <option value="MALE">{t('male')}</option>
+                  <option value="FEMALE">{t('female')}</option>
+                  <option value="OTHER">{t('other')}</option>
+                </select>
+              </div>
             </div>
 
-            {/* Gender */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {t('gender')}
-              </label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
-              >
-                <option value="MALE">{t('male')}</option>
-                <option value="FEMALE">{t('female')}</option>
-                <option value="OTHER">{t('other')}</option>
-              </select>
-            </div>
-
-            {/* ABHA ID */}
+            {/* ABHA Health ID */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 ABHA Health ID (Optional)
@@ -206,91 +241,139 @@ export function RegistrationPage() {
                 value={formData.abhaId}
                 onChange={handleChange}
                 placeholder="e.g. 91-8844-3311-2299"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm font-medium"
               />
             </div>
+          </div>
 
-            {/* Medical System & Doctor Preference (Allopathy / Ayurveda / Homeopathy) */}
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Choose Medical System &amp; Doctor Type <span className="text-red-500">*</span>
+          {/* ─── Step 1: Medical System Selection ─── */}
+          <div className="pt-2 border-t border-slate-100">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              1. Select Medical System / Treatment Approach <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  id: 'ALLOPATHY',
+                  title: 'Modern Medicine (Allopathy)',
+                  desc: 'Cardiology, Pediatrics, General OPD, Orthopedics & ENT',
+                  icon: '🩺',
+                  activeClass: 'border-blue-600 bg-blue-50/70 text-blue-950 ring-2 ring-blue-500/30',
+                },
+                {
+                  id: 'AYURVEDA',
+                  title: 'Ayurveda (AYUSH)',
+                  desc: 'Prakriti assessment, Panchakarma & herbal formulations',
+                  icon: '🌿',
+                  activeClass: 'border-amber-600 bg-amber-50/70 text-amber-950 ring-2 ring-amber-500/30',
+                },
+                {
+                  id: 'HOMEOPATHY',
+                  title: 'Classical Homeopathy',
+                  desc: 'Constitutional remedy, holistic evaluation & repertory',
+                  icon: '💧',
+                  activeClass: 'border-teal-600 bg-teal-50/70 text-teal-950 ring-2 ring-teal-500/30',
+                },
+              ].map((sys) => {
+                const isSelected = selectedSystem === sys.id;
+                return (
+                  <button
+                    key={sys.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSystem(sys.id as any);
+                      const matchingDocs = doctors.filter((d) => d.system === sys.id);
+                      if (matchingDocs.length > 0) {
+                        handleSelectDoctor(matchingDocs[0]);
+                      }
+                    }}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col justify-between cursor-pointer ${
+                      isSelected
+                        ? `${sys.activeClass} shadow-md scale-[1.01]`
+                        : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100/80 text-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <span className="text-2xl mb-1.5 block">{sys.icon}</span>
+                      <span className="text-sm font-bold block">{sys.title}</span>
+                      <span className="text-[11px] text-slate-500 mt-1 block leading-snug">{sys.desc}</span>
+                    </div>
+                    {isSelected && (
+                      <span className="text-[11px] font-bold text-blue-700 mt-3 inline-flex items-center gap-1">
+                        ✓ Selected System
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ─── Step 2: Choose Your Doctor & Assigned Nurse ─── */}
+          <div className="pt-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                2. Select Doctor &amp; Assigned Nurse Room <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                {[
-                  {
-                    id: 'ALLOPATHY',
-                    title: 'Modern Medicine (Allopathy)',
-                    desc: 'General OPD, Specialist Physicians, Antibiotics & Surgery',
-                    icon: '🩺',
-                    deptCode: 'GEN',
-                    color: 'border-blue-500 bg-blue-50/50 text-blue-900',
-                  },
-                  {
-                    id: 'AYURVEDA',
-                    title: 'Ayurveda (AYUSH)',
-                    desc: 'Vaidya consultation, Prakriti analysis & herbal care',
-                    icon: '🌿',
-                    deptCode: 'AYUSH',
-                    color: 'border-amber-500 bg-amber-50/50 text-amber-900',
-                  },
-                  {
-                    id: 'HOMEOPATHY',
-                    title: 'Classical Homeopathy',
-                    desc: 'Constitutional remedy, Miasmatic analysis & repertory',
-                    icon: '💧',
-                    deptCode: 'AYUSH',
-                    color: 'border-teal-500 bg-teal-50/50 text-teal-900',
-                  },
-                ].map((sys) => {
-                  const targetDept = departments.find(d => d.code === sys.deptCode) || departments[0];
-                  const isSelected = formData.departmentId === targetDept?.id;
-                  return (
-                    <button
-                      key={sys.id}
-                      type="button"
-                      onClick={() => {
-                        if (targetDept) {
-                          setFormData(prev => ({ ...prev, departmentId: targetDept.id }));
-                        }
-                      }}
-                      className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
-                        isSelected ? `${sys.color} shadow-md scale-[1.02]` : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-2xl mb-1 block">{sys.icon}</span>
-                        <span className="text-xs font-bold block">{sys.title}</span>
-                        <span className="text-[11px] text-slate-500 mt-0.5 block leading-tight">{sys.desc}</span>
+              <span className="text-[11px] text-slate-500">
+                {filteredDoctors.length} available specialist{filteredDoctors.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+              {filteredDoctors.map((doc) => {
+                const isSelected = selectedDoctorId === doc.id;
+                return (
+                  <div
+                    key={doc.id}
+                    onClick={() => handleSelectDoctor(doc)}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
+                        : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>{doc.name}</span>
+                          </h4>
+                          <p className="text-xs text-blue-600 font-semibold">{doc.specialization}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{doc.qualifications}</p>
+                        </div>
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold shrink-0">
+                          Available
+                        </span>
                       </div>
-                      {isSelected && (
-                        <span className="text-[10px] font-bold text-blue-700 mt-2 block">✓ Selected</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* Department Selection */}
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Specific Department / OPD Clinic <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="departmentId"
-                value={formData.departmentId}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm"
-              >
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.code})
-                  </option>
-                ))}
-              </select>
-            </div>
+                      <div className="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="font-medium">🚪 OPD Room:</span>
+                          <span className="font-semibold text-slate-800">{doc.roomNumber}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="font-medium">⏰ Timings:</span>
+                          <span className="text-slate-700">{doc.opdTimings}</span>
+                        </div>
+                        {doc.assignedNurse && (
+                          <div className="flex items-center justify-between text-emerald-700 bg-emerald-50/70 px-2 py-1 rounded-lg mt-1 font-semibold text-[10px]">
+                            <span>🩺 Assigned Nurse:</span>
+                            <span>{doc.assignedNurse.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
+                    <div className="mt-3 flex items-center justify-between pt-1">
+                      <span className={`text-[11px] font-bold ${isSelected ? 'text-blue-700' : 'text-slate-400'}`}>
+                        {isSelected ? '✓ Selected Doctor' : 'Click to select'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Reason for visit */}
