@@ -102,7 +102,7 @@ async function main() {
 
   // ─── 4. Staff Profiles ─────────────────────
   // Dr. Yogesh Sharma (Cardiology) & Nurse Preeti Patel
-  await prisma.doctorProfile.upsert({
+  const docYogesh = await prisma.doctorProfile.upsert({
     where: { userId: userMap['doctor@demo.com'].id },
     update: { specialization: 'Cardiology', qualifications: 'MBBS, MD (Cardiology)', departmentId: deptMap['CARD'] },
     create: {
@@ -117,16 +117,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['nurse@demo.com'].id },
-    update: { departmentId: deptMap['CARD'] },
+    update: { departmentId: deptMap['CARD'], assignedDoctorId: docYogesh.id },
     create: {
       userId: userMap['nurse@demo.com'].id,
       employeeId: 'NURSE-PREETI-101',
       departmentId: deptMap['CARD'],
+      assignedDoctorId: docYogesh.id,
     },
   });
 
   // Dr. Vikram Seth (General Medicine) & Nurse Priya Singh
-  await prisma.doctorProfile.upsert({
+  const docVikram = await prisma.doctorProfile.upsert({
     where: { userId: userMap['vikram.seth@demo.com'].id },
     update: { specialization: 'General Medicine', departmentId: deptMap['GEN'] },
     create: {
@@ -141,16 +142,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['priya.singh@demo.com'].id },
-    update: { departmentId: deptMap['GEN'] },
+    update: { departmentId: deptMap['GEN'], assignedDoctorId: docVikram.id },
     create: {
       userId: userMap['priya.singh@demo.com'].id,
       employeeId: 'NURSE-PRIYA-102',
       departmentId: deptMap['GEN'],
+      assignedDoctorId: docVikram.id,
     },
   });
 
   // Dr. Rajesh Joshi (Pediatrics) & Nurse Sneha Desai
-  await prisma.doctorProfile.upsert({
+  const docRajesh = await prisma.doctorProfile.upsert({
     where: { userId: userMap['rajesh.joshi@demo.com'].id },
     update: { specialization: 'Pediatrics', departmentId: deptMap['PED'] },
     create: {
@@ -165,16 +167,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['sneha.desai@demo.com'].id },
-    update: { departmentId: deptMap['PED'] },
+    update: { departmentId: deptMap['PED'], assignedDoctorId: docRajesh.id },
     create: {
       userId: userMap['sneha.desai@demo.com'].id,
       employeeId: 'NURSE-SNEHA-103',
       departmentId: deptMap['PED'],
+      assignedDoctorId: docRajesh.id,
     },
   });
 
   // Dr. Vikram Desai (Orthopedics) & Nurse Ritu Nair
-  await prisma.doctorProfile.upsert({
+  const docDesai = await prisma.doctorProfile.upsert({
     where: { userId: userMap['vikram.desai@demo.com'].id },
     update: { specialization: 'Orthopedics & Joint Care', departmentId: deptMap['ORTHO'] },
     create: {
@@ -189,16 +192,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['ritu.nair@demo.com'].id },
-    update: { departmentId: deptMap['ORTHO'] },
+    update: { departmentId: deptMap['ORTHO'], assignedDoctorId: docDesai.id },
     create: {
       userId: userMap['ritu.nair@demo.com'].id,
       employeeId: 'NURSE-RITU-104',
       departmentId: deptMap['ORTHO'],
+      assignedDoctorId: docDesai.id,
     },
   });
 
   // Dr. Neha Kapoor (Dermatology) & Nurse Sunita Yadav
-  await prisma.doctorProfile.upsert({
+  const docNeha = await prisma.doctorProfile.upsert({
     where: { userId: userMap['specialist@demo.com'].id },
     update: { specialization: 'Dermatology & Cosmetology', departmentId: deptMap['DERM'] },
     create: {
@@ -213,16 +217,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['sunita.yadav@demo.com'].id },
-    update: { departmentId: deptMap['DERM'] },
+    update: { departmentId: deptMap['DERM'], assignedDoctorId: docNeha.id },
     create: {
       userId: userMap['sunita.yadav@demo.com'].id,
       employeeId: 'NURSE-SUNITA-105',
       departmentId: deptMap['DERM'],
+      assignedDoctorId: docNeha.id,
     },
   });
 
   // Dr. Alok Verma (ENT) & Nurse Anjali Gupta
-  await prisma.doctorProfile.upsert({
+  const docAlok = await prisma.doctorProfile.upsert({
     where: { userId: userMap['alok.verma@demo.com'].id },
     update: { specialization: 'ENT & Head-Neck Surgery', departmentId: deptMap['ENT'] },
     create: {
@@ -236,7 +241,7 @@ async function main() {
   });
 
   // Vaidya Harish Bhatt (Ayurveda) & Nurse Kavita Verma
-  await prisma.doctorProfile.upsert({
+  const docHarish = await prisma.doctorProfile.upsert({
     where: { userId: userMap['ayush@demo.com'].id },
     update: { specialization: 'Ayurveda & Panchakarma', departmentId: deptMap['AYUSH'] },
     create: {
@@ -251,16 +256,17 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['kavita.verma@demo.com'].id },
-    update: { departmentId: deptMap['AYUSH'] },
+    update: { departmentId: deptMap['AYUSH'], assignedDoctorId: docHarish.id },
     create: {
       userId: userMap['kavita.verma@demo.com'].id,
       employeeId: 'NURSE-KAVITA-201',
       departmentId: deptMap['AYUSH'],
+      assignedDoctorId: docHarish.id,
     },
   });
 
   // Dr. Snehal Shah (Classical Homeopathy) & Nurse Meena Rathod
-  await prisma.doctorProfile.upsert({
+  const docSnehal = await prisma.doctorProfile.upsert({
     where: { userId: userMap['snehal.shah@demo.com'].id },
     update: { specialization: 'Classical Homeopathy & Repertory', departmentId: deptMap['AYUSH'] },
     create: {
@@ -275,11 +281,12 @@ async function main() {
 
   await prisma.nurseProfile.upsert({
     where: { userId: userMap['meena.rathod@demo.com'].id },
-    update: { departmentId: deptMap['AYUSH'] },
+    update: { departmentId: deptMap['AYUSH'], assignedDoctorId: docSnehal.id },
     create: {
       userId: userMap['meena.rathod@demo.com'].id,
       employeeId: 'NURSE-MEENA-202',
       departmentId: deptMap['AYUSH'],
+      assignedDoctorId: docSnehal.id,
     },
   });
 

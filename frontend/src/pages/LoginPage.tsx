@@ -17,6 +17,8 @@ const ROLES = [
 ];
 
 
+import api from '../services/api';
+
 export function LoginPage() {
   const { demoLogin, login, register, error, isLoading, clearError } = useAuth();
   const navigate = useNavigate();
@@ -40,6 +42,8 @@ export function LoginPage() {
   // Nurse Specific Fields
   const [shiftTiming, setShiftTiming] = useState('Morning (8 AM - 4 PM)');
   const [nursingWard, setNursingWard] = useState('OPD Triage Station');
+  const [doctorsList, setDoctorsList] = useState<any[]>([]);
+  const [assignedDoctorId, setAssignedDoctorId] = useState('');
 
   // Patient Specific Fields
   const [age, setAge] = useState('30');
@@ -49,6 +53,18 @@ export function LoginPage() {
 
   // Admin Specific Fields
   const [adminSecretKey, setAdminSecretKey] = useState('');
+
+  React.useEffect(() => {
+    api.doctor
+      .roster()
+      .then((res: any) => {
+        if (res?.doctors?.length > 0) {
+          setDoctorsList(res.doctors);
+          setAssignedDoctorId(res.doctors[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDemoLogin = async (role: string, path: string) => {
     try {
@@ -87,6 +103,7 @@ export function LoginPage() {
       } else if (selectedRole === 'NURSE') {
         payload.shiftTiming = shiftTiming;
         payload.specialization = nursingWard;
+        payload.assignedDoctorId = assignedDoctorId || undefined;
       } else if (selectedRole === 'PATIENT') {
         payload.age = age ? parseInt(age, 10) : 30;
         payload.gender = gender;
@@ -374,18 +391,39 @@ export function LoginPage() {
                 <div className="p-4 bg-green-950/20 border border-green-500/30 rounded-2xl space-y-4 animate-fade-in">
                   <div className="flex items-center gap-2 text-green-300 text-xs font-bold uppercase tracking-wider">
                     <Activity className="w-4 h-4" />
-                    <span>Nursing Station Details</span>
+                    <span>Nursing Desk &amp; Doctor Assignment</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">
+                      Assigned Doctor (Doctor You Work With / Assist) <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={assignedDoctorId}
+                      onChange={(e) => setAssignedDoctorId(e.target.value)}
+                      required
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                    >
+                      {doctorsList.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.name} — {doc.specialization} ({doc.roomNumber})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Your nurse station will automatically sync with this doctor&apos;s assigned patient queue and OPD room.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Assigned Triage Ward</label>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Assigned Triage Ward / Station</label>
                       <input
                         type="text"
                         value={nursingWard}
                         onChange={(e) => setNursingWard(e.target.value)}
                         className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm"
-                        placeholder="OPD Triage / Emergency Desk"
+                        placeholder="OPD Triage / Doctor Room Station"
                       />
                     </div>
 

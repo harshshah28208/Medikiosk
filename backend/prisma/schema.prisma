@@ -89,18 +89,21 @@ model DoctorProfile {
   visits         Visit[]
   consultations  Consultation[]
   prescriptions  Prescription[]
+  nurses         NurseProfile[]
 
   @@index([departmentId])
 }
 
 model NurseProfile {
-  id           String      @id @default(uuid())
-  userId       String      @unique
-  employeeId   String      @unique
-  departmentId String?
+  id               String         @id @default(uuid())
+  userId           String         @unique
+  employeeId       String         @unique
+  departmentId     String?
+  assignedDoctorId String?
 
-  user         User        @relation(fields: [userId], references: [id])
-  department   Department? @relation(fields: [departmentId], references: [id])
+  user             User           @relation(fields: [userId], references: [id])
+  department       Department?    @relation(fields: [departmentId], references: [id])
+  assignedDoctor   DoctorProfile? @relation(fields: [assignedDoctorId], references: [id])
 }
 
 model StaffProfile {

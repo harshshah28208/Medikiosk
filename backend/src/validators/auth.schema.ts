@@ -31,6 +31,7 @@ export const registerStaffSchema = z.object({
   abhaId: z.string().optional(),
   address: z.string().optional(),
   emergencyContact: z.string().optional(),
+  assignedDoctorId: z.string().optional().nullable(),
   adminSecretKey: z.string().optional(),
 });
 

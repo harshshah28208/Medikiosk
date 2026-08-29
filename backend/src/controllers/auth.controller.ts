@@ -65,11 +65,24 @@ export async function register(req: AuthRequest, res: Response): Promise<void> {
     }
     // 2. Nurse Profile
     else if (role === 'NURSE' || role === 'TRIAGE_STAFF') {
+      let nurseDeptId = defaultDept?.id || null;
+      let assignedDocId = input.assignedDoctorId || null;
+
+      if (assignedDocId) {
+        const assignedDoc = await tx.doctorProfile.findUnique({
+          where: { id: assignedDocId },
+        });
+        if (assignedDoc?.departmentId) {
+          nurseDeptId = assignedDoc.departmentId;
+        }
+      }
+
       await tx.nurseProfile.create({
         data: {
           userId: user.id,
           employeeId: empId,
-          departmentId: defaultDept?.id || null,
+          departmentId: nurseDeptId,
+          assignedDoctorId: assignedDocId,
         },
       });
     }
