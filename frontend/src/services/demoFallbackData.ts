@@ -4,6 +4,64 @@
 // to function seamlessly on Vercel even when backend server is offline.
 // ============================================================================
 
+export const DEMO_TIMELINES: Record<string, any[]> = {
+  default: [
+    {
+      visitId: 'vis-prev-01',
+      date: new Date(Date.now() - 14 * 86400000).toISOString(),
+      chiefComplaint: 'Hypertension & Bilateral Morning Headache',
+      department: 'General Medicine OPD',
+      departmentCode: 'GEN',
+      status: 'COMPLETED',
+      priority: 'NORMAL',
+      doctor: {
+        name: 'Dr. Yogesh Sharma',
+        specialization: 'Internal Medicine & Cardiology',
+        diagnosis: 'Essential Hypertension (Stage 1) with Tension Headache',
+        clinicalNotes: 'Blood pressure elevated at 142/90 mmHg. Patient advised low-sodium diet and lifestyle modification.',
+        treatmentPlan: 'Tab Amlodipine 5mg once daily morning after breakfast.',
+      },
+      aiSummary: {
+        chiefComplaint: 'Throbbing morning headache and mild dizziness for 1 week',
+        historyOfPresentIllness: 'Patient reported awakening with bilateral temporal headache. No visual aura, no nausea.',
+        lifestyle: 'Sleep: 5.5 hours, high work stress, sedentary office desk job.',
+      },
+      vitals: { bpSystolic: 142, bpDiastolic: 90, pulse: 82, spo2: 98, temperature: 98.6 },
+      prescriptions: [
+        { medicineName: 'Tab Amlodipine', dosage: '5mg', frequency: 'Once daily (OD)', duration: '30 days' },
+        { medicineName: 'Tab Paracetamol', dosage: '650mg', frequency: 'SOS (as needed)', duration: '3 days' },
+      ],
+      lastPrescription: 'Tab Amlodipine 5mg (OD), Tab Paracetamol 650mg (SOS)',
+    },
+    {
+      visitId: 'vis-prev-02',
+      date: new Date(Date.now() - 60 * 86400000).toISOString(),
+      chiefComplaint: 'Chronic Acidity, Gastric Reflux & Sleep Interruption',
+      department: 'AYUSH & Integrative Medicine',
+      departmentCode: 'AYUSH',
+      status: 'COMPLETED',
+      priority: 'NORMAL',
+      doctor: {
+        name: 'Dr. Snehal Shah',
+        specialization: 'Classical Homeopathy & AYUSH',
+        diagnosis: 'Psora Diathesis with Pitta Prakriti Gastritis',
+        clinicalNotes: 'Case totality points to Lycopodium 30C constitutional similimum. Modalities: Worse from cold food, better after warm drinks.',
+        treatmentPlan: 'Lycopodium 30C single dose weekly.',
+      },
+      aiSummary: {
+        chiefComplaint: 'Burning epigastric pain and sour regurgitation after late meals',
+        historyOfPresentIllness: 'Acid reflux especially at night. Irregular food timings.',
+        lifestyle: 'Late dinner habit, high tea/coffee consumption (4 cups/day).',
+      },
+      vitals: { bpSystolic: 128, bpDiastolic: 82, pulse: 76, spo2: 99, temperature: 98.4 },
+      prescriptions: [
+        { medicineName: 'Lycopodium 30C', dosage: '4 pills', frequency: 'Weekly once', duration: '4 weeks' },
+      ],
+      lastPrescription: 'Lycopodium 30C (4 pills weekly)',
+    },
+  ],
+};
+
 export const DEMO_USERS: Record<string, any> = {
   'dosanirudra@gmail.com': {
     id: 'd60eedf9-67d1-4b90-b67d-bb355f50be67',
@@ -18,7 +76,7 @@ export const DEMO_USERS: Record<string, any> = {
       age: 24,
       gender: 'MALE',
       phone: '9876549999',
-      medicalHistory: 'General Health Consultation',
+      medicalHistory: 'Hypertension Follow-Up & Acidity',
       visits: [
         {
           id: 'vis-rudra-01',
@@ -26,8 +84,15 @@ export const DEMO_USERS: Record<string, any> = {
           status: 'READY_FOR_DOCTOR',
           priority: 'NORMAL',
           department: { id: 'dept-gen', name: 'General Medicine' },
+          doctor: { user: { name: 'Dr. Yogesh Sharma' } },
           createdAt: new Date().toISOString(),
           reasonForVisit: 'General OPD Follow-up & Vitals',
+          vitals: [{ systolic: 138, diastolic: 88, pulse: 78, temperature: 98.4, spo2: 99 }],
+          summary: {
+            chiefComplaint: 'Hypertension follow-up and morning throbbing headache',
+            historyOfPresentIllness: 'Patient reports persistent headache in the morning. Takes Tab Amlodipine 5mg.',
+            lifestyle: 'Sleep: 6 hrs, work stress, regular physical activity.',
+          },
         },
       ],
     },
@@ -75,6 +140,19 @@ export const DEMO_USERS: Record<string, any> = {
       id: 'ayush-prof-001',
       specialization: 'Ayurveda & Integrative Medicine',
       qualifications: 'BAMS, MD (Ayurveda)',
+      department: { id: 'dept-ayush', name: 'AYUSH & Integrative Medicine', code: 'AYUSH' },
+    },
+  },
+  'snehal.shah@demo.com': {
+    id: 'ayush-002',
+    email: 'snehal.shah@demo.com',
+    name: 'Dr. Snehal Shah',
+    role: 'AYUSH_DOCTOR',
+    phone: '9876543224',
+    doctorProfile: {
+      id: 'ayush-prof-002',
+      specialization: 'Classical Homeopathy',
+      qualifications: 'BHMS, MD (Homeopathy)',
       department: { id: 'dept-ayush', name: 'AYUSH & Integrative Medicine', code: 'AYUSH' },
     },
   },
@@ -143,8 +221,13 @@ export const DEMO_QUEUE = [
       priority: 'NORMAL',
       status: 'READY_FOR_DOCTOR',
       patient: { id: 'pat-001', name: 'Rahul Sharma', mrn: 'MK-1001', age: 28, gender: 'MALE', phone: '9876543210' },
+      doctor: { user: { name: 'Dr. Yogesh Sharma' }, specialization: 'General & Internal Medicine' },
       vitals: [{ systolic: 138, diastolic: 88, pulse: 78, temperature: 98.4, spo2: 99 }],
-      summary: { chiefComplaint: 'Morning throbbing headache & BP follow-up' },
+      summary: {
+        chiefComplaint: 'Morning throbbing headache & BP follow-up',
+        historyOfPresentIllness: 'Patient reported waking with throbbing headaches for 5 days. Daily Amlodipine adherence.',
+        lifestyle: 'Sleep: 6 hrs, work stress, moderate coffee consumption.',
+      },
     },
   },
   {
@@ -160,8 +243,13 @@ export const DEMO_QUEUE = [
       priority: 'URGENT',
       status: 'IN_INTAKE',
       patient: { id: 'pat-002', name: 'Meera Patel', mrn: 'MK-1002', age: 45, gender: 'FEMALE', phone: '9876541122' },
+      doctor: { user: { name: 'Dr. Vikram Seth' }, specialization: 'Orthopedics & Joint Surgery' },
       vitals: [{ systolic: 120, diastolic: 80, pulse: 82, temperature: 98.6, spo2: 98 }],
-      summary: { chiefComplaint: 'Severe right knee joint pain & morning stiffness' },
+      summary: {
+        chiefComplaint: 'Severe right knee joint pain & morning stiffness',
+        historyOfPresentIllness: 'Difficulty climbing stairs and joint stiffness lasting 45 mins every morning.',
+        lifestyle: 'Standing job, knee strain, regular walking routine.',
+      },
     },
   },
   {
@@ -177,8 +265,13 @@ export const DEMO_QUEUE = [
       priority: 'NORMAL',
       status: 'IN_CONSULTATION',
       patient: { id: 'pat-003', name: 'Sanjay Trivedi', mrn: 'MK-1003', age: 52, gender: 'MALE', phone: '9876543344' },
+      doctor: { user: { name: 'Dr. Snehal Shah' }, specialization: 'Classical Homeopathy & AYUSH' },
       vitals: [{ systolic: 130, diastolic: 84, pulse: 74, temperature: 98.2, spo2: 99 }],
-      summary: { chiefComplaint: 'Chronic acidity, indigestion and Pitta imbalance' },
+      summary: {
+        chiefComplaint: 'Chronic acidity, indigestion and Pitta imbalance',
+        historyOfPresentIllness: 'Heartburn after spicy meals, irregular meal timings, bloating in evening.',
+        lifestyle: 'Late dinner habit, desk job, heavy tea intake.',
+      },
     },
   },
 ];

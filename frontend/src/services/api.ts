@@ -78,7 +78,7 @@ async function request<T = any>(
   }
 }
 
-import { DEMO_USERS, DEMO_QUEUE, DEMO_DOCTORS } from './demoFallbackData';
+import { DEMO_USERS, DEMO_QUEUE, DEMO_DOCTORS, DEMO_TIMELINES } from './demoFallbackData';
 import { callGroqDynamicIntake } from './groqClient';
 
 export const api = {
@@ -426,7 +426,17 @@ export const api = {
         ],
       })),
     summary: (visitId: string) => request(`/doctor/summary/${visitId}`),
-    timeline: (patientId: string) => request(`/doctor/timeline/${patientId}`),
+    timeline: (patientId: string) =>
+      request(`/doctor/timeline/${patientId}`).catch(() => {
+        const stored = localStorage.getItem(`medikiosk_timeline_${patientId}`);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) return { timeline: parsed, count: parsed.length };
+          } catch {}
+        }
+        return { timeline: DEMO_TIMELINES.default, count: DEMO_TIMELINES.default.length };
+      }),
     patients: (all = false) => request(`/doctor/patients${all ? '?all=true' : ''}`),
   },
 
