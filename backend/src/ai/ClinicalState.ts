@@ -83,6 +83,7 @@ export interface ClinicalState {
 
   // Multilingual & Patient metadata
   currentLanguage: 'EN' | 'HI' | 'GU';
+  latestAnswer?: string;
   languageHistory: Array<{ lang: string; switchedAt: string }>;
   respondentType?: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED';
   isNewPatient?: boolean;

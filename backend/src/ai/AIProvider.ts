@@ -4,7 +4,7 @@ import { RedFlagEngine } from './RedFlagEngine.js';
 
 export interface AIProvider {
   extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>>;
-  generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush?: boolean): Promise<QuestionOutput>;
+  generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush?: boolean, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput>;
   translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string>;
   generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any>;
 }
@@ -453,7 +453,7 @@ export class UniversalClinicalEngine implements AIProvider {
     return text;
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false): Promise<QuestionOutput> {
+  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     const lang: 'EN' | 'HI' | 'GU' = (language?.toUpperCase() as 'EN' | 'HI' | 'GU') || (state.currentLanguage as 'EN' | 'HI' | 'GU') || 'EN';
     const isNew = state.isNewPatient === true || state.isNewPatient === undefined || !state.previousVisitInfo;
     const complaintText = state.chiefComplaint || 'problem';
@@ -683,8 +683,131 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 4: Clinical Character & Disease Severity Exploration FOURTH
+    // Step 5: Disease-Specific Dynamic Clinical Follow-Up Inquiries
     if (!answeredDimensions.has('CHARACTER')) {
+      const complaintLower = (state.chiefComplaint || state.latestAnswer || '').toLowerCase();
+
+      // 1. EAR COMPLAINT
+      if (/ear|कान|કાન/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient have any ear discharge (pus/fluid), reduced hearing, blocked sensation, or ringing in the ear?`
+            : `Do you have any ear discharge (pus/watery fluid), hearing loss, blocked ear sensation, or ringing sounds?`,
+          HI: isCaregiver
+            ? `क्या मरीज के कान से मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`
+            : `क्या आपके कान से कोई मवाद/पानी आ रहा है, सुनने में कमी, भारीपन या सीटी जैसी आवाज आ रही है?`,
+          GU: isCaregiver
+            ? `શું દર્દીના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`
+            : `શું આપના કાનમાંથી પરુ/પાણી આવે છે, ઓછું સંભળાય છે, કાનમાં ભારેપણું કે અવાજ આવે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Yellow / foul smelling ear discharge', 'Reduced hearing & blocked ear feeling', 'Severe sharp pulling pain inside ear', 'No discharge, only aching discomfort'],
+          HI: ['पीला / दुर्गंधयुक्त मवाद आ रहा है', 'सुनने में कमी और कान बंद लग रहा है', 'कान के अंदर तेज खींचने वाला दर्द', 'कोई मवाद नहीं, सिर्फ सामान्य दर्द है'],
+          GU: ['પીળું / વાસવાળું પરુ આવે છે', 'ઓછું સંભળાય છે અને કાન બંધ જણાય છે', 'કાનની અંદર તીવ્ર દુખાવો થાય છે', 'કોઈ પરુ નથી, માત્ર સામાન્ય દુખાવો છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Investigating ENT otitis media / otitis externa symptoms and acoustic involvement',
+        };
+      }
+
+      // 2. HEADACHE COMPLAINT
+      if (/headache|head|सिर|માથ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Is the patient's headache one-sided and throbbing, and are they sensitive to bright lights or loud noises?`
+            : `Is your headache throbbing/pulsing on one side, and are you sensitive to bright lights or loud sounds?`,
+          HI: isCaregiver
+            ? `क्या मरीज को एक तरफ तेज टीस मारने वाला दर्द है, और तेज रोशनी या आवाज से परेशानी होती है?`
+            : `क्या आपको एक तरफ तेज टीस मारने वाला सिरदर्द है, और तेज रोशनी या आवाज से परेशानी बढ़ती है?`,
+          GU: isCaregiver
+            ? `શું દર્દીને એક બાજુ તીવ્ર માથું ધબકે છે, અને વધુ પ્રકાશ કે અવાજથી તકલીફ વધે છે?`
+            : `શું આપને એક બાજુ તીવ્ર માથું ધબકે છે, અને વધુ પ્રકાશ કે અવાજથી તકલીફ વધે છે?`,
+        };
+        const touchOpts = {
+          EN: ['One-sided throbbing / migraine pain', 'Tight band around entire forehead & neck', 'Sensitive to bright light & sound (photophobia)', 'Dull heavy ache accompanied by nausea'],
+          HI: ['एक तरफ तेज टीस / माइग्रेन जैसा दर्द', 'माथे और गर्दन के चारों ओर भारी तनाव', 'तेज रोशनी व आवाज से तकलीफ (फोटोफोबिया)', 'हल्का भारी दर्द और जी मिचलाना'],
+          GU: ['એક બાજુ તીવ્ર માથું ધબકે છે (માઈગ્રેન)', 'કપાળ અને ગરદનની આસપાસ ભારે તાણ', 'વધુ પ્રકાશ અને અવાજથી તકલીફ', 'ભારેપણું અને ઉબકા જેવું થવું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Differentiating migraine vascular headache vs tension headache presentation',
+        };
+      }
+
+      // 3. STOMACH / ABDOMEN / ACIDITY
+      if (/stomach|abdom|acidity|gas|vomit|पेट|પેટ/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Is the patient's stomach discomfort burning in the upper chest/abdomen, cramping, and does eating food make it better or worse?`
+            : `Is your stomach discomfort burning in the chest/upper abdomen, and does eating food make it better or worse?`,
+          HI: isCaregiver
+            ? `क्या मरीज के पेट या सीने में जलन/मरोड़ है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`
+            : `क्या आपके पेट या सीने में जलन/मरोड़ हो रही है, और क्या खाना खाने से तकलीफ कम या ज्यादा होती है?`,
+          GU: isCaregiver
+            ? `શું દર્દીના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને ભોજન પછી તકલીફ વધે છે કે ઘટે છે?`
+            : `શું આપના પેટ કે છાતીમાં બળતરા/ચૂંક આવે છે, અને જમ્યા પછી તકલીફ વધે છે કે ઘટે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Burning sensation & sour acid reflux', 'Cramping pain with bloating & gas', 'Worse immediately after spicy/oily food', 'Relieved temporarily after drinking milk/food'],
+          HI: ['सीने व पेट में जलन और खट्टी डकारें', 'पेट में मरोड़, गैस और भारीपन', 'मसालेदार/तला खाना खाने के तुरंत बाद दर्द', 'दूध पीने या खाने के बाद थोड़ा आराम'],
+          GU: ['છાતી અને પેટમાં બળતરા અને ખાટા ઓડકાર', 'પેટમાં ચૂંક, ગેસ અને ભારેપણું', 'મસાલેદાર ખોરાક પછી તરત તકલીફ', 'દૂધ પીવાથી કે જમવાથી થોડી રાહત'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing GERD, peptic acid disease, and gastrointestinal symptoms',
+        };
+      }
+
+      // 4. CHEST / CARDIAC
+      if (/chest|heart|सीने|छाती/i.test(complaintLower)) {
+        const qText = {
+          EN: isCaregiver
+            ? `Does the patient feel crushing heaviness in the chest, and does the pain radiate to the left arm, neck, or jaw?`
+            : `Do you feel crushing heaviness in your chest, and does the discomfort radiate to your left arm, neck, or jaw?`,
+          HI: isCaregiver
+            ? `क्या मरीज के सीने में भारी दबाव महसूस हो रहा है, और क्या यह दर्द बाएं हाथ, गर्दन या जबड़े की तरफ फैल रहा है?`
+            : `क्या आपके सीने में भारी दबाव महसूस हो रहा है, और क्या यह दर्द बाएं हाथ, गर्दन या जबड़े की तरफ फैलता है?`,
+          GU: isCaregiver
+            ? `શું દર્દીની છાતીમાં ભારે દબાણ જણાય છે, અને શું આ દુખાવો ડાબા હાથ, ગરદન કે જડબા તરફ ફેલાય છે?`
+            : `શું આપની છાતીમાં ભારે દબાણ જણાય છે, અને શું આ દુખાવો ડાબા હાથ, ગરદન કે જડબા તરફ ફેલાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Spreading to left arm & shoulder', 'Heavy crushing pressure in center of chest', 'Accompanied by shortness of breath & sweating', 'Sharp stabbing pain when taking deep breaths'],
+          HI: ['बाएं हाथ और कंधे की तरफ फैल रहा है', 'सीने के बीच में भारी दबाव व जकड़न', 'सांस फूलना और ठंडा पसीना आना', 'गहरी सांस लेने पर चुभन जैसा दर्द'],
+          GU: ['ડાબા હાથ અને ખભા તરફ ફેલાય છે', 'છાતીની વચ્ચે ભારે દબાણ અને ભીંસ', 'શ્વાસ ચડવો અને પરસેવો થવો', 'ઊંડો શ્વાસ લેતી વખતે તીક્ષ્ણ દુખાવો'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: true,
+          redFlagReason: 'Possible acute coronary syndrome or myocardial ischemia',
+          isComplete: false,
+          clinicalRationale: 'Screening for acute coronary syndromes, angina radiation, and exertional triggers',
+        };
+      }
+
+      // Generic Symptom Character
       const qText = {
         EN: isCaregiver
           ? `How would you describe the severity and nature of the patient's ${localizedLabel}?`
@@ -697,7 +820,7 @@ export class UniversalClinicalEngine implements AIProvider {
           : `આપની ${localizedLabel} ની તીવ્રતા અને પ્રકાર કેવો છે?`,
       };
       const touchOpts = {
-        EN: ['Mild discomfort / Manageable', 'Moderate pain / Limits daily activities', 'Severe throbbing / Burning pain', 'Intermittent episodes coming and going'],
+        EN: ['Mild discomfort / Manageable', 'Moderate pain / Limits daily activities', 'Severe throbbing / Sharp pain', 'Intermittent episodes coming and going'],
         HI: ['हल्की तकलीफ / सामान्य काम कर पा रहे हैं', 'मध्यम दर्द / दैनिक काम में परेशानी', 'तेज दर्द / जलन / असहनीय', 'रुक-रुक कर होने वाली तकलीफ'],
         GU: ['હળવી તકલીફ / સામાન્ય કામ થઈ શકે છે', 'મધ્યમ દુખાવો / રોજિંદા કામમાં તકલીફ', 'તીવ્ર દુખાવો / બળતરા / અસહ્ય', 'વારંવાર આવતી-જતી તકલીફ'],
       };
@@ -811,9 +934,9 @@ export class GeminiAIProvider implements AIProvider {
 
   async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
     try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), 3000));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), 6000));
       const extractionPromise = (async () => {
-        const prompt = `You are the fact extraction component of MediKiosk AI Clinical Intake.
+        const prompt = `You are the clinical fact extraction engine of MediKiosk AI Clinical Intake.
 Patient Input: "${input}"
 Input Language: ${language}
 Current Clinical State: ${JSON.stringify(state)}
@@ -856,7 +979,9 @@ Extract all clinical facts into English-normalized structured JSON with no markd
         return update;
       })();
 
-      return await Promise.race([extractionPromise, timeoutPromise]) as Partial<ClinicalState>;
+      const res = (await Promise.race([extractionPromise, timeoutPromise])) as Partial<ClinicalState>;
+      const fallbackResult = await this.fallback.extractFacts(input, state, language);
+      return { ...fallbackResult, ...res };
     } catch (e) {
       return this.fallback.extractFacts(input, state, language);
     }
@@ -864,7 +989,6 @@ Extract all clinical facts into English-normalized structured JSON with no markd
 
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
     try {
-      // First check direct dictionary match for 100% stage consistency and zero latency
       const direct = await this.fallback.translateText(text, targetLanguage);
       if (direct && direct !== text) {
         return direct;
@@ -872,7 +996,7 @@ Extract all clinical facts into English-normalized structured JSON with no markd
 
       const prompt = `You are a clinical intake translator.
 Translate the following medical sentence, question, or option into natural, grammatically correct ${targetLanguage} (EN = English, HI = Hindi, GU = Gujarati).
-Preserve the EXACT clinical meaning and topic. Do NOT add explanations or change the question.
+Preserve the EXACT clinical meaning. Do NOT add explanations.
 Return ONLY the direct translated sentence:
 "${text}"`;
 
@@ -887,42 +1011,44 @@ Return ONLY the direct translated sentence:
     }
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false): Promise<QuestionOutput> {
+  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
       const isNew = state.isNewPatient !== false;
       const prevInfo = state.previousVisitInfo;
 
-      const prompt = `You are MediKiosk Autonomous Clinical AI Intake Engine powered by Google Gemini.
+      const historyFormatted = conversationHistory && conversationHistory.length > 0
+        ? conversationHistory.map(m => `${m.role === 'AI' ? 'Doctor AI' : 'Patient'}: "${m.content}"`).join('\n')
+        : (state.questionsAsked || []).map((q, idx) => `Turn ${idx + 1} Question: "${q}"`).join('\n');
+
+      const prompt = `You are MediKiosk Autonomous Clinical AI Intake Doctor powered by Google Gemini.
+Your mission is to conduct an empathetic, comprehensive, multi-turn clinical intake interview with the patient (or caregiver).
+
+CONVERSATION TRANSCRIPT SO FAR:
+${historyFormatted}
+
+ACTIVE CLINICAL CONTEXT:
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
 ${!isNew && prevInfo ? `Previous Visit Record: Last visit date: ${prevInfo.lastVisitDate}, Last complaint: ${prevInfo.lastComplaint}, Last department: ${prevInfo.lastDepartment}, Past medications: ${prevInfo.pastPrescriptions.join(', ') || 'None'}` : ''}
-Primary Complaint: "${state.chiefComplaint || ''}"
+Current Chief Complaint / Symptoms: "${state.chiefComplaint || ''}"
+Patient Just Answered / Stated: "${state.latestAnswer || ''}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
 Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of the patient (ask questions in 3rd person about the patient)' : 'Patient themselves'}
-Current Clinical State: ${JSON.stringify(state)}
-Questions already asked: ${JSON.stringify(state.questionsAsked)}
-Total turns completed: ${state.turnsCompleted}
+Clinical History Gathered So Far: ${JSON.stringify(state)}
+Turns Completed: ${state.turnsCompleted}
 
-CRITICAL CLINICAL INTAKE WORKFLOW:
-${isNew ? `
-[NEW PATIENT WORKFLOW]
-1. If Lifestyle / Daily Routine has NOT been asked yet (state.lifestyle is empty): Ask about daily routine, sleep pattern (hours/night), and diet habits.
-2. If Medical History / Regular Medications / Allergies have NOT been asked yet: Ask about prior chronic illnesses (BP, Diabetes, Thyroid, Asthma) and drug allergies (NKDA).
-3. Then conduct deep DISEASE-SPECIFIC dynamic clinical follow-up inquiries tailored directly to their primary complaint ("${state.chiefComplaint}") (e.g. if headache: throbbing vs tension, aura, triggers; if chest: crushing/radiation/exertion; if ear: discharge/pulling pain/hearing loss; if GI: acidity/meal timing/nausea).
-` : `
-[EXISTING / RETURNING PATIENT WORKFLOW]
-1. If Progression has NOT been asked: Inquire about longitudinal change since previous visit (symptoms improved, worsened, or new problem).
-2. If Medication Response has NOT been asked: Inquire how the previously prescribed medicines worked and if any side-effects occurred.
-3. Then conduct dynamic disease-specific follow-ups tailored specifically to the active complaint.
-`}
-
-STRICT CLINICAL RULES:
-1. Every question must be a natural, conversational FOLLOW-UP question building on what the patient just said.
-2. ABSOLUTE ANTI-REPETITION: NEVER re-ask any question, symptom onset, or dimension that appears in "questionsAsked".
-3. Provide 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} for quick kiosk interaction.
-4. If ${isCaregiver ? 'true' : 'false'}, formulate the question in 3rd person about the patient (e.g. in EN: "How is the patient's...", in HI: "मरीज को...", in GU: "દર્દીને...").
-5. When all relevant dimensions are gathered (turns >= 4 or full clinical picture clear), set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
-6. Language MUST be 100% natural, culturally fluent ${language}.
+CLINICAL INTAKE WORKFLOW & DOCTOR RULES:
+1. STAGE 1 (Lifestyle): If lifestyle (sleep duration, diet, daily routine) has not been gathered yet, inquire about daily routine, sleep pattern (hours/night), and diet habits.
+2. STAGE 2 (Medical Background): If prior conditions (BP, Diabetes, Thyroid, Asthma) or drug allergies (NKDA) have not been gathered yet, inquire about chronic illnesses and drug allergies.
+3. STAGE 3 (Chief Complaint): If chief complaint is unknown, ask what specific symptoms or health problem brought the patient to the hospital today.
+4. STAGE 4 & 5 (DYNAMIC AI CLINICAL FOLLOW-UP): Once chief complaint is known ("${state.chiefComplaint || state.latestAnswer}"):
+   - For ANY disease or combination of symptoms (e.g. ear infection, chest pain, vertigo, abdominal distress, skin lesions, migraines, pediatric symptoms, joint issues, or any clinical condition):
+   - Formulate dynamic, high-yield diagnostic follow-up inquiries tailored directly to what the patient just reported.
+   - Inquire about onset triggers, symptom character, progression, associated red-flag indicators, and relieving/aggravating factors.
+5. TOUCH OPTIONS: For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} providing realistic patient choices directly answering this specific follow-up question.
+6. ANTI-REPETITION: NEVER re-ask any question, symptom onset, or dimension that appears in "Questions Already Asked".
+7. CLOSING: When a thorough clinical picture is gathered (turns >= 4 or full clinical assessment complete), set "isComplete": true with a final closing verification question. Otherwise set "isComplete": false.
+8. LANGUAGE: Formulate the question and touchOptions in 100% natural, culturally fluent ${language}.
 
 Return ONLY valid JSON (no markdown fences):
 {
@@ -933,22 +1059,24 @@ Return ONLY valid JSON (no markdown fences):
   "isRedFlag": boolean,
   "redFlagReason": "string | null",
   "isComplete": boolean,
-  "clinicalRationale": "Clinical rationale for this follow-up inquiry"
+  "clinicalRationale": "Diagnostic reasoning for this follow-up inquiry"
 }`;
 
       const res = await this.model.generateContent(prompt);
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
-        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush);
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
         parsed.touchOptions = fallbackQ.touchOptions;
       }
       return parsed;
     } catch (e: any) {
       console.log(`[AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
-      return this.fallback.generateNextQuestion(state, language, isAyush);
+      return this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
     }
   }
+
+
 
   async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
     try {

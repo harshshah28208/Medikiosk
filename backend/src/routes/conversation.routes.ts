@@ -310,6 +310,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   state = {
     ...state,
     ...extractedFacts,
+    latestAnswer: content.trim(),
     turnsCompleted: (state.turnsCompleted || 0) + 1,
     currentLanguage: currentLang,
   };
@@ -366,8 +367,14 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     }
   }
 
-  // 5. Generate Next Dynamic Context-Specific Question
-  const nextQ = await aiProvider.generateNextQuestion(state, currentLang, isAyush);
+  // 5. Generate Next Dynamic Context-Specific Question with full transcript history
+  const pastMessages = await prisma.conversationMessage.findMany({
+    where: { sessionId: session.id },
+    orderBy: { timestamp: 'asc' },
+    select: { role: true, content: true },
+  });
+
+  const nextQ = await aiProvider.generateNextQuestion(state, currentLang, isAyush, pastMessages);
   state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
 
   // 6. Save Updated State back to DB
