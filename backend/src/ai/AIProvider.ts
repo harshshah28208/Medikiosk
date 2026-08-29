@@ -217,6 +217,8 @@ export class UniversalClinicalEngine implements AIProvider {
     const isGIOrStomach = /stomach|abdom|vomit|diarrhea|acidity|gas|constipat|nausea|पेट|उल्टी|दस्त|પેટ|ઉલટી/i.test(cLower);
     const isOrthoOrJoint = /joint|bone|knee|back|pain|fracture|leg|shoulder|कमर|घुटने|जोड़ों|કમર|ઘૂંટણ/i.test(cLower);
 
+    const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
+
     // Dynamic Adaptive Clinical Questioning — Evaluates patient answers and missing dimensions
     const answeredDimensions = new Set<string>();
     if (state.symptoms.some(s => s.onset)) answeredDimensions.add('ONSET');
@@ -229,9 +231,15 @@ export class UniversalClinicalEngine implements AIProvider {
     // 1. Dynamic Symptom Follow-Up: If onset or character has not been explored for the primary complaint
     if (!answeredDimensions.has('ONSET')) {
       let qText = {
-        EN: `How long have you been experiencing ${localizedLabel}, and did it begin suddenly or gradually?`,
-        HI: `आपको ${localizedLabel} की समस्या कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?`,
-        GU: `તમને ${localizedLabel} કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?`,
+        EN: isCaregiver
+          ? `How long has the patient been experiencing ${localizedLabel}, and did it begin suddenly or gradually?`
+          : `How long have you been experiencing ${localizedLabel}, and did it begin suddenly or gradually?`,
+        HI: isCaregiver
+          ? `मरीज को ${localizedLabel} की समस्या कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?`
+          : `आपको ${localizedLabel} की समस्या कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?`,
+        GU: isCaregiver
+          ? `દર્દીને ${localizedLabel} કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?`
+          : `તમને ${localizedLabel} કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?`,
       };
       let touchOpts = {
         EN: ['Since today / past few hours', '2 to 3 days', '1 to 2 weeks', 'More than a month (chronic)'],
@@ -240,9 +248,15 @@ export class UniversalClinicalEngine implements AIProvider {
       };
 
       if (isCardiac) {
-        qText.EN = `When did this chest discomfort begin, and does it spread to your left arm, jaw, or back?`;
-        qText.HI = `यह सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`;
-        qText.GU = `આ છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`;
+        qText.EN = isCaregiver
+          ? `When did the patient's chest discomfort begin, and does it spread to their left arm, jaw, or back?`
+          : `When did this chest discomfort begin, and does it spread to your left arm, jaw, or back?`;
+        qText.HI = isCaregiver
+          ? `मरीज को सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`
+          : `यह सीने में दर्द कब से है, और क्या यह दर्द बाएं हाथ, जबड़े या पीठ की तरफ फैलता है?`;
+        qText.GU = isCaregiver
+          ? `દર્દીને છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`
+          : `આ છાતીમાં દુખાવો ક્યારથી છે, અને શું તે ડાબા હાથ, જડબા કે પીઠ તરફ ફેલાય છે?`;
         touchOpts.EN = ['Just started (Severe / Heavy pressure)', 'Spreading to left arm / neck', 'Worse with walking / exertion', 'Mild discomfort only'];
         touchOpts.HI = ['अभी शुरू हुआ (भारी दबाव/जकड़न)', 'बाएं हाथ/गर्दन में फैल रहा है', 'चलने-फिरने पर बढ़ता है', 'केवल हल्का दर्द'];
         touchOpts.GU = ['હમણાં જ શરૂ થયો (ભારે દબાણ)', 'ડાબા હાથ/ગરદન તરફ ફેલાય છે', 'ચાલવાથી વધે છે', 'હળવો દુખાવો'];
@@ -263,9 +277,15 @@ export class UniversalClinicalEngine implements AIProvider {
     // 2. Dynamic Character & Severity Exploration
     if (!answeredDimensions.has('CHARACTER')) {
       let qText = {
-        EN: `How would you describe the sensation of your ${localizedLabel}, and how severe is it on a scale of 1 to 10?`,
-        HI: `आपको ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`,
-        GU: `તમને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`,
+        EN: isCaregiver
+          ? `How would you describe the patient's ${localizedLabel}, and how severe is it on a scale of 1 to 10?`
+          : `How would you describe the sensation of your ${localizedLabel}, and how severe is it on a scale of 1 to 10?`,
+        HI: isCaregiver
+          ? `मरीज को ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`
+          : `आपको ${localizedLabel} में किस तरह की तकलीफ महसूस होती है, और 1 से 10 के पैमाने पर कितनी तीव्रता है?`,
+        GU: isCaregiver
+          ? `દર્દીને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`
+          : `તમને ${localizedLabel}માં કેવા પ્રકારની તકલીફ જણાય છે, અને ૧ થી ૧૦ ના માપ પર કેટલી તીવ્રતા છે?`,
       };
       let touchOpts = {
         EN: ['1-3 (Mild / bearable)', '4-6 (Moderate / disturbing daily tasks)', '7-10 (Severe / sharp / unbearable)'],
@@ -274,23 +294,41 @@ export class UniversalClinicalEngine implements AIProvider {
       };
 
       if (isGIOrStomach) {
-        qText.EN = `Is your abdominal symptom mostly burning acidity, sharp cramping, or fullness after eating?`;
-        qText.HI = `क्या पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`;
-        qText.GU = `શું પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`;
+        qText.EN = isCaregiver
+          ? `Does the patient have burning acidity, sharp cramping, or fullness after eating?`
+          : `Is your abdominal symptom mostly burning acidity, sharp cramping, or fullness after eating?`;
+        qText.HI = isCaregiver
+          ? `क्या मरीज को पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`
+          : `क्या पेट में जलन/एसिडिटी, मरोड़ वाला दर्द, या खाना खाने के बाद भारीपन ज्यादा लगता है?`;
+        qText.GU = isCaregiver
+          ? `શું દર્દીને પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`
+          : `શું પેટમાં બળતરા/એસિડિટી, ચૂંક આવવી, કે જમ્યા પછી ભારેપણું વધારે જણાય છે?`;
         touchOpts.EN = ['Burning sensation (Acidity / GERD)', 'Sharp cramping pain', 'Fullness / Bloating after meals', 'Continuous dull ache'];
         touchOpts.HI = ['जलन / एसिडिटी', 'तेज मरोड़ वाला दर्द', 'खाना खाने के बाद भारीपन', 'लगातार हल्का दर्द'];
         touchOpts.GU = ['બળતરા / એસિડિટી', 'તીવ્ર ચૂંક આવવી', 'જમ્યા પછી ભારેપણું', 'સતત દુખાવો'];
       } else if (isOrthoOrJoint) {
-        qText.EN = `Is there morning stiffness, swelling, or difficulty in joint movement?`;
-        qText.HI = `क्या सुबह उठने पर जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`;
-        qText.GU = `શું સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`;
+        qText.EN = isCaregiver
+          ? `Is there morning stiffness, swelling, or difficulty in the patient's joint movement?`
+          : `Is there morning stiffness, swelling, or difficulty in joint movement?`;
+        qText.HI = isCaregiver
+          ? `क्या मरीज को सुबह जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`
+          : `क्या सुबह उठने पर जोड़ों में अकड़न, सूजन, या चलने में कठिनाई होती है?`;
+        qText.GU = isCaregiver
+          ? `શું દર્દીને સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`
+          : `શું સવારે સાંધા જકડાઈ જવા, સોજો આવવો, કે ચાલવામાં મુશ્કેલી પડે છે?`;
         touchOpts.EN = ['Morning stiffness > 30 mins', 'Swelling and warmth', 'Pain on climbing stairs / walking', 'Mild ache only'];
         touchOpts.HI = ['सुबह 30 मिनट से ज्यादा अकड़न', 'सूजन और लाली', 'सीढ़ियां चढ़ने/चलने में दर्द', 'हल्का दर्द'];
         touchOpts.GU = ['સવારે સાંધા જકડાઈ જવા', 'સોજો અને ગરમી', 'સીડી ચડવામાં દુખાવો', 'હળવો દુખાવો'];
       } else if (isSkin) {
-        qText.EN = `Is the skin rash accompanied by intense itching, pain, or spreading to other parts?`;
-        qText.HI = `क्या त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`;
-        qText.GU = `શું ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`;
+        qText.EN = isCaregiver
+          ? `Is the patient's rash accompanied by intense itching, pain, or spreading to other parts?`
+          : `Is the skin rash accompanied by intense itching, pain, or spreading to other parts?`;
+        qText.HI = isCaregiver
+          ? `क्या मरीज को त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`
+          : `क्या त्वचा पर तेज खुजली, दर्द, या यह अन्य जगहों पर फैल रही है?`;
+        qText.GU = isCaregiver
+          ? `શું દર્દીને ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`
+          : `શું ત્વચા પર તીવ્ર ખંજવાળ, દુખાવો, કે અન્ય ભાગોમાં ફેલાવો જણાય છે?`;
         touchOpts.EN = ['Severe itching without pain', 'Painful and red tender skin', 'Spreading to other body areas', 'Dry peeling / scaling'];
         touchOpts.HI = ['तेज खुजली, दर्द नहीं', 'दर्दनाक और लाल त्वचा', 'शरीर के अन्य हिस्सों में फैल रहा है', 'सूखापन व पपड़ी'];
         touchOpts.GU = ['તીવ્ર ખંજવાળ', 'દુખાવો અને લાલાશ', 'બીજા ભાગોમાં ફેલાવવું', 'શુષ્કતા'];
@@ -311,9 +349,15 @@ export class UniversalClinicalEngine implements AIProvider {
     // 3. Dynamic Chronic Medical History Check
     if (!answeredDimensions.has('PAST_HISTORY')) {
       const qText = {
-        EN: `Do you have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`,
-        HI: `क्या आपको पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`,
-        GU: `શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`,
+        EN: isCaregiver
+          ? `Does the patient have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`
+          : `Do you have any ongoing medical conditions (like High Blood Pressure, Diabetes, Thyroid, or Asthma)?`,
+        HI: isCaregiver
+          ? `क्या मरीज को पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`
+          : `क्या आपको पहले से कोई पुरानी बीमारी (जैसे ब्लड प्रेशर, शुगर/डायबिटीज, थायराइड या दमा) है?`,
+        GU: isCaregiver
+          ? `શું દર્દીને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`
+          : `શું તમને પહેલેથી કોઈ જૂની બીમારી (જેમ કે બીપી, ડાયાબિટીસ, થાયરોઇડ કે અસ્થમા) છે?`,
       };
       const touchOpts = {
         EN: ['High Blood Pressure (Hypertension)', 'Diabetes (High Sugar)', 'Thyroid / Asthma', 'No ongoing chronic conditions'],
@@ -335,9 +379,15 @@ export class UniversalClinicalEngine implements AIProvider {
     // 4. Dynamic Medications & Allergies Check
     if (!answeredDimensions.has('MEDICATIONS') || !answeredDimensions.has('ALLERGIES')) {
       const qText = {
-        EN: `Are you currently taking any regular medications, or do you have any known drug/food allergies?`,
-        HI: `क्या आप नियमित रूप से कोई दवाईयां ले रहे हैं, या आपको किसी दवा या खाने से एलर्जी है?`,
-        GU: `શું તમે હાલ નિયમિત કોઈ દવા લો છો, કે તમને કોઈ દવા કે ખોરાકની એલર્જી છે?`,
+        EN: isCaregiver
+          ? `Is the patient currently taking any regular medications, or do they have any known drug/food allergies?`
+          : `Are you currently taking any regular medications, or do you have any known drug/food allergies?`,
+        HI: isCaregiver
+          ? `क्या मरीज नियमित रूप से कोई दवाईयां ले रहे हैं, या उन्हें किसी दवा या खाने से कोई एलर्जी है?`
+          : `क्या आप नियमित रूप से कोई दवाईयां ले रहे हैं, या आपको किसी दवा या खाने से एलर्जी है?`,
+        GU: isCaregiver
+          ? `શું દર્દી હાલ નિયમિત કોઈ દવા લે છે, કે તેમને કોઈ દવા કે ખોરાકની એલર્જી છે?`
+          : `શું તમે હાલ નિયમિત કોઈ દવા લો છો, કે તમને કોઈ દવા કે ખોરાકની એલર્જી છે?`,
       };
       const touchOpts = {
         EN: ['Taking regular BP / Diabetes medicines', 'No regular medicines & No known allergies (NKDA)', 'Have known Penicillin / Drug allergy', 'Taking occasional painkillers / antacids'],
@@ -358,9 +408,15 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // 5. Final Adaptive Wrap-Up Question
     const qFinal = {
-      EN: `Thank you. Is there any other symptom or specific detail you would like to share with your doctor?`,
-      HI: `धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कोई अन्य लक्षण या जरूरी बात बताना चाहते हैं?`,
-      GU: `આભાર. ડૉક્ટરને મળતા પહેલાં શું આપ કોઈ અન્ય લક્ષણ કે ખાસ વિગત જણાવવા માંગો છો?`,
+      EN: isCaregiver
+        ? `Thank you. Is there any other symptom or specific detail regarding the patient's condition that you would like the doctor to know?`
+        : `Thank you. Is there any other symptom or specific detail you would like to share with your doctor?`,
+      HI: isCaregiver
+        ? `धन्यवाद। क्या मरीज की स्थिति के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`
+        : `धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कोई अन्य लक्षण या जरूरी बात बताना चाहते हैं?`,
+      GU: isCaregiver
+        ? `આભાર. શું દર્દીની તકલીફ અંગે ડૉક્ટરને જણાવવા જેવી કોઈ અન્ય ખાસ વિગત છે?`
+        : `આભાર. ડૉક્ટરને મળતા પહેલાં શું આપ કોઈ અન્ય લક્ષણ કે ખાસ વિગત જણાવવા માંગો છો?`,
     };
     const optFinal = {
       EN: ['No, that covers all symptoms — complete intake', 'Yes, I want to add one more detail'],
@@ -442,12 +498,15 @@ export class GeminiAIProvider implements AIProvider {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    this.model = this.genAI.getGenerativeModel({ model: modelName });
   }
 
   async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
     try {
-      const prompt = `You are the fact extraction component of MediKiosk AI Clinical Intake.
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), 3000));
+      const extractionPromise = (async () => {
+        const prompt = `You are the fact extraction component of MediKiosk AI Clinical Intake.
 Patient Input: "${input}"
 Input Language: ${language}
 Current Clinical State: ${JSON.stringify(state)}
@@ -468,28 +527,30 @@ Extract all clinical facts into English-normalized structured JSON with no markd
   "medications": ["string"]
 }`;
 
-      const res = await this.model.generateContent(prompt);
-      const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(text);
+        const res = await this.model.generateContent(prompt);
+        const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(text);
 
-      const update: Partial<ClinicalState> = {};
-      if (parsed.chiefComplaint && !state.chiefComplaint) {
-        update.chiefComplaint = parsed.chiefComplaint;
-        update.chiefComplaintOriginal = input;
-      }
-      if (parsed.newSymptoms && Array.isArray(parsed.newSymptoms) && parsed.newSymptoms.length > 0) {
-        update.symptoms = [...(state.symptoms || []), ...parsed.newSymptoms];
-      }
-      if (parsed.pastConditions && Array.isArray(parsed.pastConditions) && parsed.pastConditions.length > 0) {
-        update.pastMedicalHistory = [...(state.pastMedicalHistory || []), ...parsed.pastConditions];
-      }
-      if (parsed.medications && Array.isArray(parsed.medications) && parsed.medications.length > 0) {
-        const newMeds = parsed.medications.map((m: string) => ({ name: m }));
-        update.medications = [...(state.medications || []), ...newMeds];
-      }
-      return update;
+        const update: Partial<ClinicalState> = {};
+        if (parsed.chiefComplaint && !state.chiefComplaint) {
+          update.chiefComplaint = parsed.chiefComplaint;
+          update.chiefComplaintOriginal = input;
+        }
+        if (parsed.newSymptoms && Array.isArray(parsed.newSymptoms) && parsed.newSymptoms.length > 0) {
+          update.symptoms = [...(state.symptoms || []), ...parsed.newSymptoms];
+        }
+        if (parsed.pastConditions && Array.isArray(parsed.pastConditions) && parsed.pastConditions.length > 0) {
+          update.pastMedicalHistory = [...(state.pastMedicalHistory || []), ...parsed.pastConditions];
+        }
+        if (parsed.medications && Array.isArray(parsed.medications) && parsed.medications.length > 0) {
+          const newMeds = parsed.medications.map((m: string) => ({ name: m }));
+          update.medications = [...(state.medications || []), ...newMeds];
+        }
+        return update;
+      })();
+
+      return await Promise.race([extractionPromise, timeoutPromise]) as Partial<ClinicalState>;
     } catch (e) {
-      console.warn('Gemini extractFacts fallback:', e);
       return this.fallback.extractFacts(input, state, language);
     }
   }

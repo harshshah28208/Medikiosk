@@ -10,6 +10,12 @@ export function ConsentPage() {
 
   const [hasConsented, setHasConsented] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [respondentType, setRespondentType] = useState<string>(() => localStorage.getItem('medikiosk_respondent_type') || 'PATIENT');
+
+  const handleSelectRespondent = (type: string) => {
+    setRespondentType(type);
+    localStorage.setItem('medikiosk_respondent_type', type);
+  };
 
   const handleGrantConsent = async () => {
     if (!hasConsented) return;
@@ -76,26 +82,34 @@ export function ConsentPage() {
           </div>
         </div>
 
-        {/* Who is answering / Caregiver Mode (Item 37) */}
+        {/* Who is answering / Caregiver Mode */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6">
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
             Who is providing health information today?
           </label>
           <div className="grid grid-cols-3 gap-2 text-xs">
             {[
-              { id: 'PATIENT', label: 'Patient Themselves' },
-              { id: 'CAREGIVER', label: 'Family / Caregiver' },
-              { id: 'STAFF_ASSISTED', label: 'Staff Assisted' },
-            ].map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => localStorage.setItem('medikiosk_respondent_type', m.id)}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50 font-semibold text-slate-700 transition-all text-center active:scale-95"
-              >
-                {m.label}
-              </button>
-            ))}
+              { id: 'PATIENT', label: 'Patient Themselves', icon: '👤' },
+              { id: 'CAREGIVER', label: 'Family / Caregiver', icon: '👨‍👩‍👧' },
+              { id: 'STAFF_ASSISTED', label: 'Staff Assisted', icon: '🩺' },
+            ].map((m) => {
+              const isSelected = respondentType === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleSelectRespondent(m.id)}
+                  className={`p-3 rounded-xl border-2 font-semibold transition-all text-center flex flex-col items-center gap-1 ${
+                    isSelected
+                      ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-500 font-bold'
+                      : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <span className="text-base">{m.icon}</span>
+                  <span className="text-[11px] leading-tight">{m.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

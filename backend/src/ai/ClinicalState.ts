@@ -84,6 +84,7 @@ export interface ClinicalState {
   // Multilingual metadata
   currentLanguage: 'EN' | 'HI' | 'GU';
   languageHistory: Array<{ lang: string; switchedAt: string }>;
+  respondentType?: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED';
 }
 
 export interface QuestionOutput {
@@ -97,7 +98,7 @@ export interface QuestionOutput {
   clinicalRationale: string;
 }
 
-export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN'): ClinicalState {
+export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN', respondentType: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED' = 'PATIENT'): ClinicalState {
   return {
     chiefComplaint: null,
     chiefComplaintOriginal: null,
@@ -131,6 +132,7 @@ export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN'):
     confidence: 1.0,
     currentLanguage: language,
     languageHistory: [{ lang: language, switchedAt: new Date().toISOString() }],
+    respondentType,
   };
 }
 

@@ -53,7 +53,7 @@ router.get('/tts', async (req: AuthRequest, res: Response): Promise<void> => {
  * Initialize a new AI conversation session for a visit.
  */
 router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { visitId, language = 'EN', isAyush = false } = req.body;
+  const { visitId, language = 'EN', isAyush = false, respondentType = 'PATIENT' } = req.body;
 
   if (!visitId) {
     res.status(400).json({ error: 'visitId is required' });
@@ -71,7 +71,8 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   }
 
   const initialLang = (language.toUpperCase() as 'EN' | 'HI' | 'GU') || 'EN';
-  const initialState = createInitialClinicalState(initialLang);
+  const respType = (respondentType as 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED') || 'PATIENT';
+  const initialState = createInitialClinicalState(initialLang, respType);
 
   const session = await prisma.conversationSession.create({
     data: {
@@ -89,10 +90,18 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     data: { status: 'IN_INTAKE' },
   });
 
+  const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
+
   const initialGreetings = {
-    EN: 'Hello. I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.',
-    HI: 'नमस्ते। मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या लक्षण महसूस हो रहे हैं?',
-    GU: 'નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે લક્ષણો થઈ રહ્યા છે?',
+    EN: isCaregiver
+      ? `Hello. I am MediKiosk. Since you are providing health information for the patient today, please tell me what symptoms or health concerns the patient is experiencing.`
+      : 'Hello. I am MediKiosk, your clinical intake assistant. Please tell me what symptoms or health concerns brought you to the hospital today.',
+    HI: isCaregiver
+      ? `नमस्ते। मैं मेडीकियोस्क सहायक हूँ। चूंकि आप मरीज की ओर से विवरण दे रहे हैं, कृपया बताएं कि मरीज को आज क्या तकलीफ या मुख्य लक्षण महसूस हो रहे हैं?`
+      : 'नमस्ते। मैं मेडीकियोस्क क्लिनिकल सहायक हूँ। कृपया मुझे बताएं कि आज आपको क्या परेशानी या लक्षण महसूस हो रहे हैं?',
+    GU: isCaregiver
+      ? `નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. આપ દર્દી વતી વિગત આપી રહ્યા છો, તો કૃપા કરીને જણાવો કે દર્દીને આજે કઈ તકલીફ કે મુખ્ય લક્ષણો થઈ રહ્યા છે?`
+      : 'નમસ્તે. હું મેડીકિયોસ્ક સહાયક છું. કૃપા કરીને મને જણાવો કે આજે તમને કઈ તકલીફ કે લક્ષણો થઈ રહ્યા છે?',
   };
 
   const initialOptions = {

@@ -58,7 +58,8 @@ export function IntakePage() {
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
         const currentLang = activeLangRef.current;
-        const res = await api.conversation.start(vId, currentLang.toUpperCase());
+        const respondentType = localStorage.getItem('medikiosk_respondent_type') || 'PATIENT';
+        const res = await api.conversation.start(vId, currentLang.toUpperCase(), false, respondentType);
 
         if (isMounted && res?.session) {
           setSession(res.session);
