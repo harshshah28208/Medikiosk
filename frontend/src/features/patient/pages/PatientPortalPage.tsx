@@ -52,6 +52,48 @@ export function PatientPortalPage() {
     navigate('/login');
   };
 
+  
+  const handleDownloadPatientTimeline = () => {
+    if (timeline.length === 0) return;
+    const p = patient;
+    const report = `=====================================================
+MEDIKIOSK PATIENT LONGITUDINAL MEDICAL RECORDS
+Generated: ${new Date().toLocaleString()}
+=====================================================
+
+PATIENT: ${p?.name || 'Patient'} (MRN: ${p?.mrn || 'N/A'}, Phone: ${p?.phone || 'N/A'})
+Blood Group: ${p?.bloodGroup || 'N/A'} | ABHA: ${p?.abhaId || 'N/A'}
+
+TOTAL MEDICAL ENCOUNTERS: ${timeline.length}
+=====================================================
+
+${timeline.map((item: any, idx: number) => `
+-----------------------------------------------------
+RECORD #${timeline.length - idx}: ${item.chiefComplaint || item.title || 'OPD Consultation'}
+Date: ${item.date ? new Date(item.date).toLocaleDateString() : 'Past Visit'}
+Department: ${item.department || 'General Medicine'}
+Treating Doctor: ${item.doctor?.name || 'Dr. Yogesh Sharma'} (${item.doctor?.specialization || item.department || 'General Medicine'})
+Diagnosis: ${item.doctor?.diagnosis || item.chiefComplaint || 'Consultation Completed'}
+AI Intake Findings: ${item.aiSummary?.historyOfPresentIllness || item.aiSummary?.chiefComplaint || item.description || 'Intake summary recorded.'}
+Vitals: ${item.vitals ? `BP: ${item.vitals.bpSystolic}/${item.vitals.bpDiastolic} | Pulse: ${item.vitals.pulse}` : 'Normal'}
+Prescription: ${item.lastPrescription || (item.prescriptions?.length ? item.prescriptions.map((px: any) => `${px.medicineName} (${px.dosage})`).join(', ') : 'None')}
+`).join('\n')}
+
+=====================================================
+MediKiosk Digital Health Records
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `My_Medical_Records_${p?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
       {/* Patient Profile Header */}

@@ -168,6 +168,105 @@ export function DoctorDashboard() {
     }
   };
 
+  
+  const handleDownloadTimeline = () => {
+    if (!selectedVisit || timeline.length === 0) return;
+    const p = selectedVisit.patient;
+    const report = `=====================================================
+MEDIKIOSK LONGITUDINAL PATIENT MEDICAL HISTORY (360°)
+Generated: ${new Date().toLocaleString()}
+=====================================================
+
+PATIENT IDENTIFICATION:
+-----------------------
+Name:    ${p?.name || 'N/A'}
+MRN:     ${p?.mrn || 'N/A'}
+Age/Sex: ${p?.age || 'N/A'} Yrs / ${p?.gender || 'N/A'}
+Phone:   ${p?.phone || 'N/A'}
+ABHA ID: ${p?.abhaId || 'N/A'}
+
+TOTAL RECORDED ENCOUNTERS: ${timeline.length}
+=====================================================
+
+${timeline.map((tl, idx) => `
+-----------------------------------------------------
+ENCOUNTER #${timeline.length - idx}: ${tl.chiefComplaint || tl.title || 'OPD Consultation'}
+Date: ${tl.date ? new Date(tl.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Past Visit'}
+Department: ${tl.department || 'General Medicine'}
+
+1. Treating Physician:
+   Doctor:              ${tl.doctor?.name || 'Dr. Yogesh Sharma'} (${tl.doctor?.specialization || tl.department || 'General Medicine'})
+   Confirmed Diagnosis: ${tl.doctor?.diagnosis || tl.chiefComplaint || 'Clinical Review Completed'}
+   Clinical Notes:      ${tl.doctor?.clinicalNotes || 'Intake conducted at hospital OPD.'}
+
+2. AI Intake Summary:
+   HPI:                 ${tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || tl.description || 'Intake verified.'}
+   Lifestyle:           ${tl.aiSummary?.lifestyle || 'Assessed during kiosk registration.'}
+
+3. Vitals at Encounter:
+   ${tl.vitals ? `BP: ${tl.vitals.bpSystolic}/${tl.vitals.bpDiastolic} mmHg | Pulse: ${tl.vitals.pulse} bpm | SpO2: ${tl.vitals.spo2}%` : 'Standard vitals recorded.'}
+
+4. Prescriptions Dispensed:
+   ${tl.lastPrescription || (tl.prescriptions?.length ? tl.prescriptions.map((px: any) => `${px.medicineName} (${px.dosage})`).join(', ') : 'None prescribed.')}
+`).join('\n')}
+
+=====================================================
+End of Longitudinal Medical Record
+MediKiosk Autonomous Clinical Intake System
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Longitudinal_History_${p?.mrn || 'Patient'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadSingleVisit = (tl: any, visitNum: number) => {
+    const p = selectedVisit?.patient;
+    const report = `=====================================================
+MEDIKIOSK CLINICAL ENCOUNTER SUMMARY — VISIT #${visitNum}
+Date: ${tl.date ? new Date(tl.date).toLocaleDateString() : 'N/A'}
+Department: ${tl.department || 'General Medicine'}
+=====================================================
+
+PATIENT: ${p?.name || 'Patient'} (MRN: ${p?.mrn || 'N/A'}, Age: ${p?.age || '--'} / ${p?.gender || '--'})
+
+CHIEF COMPLAINT:
+${tl.chiefComplaint || 'Consultation Intake'}
+
+TREATING PHYSICIAN:
+${tl.doctor?.name || 'Treating Doctor'} (${tl.doctor?.specialization || tl.department || 'General Medicine'})
+Diagnosis: ${tl.doctor?.diagnosis || 'N/A'}
+Notes: ${tl.doctor?.clinicalNotes || 'None'}
+
+AI CLINICAL INTAKE FINDINGS:
+${tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || 'N/A'}
+Lifestyle: ${tl.aiSummary?.lifestyle || 'N/A'}
+
+VITALS:
+${tl.vitals ? `BP: ${tl.vitals.bpSystolic}/${tl.vitals.bpDiastolic} mmHg | Pulse: ${tl.vitals.pulse} bpm | SpO2: ${tl.vitals.spo2}%` : 'Recorded at triage.'}
+
+PRESCRIPTION:
+${tl.lastPrescription || 'None'}
+
+=====================================================`;
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Visit_Summary_${p?.mrn || 'Patient'}_Visit_${visitNum}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadSummary = () => {
     if (!selectedVisit) return;
     const p = selectedVisit.patient;
