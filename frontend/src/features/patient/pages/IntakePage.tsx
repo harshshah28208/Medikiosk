@@ -220,9 +220,9 @@ export function IntakePage() {
       if (session?.id) {
         await api.conversation.complete(session.id);
       }
-      navigate(`/kiosk/documents/${visitId || 'current'}`);
+      navigate(`/kiosk/review/${visitId || 'current'}`);
     } catch (err) {
-      navigate(`/kiosk/documents/${visitId || 'current'}`);
+      navigate(`/kiosk/review/${visitId || 'current'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -607,9 +607,9 @@ export function IntakePage() {
               </div>
               <button
                 onClick={handleCompleteIntake}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 touch-target"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 touch-target cursor-pointer"
               >
-                <span>{language === 'hi' ? 'अगला: रिपोर्ट व अपॉइंटमेंट' : language === 'gu' ? 'આગળ: રિપોર્ટ અને એપોઇન્ટમેન્ટ' : 'Go to Next & Generate Appointment'}</span>
+                <span>{language === 'hi' ? 'AI सारांश देखें और अपॉइंटमेंट लें' : language === 'gu' ? 'AI સારાંશ જુઓ અને એપોઇન્ટમેન્ટ લો' : 'View AI Summary & Book Appointment'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

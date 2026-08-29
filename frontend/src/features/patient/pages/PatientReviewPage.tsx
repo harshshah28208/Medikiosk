@@ -352,11 +352,21 @@ MediKiosk Autonomous Healthcare System
           </label>
         </div>
 
-        {/* Action Buttons (Requirement 33: EDIT, CONFIRM, SUBMIT) */}
+        {/* Action Buttons (Requirement 33: EDIT, CONFIRM, SUBMIT, DOWNLOAD) */}
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
+            type="button"
+            onClick={handleDownload}
+            className="px-5 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{language === 'hi' ? 'AI सारांश डाउनलोड करें (.txt)' : language === 'gu' ? 'AI સારાંશ ડાઉનલોડ કરો (.txt)' : 'Download AI Summary (.txt)'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsEditModalOpen(true)}
-            className="px-6 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+            className="px-5 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Edit3 className="w-4 h-4" />
             <span>{language === 'hi' ? 'जानकारी सुधारें' : language === 'gu' ? 'વિગતો સુધારો' : 'Edit Information'}</span>
