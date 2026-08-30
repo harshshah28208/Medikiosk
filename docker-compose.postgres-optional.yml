@@ -1,3 +1,4 @@
+# Optional: only needed if you switch schema.prisma to postgresql provider
 version: '3.8'
 
 services:

@@ -3,6 +3,8 @@ import prisma from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireAdminRole } from '../middleware/rbac.js';
 import type { AuthRequest } from '../middleware/auth.js';
+import { abdmAdapter } from '../integrations/abdm/ABDMAdapter.js';
+import { hisAdapter } from '../integrations/his/HISAdapter.js';
 
 const router = Router();
 
@@ -145,6 +147,44 @@ router.get('/users', async (_req: AuthRequest, res: Response): Promise<void> => 
   });
 
   res.json({ users });
+});
+
+/**
+ * GET /api/admin/integration-status
+ * Surface ABDM & HIS integration readiness and missing credentials.
+ */
+router.get('/integration-status', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const abdmStatus = abdmAdapter.getStatus();
+    const hisStatus = hisAdapter.getStatus();
+
+    const missingAbdmEnv = abdmStatus.missingRequirements || [];
+    const missingHisEnv = !hisStatus.isConfigured ? ['HIS_API_URL'] : [];
+
+    res.json({
+      abdmStatus: abdmStatus.status,
+      hisStatus: hisStatus.status,
+      abdm: {
+        status: abdmStatus.status,
+        isConfigured: abdmStatus.isConfigured,
+        missingRequirements: missingAbdmEnv,
+        displayText: abdmStatus.isConfigured
+          ? 'ABDM: Connected'
+          : `ABDM: Sandbox-ready, pending ${missingAbdmEnv.length > 0 ? missingAbdmEnv.join(' / ') : 'credentials'}`,
+      },
+      his: {
+        status: hisStatus.status,
+        isConfigured: hisStatus.isConfigured,
+        missingRequirements: missingHisEnv,
+        displayText: hisStatus.isConfigured
+          ? 'HIS: Connected'
+          : `HIS: Integration-ready (Local buffer), pending ${missingHisEnv.join(' / ')}`,
+      },
+      missingEnvVars: [...missingAbdmEnv, ...missingHisEnv],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch integration status' });
+  }
 });
 
 export default router;

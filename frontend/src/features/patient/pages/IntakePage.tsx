@@ -30,6 +30,7 @@ export function IntakePage() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [redFlagAlert, setRedFlagAlert] = useState<any | null>(null);
   const [isComplete, setIsComplete] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   const activeLangRef = useRef<LanguageCode>(language);
   useEffect(() => {
@@ -192,6 +193,7 @@ export function IntakePage() {
     } else {
       speechProvider.stopSpeaking();
       setVoiceConfirmation(null);
+      setVoiceError(null);
       setIsListening(true);
       speechProvider.startListening(
         activeLangRef.current,
@@ -205,6 +207,7 @@ export function IntakePage() {
         },
         (error) => {
           console.warn('Voice error:', error);
+          setVoiceError(error);
           setIsListening(false);
         },
         () => {
@@ -577,11 +580,23 @@ export function IntakePage() {
         )}
 
         {/* Bottom Input Action Bar */}
-        <footer className="p-4 bg-white border-t border-slate-200 shrink-0 flex flex-col gap-3">
+        <footer className="p-4 bg-white border-t border-slate-200 shrink-0 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-gray-500">ASR: Browser (Web Speech API)</span>
+          </div>
+
+          {voiceError && (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between animate-fade-in">
+              <span>{voiceError}</span>
+              <button type="button" onClick={() => setVoiceError(null)} className="text-amber-600 hover:text-amber-800 font-bold ml-2">✕</button>
+            </div>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
               setVoiceConfirmation(null);
+              setVoiceError(null);
               handleSendMessage(inputText, 'TEXT');
             }}
             className="flex items-center gap-2"

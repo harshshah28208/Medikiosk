@@ -39,7 +39,7 @@ export class RedFlagEngine {
 
     // ── 2. ACUTE CORONARY SYNDROME / CARDIAC EMERGENCY ────────────────
     const hasChestPain =
-      /\b(chest pain|chest tightness|pressure in chest|crushing chest|angina)\b|सीने में दर्द|छाती में दर्द|છાતીમાં દુખાવો|છાતીમાં દબાણ|છાતીમાં.*દુખાવો/i.test(textToEvaluate);
+      /\b(chest pain|chest tightness|pressure in chest|crushing chest|angina)\b|सीने में.*दर्द|सीने में दर्द|छाती में.*दर्द|छाती में दर्द|છાતીમાં દુખાવો|છાતીમાં દબાણ|છાતીમાં.*દુખાવો/i.test(textToEvaluate);
 
     const hasCardiacAssociated =
       /\b(breath|shortness of breath|sweat|diaphoresis|left arm|jaw|radiat)\b|सांस|पसीना|શ્વાસ|પરસેવો|ડાબા હાથ|ડાબા.*હાથ/i.test(textToEvaluate);

@@ -14,6 +14,7 @@ export function AdminDashboard() {
   const [metrics, setMetrics] = useState<any | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [integrationStatus, setIntegrationStatus] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'METRICS' | 'ANALYTICS' | 'AUDIT' | 'USERS' | 'SETTINGS'>('METRICS');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,15 +43,17 @@ export function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [dashRes, auditRes, usersRes] = await Promise.all([
+      const [dashRes, auditRes, usersRes, intRes] = await Promise.all([
         api.admin.dashboard().catch(() => null),
         api.admin.auditLogs(1, 30).catch(() => null),
         api.admin.users().catch(() => null),
+        api.admin.integrationStatus().catch(() => null),
       ]);
 
       if (dashRes?.metrics) setMetrics(dashRes.metrics);
       if (auditRes?.logs) setAuditLogs(auditRes.logs);
       if (usersRes?.users) setUsersList(usersRes.users);
+      if (intRes) setIntegrationStatus(intRes);
     } catch (err) {
       console.error('Admin dashboard error:', err);
     } finally {
@@ -149,6 +152,23 @@ export function AdminDashboard() {
             2.8 <span className="text-sm font-normal text-slate-400">min</span>
           </div>
           <span className="text-[10px] text-green-400 font-semibold mt-1 block">72% time reduction</span>
+        </div>
+      </div>
+
+      {/* Integration Status Card */}
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl shadow-lg space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Server className="w-4 h-4 text-purple-400" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Integration Status</h3>
+          </div>
+          <span className="text-[10px] font-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+            {integrationStatus?.abdmStatus || 'SANDBOX_READY'}
+          </span>
+        </div>
+        <div className="text-xs text-slate-300 font-mono space-y-1">
+          <p>{integrationStatus?.abdm?.displayText || 'ABDM: Sandbox-ready, pending ABDM_CLIENT_ID / ABDM_CLIENT_SECRET'}</p>
+          <p>{integrationStatus?.his?.displayText || 'HIS: Integration-ready (Local buffer), pending HIS_API_URL'}</p>
         </div>
       </div>
 

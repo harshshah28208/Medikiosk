@@ -707,6 +707,24 @@ export const api = {
           { id: 'dept-card', name: 'Cardiology', code: 'CARD' },
         ],
       })),
+    integrationStatus: () =>
+      request('/admin/integration-status').catch(() => ({
+        abdmStatus: 'SANDBOX_READY_PENDING_CREDENTIALS',
+        hisStatus: 'INTEGRATION_READY_LOCAL_BUFFERED',
+        abdm: {
+          status: 'SANDBOX_READY_PENDING_CREDENTIALS',
+          isConfigured: false,
+          missingRequirements: ['ABDM_CLIENT_ID', 'ABDM_CLIENT_SECRET'],
+          displayText: 'ABDM: Sandbox-ready, pending ABDM_CLIENT_ID / ABDM_CLIENT_SECRET',
+        },
+        his: {
+          status: 'INTEGRATION_READY_LOCAL_BUFFERED',
+          isConfigured: false,
+          missingRequirements: ['HIS_API_URL'],
+          displayText: 'HIS: Integration-ready (Local buffer), pending HIS_API_URL',
+        },
+        missingEnvVars: ['ABDM_CLIENT_ID', 'ABDM_CLIENT_SECRET', 'HIS_API_URL'],
+      })),
   },
 
   integrations: {

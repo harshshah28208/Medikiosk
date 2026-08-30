@@ -29,7 +29,7 @@ export class SpeechProvider {
     onEnd: () => void
   ) {
     if (!this.recognition) {
-      onError('Speech recognition not supported in this browser.');
+      onError('Voice input requires Google Chrome. Please use the on-screen keyboard instead.');
       return;
     }
 
@@ -70,7 +70,11 @@ export class SpeechProvider {
 
     this.recognition.onerror = (event: any) => {
       this.isListening = false;
-      onError(event.error || 'Speech recognition error');
+      if (event.error === 'no-speech') {
+        onError('No speech detected. Please tap the microphone and try speaking again.');
+      } else {
+        onError(event.error || 'Speech recognition error');
+      }
     };
 
     this.recognition.onend = () => {

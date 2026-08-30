@@ -13,14 +13,9 @@ MediKiosk is a production-quality, multilingual AI healthcare platform with:
 
 ## ⚡ Starting the Application
 
-### 1. Start Database
-```bash
-# Option A: Docker (Recommended)
-docker-compose up -d
+### 1. Database Setup
+MediKiosk uses SQLite for zero-config local development — no Docker or Postgres required.
 
-# Option B: Local PostgreSQL instance on port 5432
-# Configure your DATABASE_URL in backend/.env
-```
 
 ### 2. Run Database Migrations & Seed Demo Accounts
 ```bash

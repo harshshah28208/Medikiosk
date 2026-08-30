@@ -29,7 +29,6 @@ import { TriageDashboard } from './features/triage/pages/TriageDashboard';
 import { AYUSHDashboard } from './features/ayush/pages/AYUSHDashboard';
 import { HomeopathicDashboard } from './features/ayush/pages/HomeopathicDashboard';
 import { AdminDashboard } from './features/admin/pages/AdminDashboard';
-import { PlaceholderPage } from './components/ui/PlaceholderPage';
 
 export function App() {
   return (

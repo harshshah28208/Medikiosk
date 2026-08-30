@@ -356,6 +356,28 @@ async function main() {
   console.log('  ✅ Demo patients created');
 
   // ─── 6. Seed Demo Visits & Queue Entries ───
+  // Clean up previous demo visit entries to ensure idempotent seed
+  await prisma.digitalSignature.deleteMany();
+  await prisma.emergencyAlert.deleteMany();
+  await prisma.aYUSHAssessment.deleteMany();
+  await prisma.clinicalSummary.deleteMany();
+  await prisma.clinicalHistory.deleteMany();
+  await prisma.historyAnswer.deleteMany();
+  await prisma.vital.deleteMany();
+  await prisma.prescriptionItem.deleteMany();
+  await prisma.prescription.deleteMany();
+  await prisma.consultation.deleteMany();
+  await prisma.queueEntry.deleteMany();
+  await prisma.conversationMessage.deleteMany();
+  await prisma.conversationSession.deleteMany();
+  await prisma.documentExtraction.deleteMany();
+  await prisma.document.deleteMany();
+  await prisma.consent.deleteMany();
+  await prisma.followUp.deleteMany();
+  await prisma.staffAssistanceRequest.deleteMany();
+  await prisma.visit.deleteMany();
+
+  // Patient 1 (Cardiology - Emergency Red Flag Case)
   const visit1 = await prisma.visit.create({
     data: {
       patientId: patient1.id,
@@ -363,8 +385,8 @@ async function main() {
       token: 'C-101',
       visitType: 'NEW',
       status: 'IN_INTAKE',
-      priority: 'NORMAL',
-      reasonForVisit: 'Chest discomfort on exertion and breathlessness',
+      priority: 'CRITICAL',
+      reasonForVisit: 'I have severe chest pain with left arm pain and sweating',
       language: 'HI',
     },
   });
@@ -375,11 +397,24 @@ async function main() {
       patientId: patient1.id,
       departmentId: deptMap['CARD'],
       tokenNumber: 'C-101',
-      priority: 'NORMAL',
+      priority: 'CRITICAL',
       status: 'WAITING',
     },
   });
 
+  await prisma.emergencyAlert.create({
+    data: {
+      visitId: visit1.id,
+      patientId: patient1.id,
+      alertType: 'CARDIAC_EMERGENCY',
+      severity: 'CRITICAL',
+      description: 'Acute coronary syndrome presentation: Severe chest pain with left arm pain and sweating',
+      triggerSource: 'AI_ENGINE',
+      status: 'UNACKNOWLEDGED',
+    },
+  });
+
+  // Patient 2 (AYUSH & Integrative Medicine Case with AYUSHAssessment)
   const visit2 = await prisma.visit.create({
     data: {
       patientId: patient2.id,
@@ -404,7 +439,29 @@ async function main() {
     },
   });
 
-  console.log('  ✅ Active OPD Visits & Queue Entries created');
+  await prisma.aYUSHAssessment.create({
+    data: {
+      visitId: visit2.id,
+      patientId: patient2.id,
+      prakriti: 'Pitta-Kapha',
+      vikriti: 'Pitta-Vata Imbalance',
+      agni: 'Mandagni',
+      koshtha: 'Madhyama',
+      ahara: 'Pitta aggravating diet, spicy and oily food',
+      vihara: 'High mental stress and irregular sleep',
+      nadi: 'Mandam (Kapha-Pitta dominancy)',
+      mutra: 'Slightly concentrated (Pitta lakshana)',
+      mala: 'Constipated (Vibandha)',
+      jihva: 'Sama (Mild white coating)',
+      shabda: 'Prakrita (Normal)',
+      sparsha: 'Ushna (Warm)',
+      drik: 'Rakta-Varna (Slight congestion)',
+      akriti: 'Madhyama (Medium build)',
+      notes: 'Initial Ayurvedic assessment for chronic digestive acidity and heaviness. Advised Deepana-Pachana therapy and Pitta-shamaka diet.',
+    },
+  });
+
+  console.log('  ✅ Active OPD Visits, Red-Flag Alert & AYUSH Assessment created');
 
   // ─── 7. Seed Audit Logs ────────────────────
   await prisma.auditLog.create({
