@@ -307,7 +307,16 @@ export const api = {
       language: string = 'EN',
       isAyush = false,
       respondentType = 'PATIENT',
-      options?: { isReturningPatient?: boolean; recentChanges?: string; previousPatientInfo?: any }
+      options?: {
+        isReturningPatient?: boolean;
+        recentChanges?: string;
+        previousPatientInfo?: any;
+        carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY';
+        specialty?: string;
+        targetComplaint?: string;
+        isNewCase?: boolean;
+        followUpVisitId?: string;
+      }
     ) =>
       request('/conversation/start', {
         method: 'POST',
@@ -316,6 +325,11 @@ export const api = {
           language,
           isAyush,
           respondentType,
+          carePath: options?.carePath,
+          specialty: options?.specialty,
+          targetComplaint: options?.targetComplaint,
+          isNewCase: options?.isNewCase,
+          followUpVisitId: options?.followUpVisitId,
           isReturningPatient: options?.isReturningPatient,
           recentChanges: options?.recentChanges,
           previousPatientInfo: options?.previousPatientInfo,
@@ -326,8 +340,8 @@ export const api = {
         const state = {
           isReturning: isRet,
           previousVisitInfo: isRet ? {
-            lastComplaint: options?.previousPatientInfo?.medicalHistory || 'Hypertension / Follow-up',
-            lastDepartment: 'General Medicine',
+            lastComplaint: options?.targetComplaint || options?.previousPatientInfo?.medicalHistory || 'Hypertension / Follow-up',
+            lastDepartment: options?.specialty || 'General Medicine',
           } : undefined,
           turnsCompleted: 0,
         };
@@ -351,17 +365,25 @@ export const api = {
           let content = `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`;
           let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
 
+          if (options?.carePath === 'AYUSH') {
+            content = `Welcome to the Ayurveda Clinic${patientName}. What health concerns are you experiencing today?`;
+            touchOptions = ['Acidity, heartburn & sour burps', 'Sluggish digestion & gas', 'Joint pain & body stiffness', 'Chronic cough & sinus', 'Skin itching & eruptions'];
+          } else if (options?.carePath === 'HOMEOPATHY') {
+            content = `Welcome to Classical Homeopathy${patientName}. Please describe your main health concern and symptoms.`;
+            touchOptions = ['Throbbing headache (< Sun, > Cold)', 'Skin itching & eczema (< Warmth)', 'Chronic acidity & gastric reflux', 'Joint pain (< First motion)', 'Cough / asthma flare (< Cold drafts)'];
+          }
+
           if (langLower === 'hi') {
             content = isRet
               ? `मेडीकियोस्क में आपका स्वागत है${patientName}। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है? क्या वे सुधरे हैं, बिगड़े हैं या वैसे ही हैं?`
-              : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
+              : (options?.carePath === 'AYUSH' ? `आयुर्वेद विभाग में आपका स्वागत है${patientName}। आज आपको क्या स्वास्थ्य समस्या महसूस हो रही है?` : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`);
             touchOptions = isRet
               ? ['लक्षणों में सुधार हुआ है', 'लक्षण और बिगड़ गए हैं', 'कोई बदलाव नहीं हुआ', 'नई समस्या शुरू हुई है']
               : ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
           } else if (langLower === 'gu') {
             content = isRet
               ? `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે? સુધારો થયો છે, વધ્યા છે કે એવા જ છે?`
-              : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`;
+              : (options?.carePath === 'AYUSH' ? `આયુર્વેદ વિભાગમાં આપનું સ્વાગત છે${patientName}। આજે આપને કઈ મુખ્ય તકલીફ જણાય છે?` : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`);
             touchOptions = isRet
               ? ['લક્ષણોમાં સુધારો થયો છે', 'લક્ષણો વધ્યા છે', 'કોઈ ફેરફાર નથી', 'નવી તકલીફ શરૂ થઈ છે']
               : ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
@@ -375,7 +397,19 @@ export const api = {
         }
       }),
 
-    sendMessage: (sessionId: string, data: { content: string; inputMethod?: string; language?: string; rawTranscript?: string; isAyush?: boolean }) =>
+    sendMessage: (
+      sessionId: string,
+      data: {
+        content: string;
+        inputMethod?: string;
+        language?: string;
+        rawTranscript?: string;
+        isAyush?: boolean;
+        isHomeopathy?: boolean;
+        carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY';
+        specialty?: string;
+      }
+    ) =>
       request(`/conversation/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
@@ -397,6 +431,8 @@ export const api = {
             latestAnswer: text,
             chiefComplaint: text,
             turnsCompleted: 1,
+            carePath: data.carePath,
+            specialty: data.specialty,
           };
           const groqRes = await callGroqDynamicIntake(state, langUpper, [
             { role: 'Patient', content: text },

@@ -6,7 +6,7 @@ import { Search, UserCheck, ArrowLeft, ArrowRight, UserPlus, Phone, CreditCard, 
 
 export function IdentificationPage() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   const [lookupType, setLookupType] = useState<'PHONE' | 'MRN' | 'ABHA'>('PHONE');
   const [query, setQuery] = useState('');
@@ -34,10 +34,43 @@ export function IdentificationPage() {
     }
   };
 
-  const handleProceedWithPatient = () => {
+  const handleProceedWithPatient = async (changeOption?: string) => {
     if (!foundPatient) return;
-    // Store active patient id & visit info into localStorage with explicit isReturning flag
-    localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: true, isNewPatient: false }));
+    const change = changeOption || localStorage.getItem('medikiosk_recent_changes') || 'Follow-up Consultation';
+    const isNewComplaint = /new symptom|new problem|नई समस्या|નવી સમસ્યા/i.test(change);
+    const visitType = isNewComplaint ? 'NEW_CASE' : 'FOLLOW_UP';
+    localStorage.setItem('medikiosk_visit_type', visitType);
+    localStorage.setItem('medikiosk_recent_changes', change);
+
+    try {
+      const regRes = await api.patients.register({
+        name: foundPatient.name,
+        phone: foundPatient.phone,
+        age: foundPatient.age || 35,
+        gender: foundPatient.gender || 'MALE',
+        preferredLang: (language || 'en').toUpperCase(),
+        departmentCode: foundPatient.departmentCode || 'GEN',
+        reasonForVisit: change,
+        abhaId: foundPatient.abhaId || undefined,
+      });
+
+      if (regRes?.visit) {
+        localStorage.setItem('medikiosk_active_visit', JSON.stringify(regRes.visit));
+        localStorage.setItem('medikiosk_active_queue', JSON.stringify(regRes.queueEntry));
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify({
+          ...foundPatient,
+          ...(regRes.patient || {}),
+          isReturning: !isNewComplaint,
+          isNewPatient: isNewComplaint,
+        }));
+      } else {
+        localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint }));
+      }
+    } catch (e) {
+      console.warn('Returning patient visit reg notice:', e);
+      localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint }));
+    }
+
     navigate('/kiosk/consent');
   };
 
@@ -177,7 +210,7 @@ export function IdentificationPage() {
             </div>
 
             <button
-              onClick={handleProceedWithPatient}
+              onClick={() => handleProceedWithPatient()}
               className="w-full py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md transition-all touch-target"
             >
               <span>Confirm &amp; Proceed to Intake</span>

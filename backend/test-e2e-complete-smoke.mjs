@@ -107,6 +107,7 @@ async function runCompleteE2ESmokeTest() {
       language: 'EN',
       carePath: 'ALLOPATHY',
       specialty: 'General Medicine',
+      isNewCase: true,
     }),
   });
   const alloQ = sessionAllo.data?.message?.content;
@@ -135,6 +136,7 @@ async function runCompleteE2ESmokeTest() {
       language: 'EN',
       carePath: 'AYUSH',
       specialty: 'Ayurveda',
+      isNewCase: true,
     }),
   });
   const ayuQ = sessionAyush.data?.message?.content;
@@ -163,6 +165,7 @@ async function runCompleteE2ESmokeTest() {
       language: 'EN',
       carePath: 'HOMEOPATHY',
       specialty: 'Classical Homeopathy',
+      isNewCase: true,
     }),
   });
   const homeoQ = sessionHomeo.data?.message?.content;

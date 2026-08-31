@@ -310,6 +310,8 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
       clinicalState: initialState,
     },
     message: welcomeMsg,
+    aiMessage: welcomeMsg,
+    nextQuestion: welcomeMsg.content,
     touchOptions: initialAIOutput.touchOptions,
   });
 });

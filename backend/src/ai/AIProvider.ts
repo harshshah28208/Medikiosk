@@ -1236,9 +1236,70 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // ==========================================
     // WORKFLOW B: NEW PATIENT INTAKE
-    // Step 1: Chief Complaint / Primary Health Concern FIRST
+    // Step 1: Chief Complaint / Primary Health Concern (Care-Path & Specialty Tailored)
     // ==========================================
     if (!state.chiefComplaint) {
+      // 1A. AYUSH (Ayurveda) Initial Opening
+      if (effectiveCarePath === 'AYUSH') {
+        const qAyush = {
+          EN: isCaregiver
+            ? `Welcome to our Ayurveda & Integrative Health Clinic. What primary symptoms or health concerns is the patient experiencing today, and do they notice burning heat (Pitta), heaviness/sluggishness (Kapha), or dryness/body ache (Vata)?`
+            : `Welcome to our Ayurveda & Integrative Health Clinic. What primary symptoms or health concerns brought you in today, and do you notice burning heat (Pitta), heaviness/sluggishness (Kapha), or dryness/body ache (Vata)?`,
+          HI: isCaregiver
+            ? `आयुर्वेद एवं समग्र स्वास्थ्य विभाग में आपका स्वागत है। मरीज को आज क्या मुख्य तकलीफ या लक्षण हो रहे हैं, और क्या शरीर में जलन/गर्मी (पित्त), भारीपन/कफ (कफ) या सूखापन/दर्द (वात) महसूस होता है?`
+            : `आयुर्वेद एवं समग्र स्वास्थ्य विभाग में आपका स्वागत है। आज आपको क्या मुख्य तकलीफ या स्वास्थ्य समस्या महसूस हो रही है, और क्या शरीर में जलन/गर्मी (पित्त), भारीपन/कफ (कफ) या सूखापन/दर्द (वात) महसूस होता है?`,
+          GU: isCaregiver
+            ? `આયુર્વેદ વિભાગમાં આપનું સ્વાગત છે. દર્દીને આજે કઈ મુખ્ય તકલીફ જણાય છે, અને શું શરીરમાં બળતરા/ગરમી (પિત્ત), ભારેપણું/કફ (કફ) કે સૂકાપણું/દુખાવો (વાત) જણાય છે?`
+            : `આયુર્વેદ વિભાગમાં આપનું સ્વાગત છે. આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે, અને શું શરીરમાં બળતરા/ગરમી (પિત્ત), ભારેપણું/કફ (કફ) કે સૂકાપણું/દુખાવો (વાત) જણાય છે?`,
+        };
+        const optAyush = {
+          EN: ['Acidity, heartburn & sour burps (Amlapitta)', 'Sluggish digestion, heaviness & gas (Agnimandya)', 'Joint pain, stiffness & body ache (Vata / Sandhigata)', 'Chronic cough, sinus & congestion (Kaphaja)', 'Skin itching, burning & eruptions (Raktadosha)'],
+          HI: ['खट्टी डकारें, सीने में जलन व एसिडिटी (अम्लपित्त)', 'धीमा पाचन, भारीपन और गैस (अग्निमांद्य)', 'जोड़ों में दर्द, जकड़न व बदन दर्द (वात रोग)', 'पुरानी खांसी, बलगम व साइनस (कफज विकार)', 'त्वचा में खुजली, जलन व लाल दाने (रक्तदोष)'],
+          GU: ['ખાટા ઓડકાર, છાતીમાં બળતરા અને એસિડિટી (અમ્લપિત્ત)', 'ધીમું પાચન, ભારેપણું અને ગેસ (અગ્નિમાંદ્ય)', 'સાંધાનો દુખાવો, જકડન અને કળતર (વાત રોગ)', 'જૂની ખાંસી, કફ અને સાયનસ (કફજ)', 'ચામડીમાં ખંજવાળ, બળતરા અને દાણા (રક્તદોષ)'],
+        };
+        return {
+          question: qAyush[lang],
+          questionLanguage: lang,
+          questionCategory: 'AYUSH',
+          touchOptions: optAyush[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Ayurvedic Doshic and Agni intake opening',
+        };
+      }
+
+      // 1B. Homeopathy Initial Opening
+      if (effectiveCarePath === 'HOMEOPATHY') {
+        const qHomeo = {
+          EN: isCaregiver
+            ? `Welcome to Classical Homeopathy. To find the individualized constitutional remedy, please describe the patient's main health concern, the exact sensation (throbbing, stitching, burning, bursting), and what brings relief.`
+            : `Welcome to Classical Homeopathy. To find the individualized constitutional remedy, please describe your main health concern, the exact sensation (throbbing, stitching, burning, bursting), and what brings relief.`,
+          HI: isCaregiver
+            ? `शास्त्रीय होम्योपैथी विभाग में आपका स्वागत है। मरीज की प्रकृति अनुसार सही दवा चुनने के लिए, कृपया मुख्य समस्या, दर्द का सटीक अनुभव (टीस, चुभन, जलन, फटना) और किस चीज से आराम मिलता है, बताएं।`
+            : `शास्त्रीय होम्योपैथी विभाग में आपका स्वागत है। आपकी प्रकृति अनुसार सही दवा चुनने के लिए, कृपया अपनी मुख्य तकलीफ, दर्द का सटीक अनुभव (टीस, चुभन, जलन, फटना) और किस चीज से आराम मिलता है, बताएं।`,
+          GU: isCaregiver
+            ? `હોમિયોપેથી વિભાગમાં આપનું સ્વાગત છે. દર્દીની પ્રકૃતિ અનુસાર યોગ્ય દવા પસંદ કરવા માટે, કૃપા કરીને મુખ્ય તકલીફ, દુખાવાનો ચોક્કસ અનુભવ (ધબકારા, સોય ભોંકાવી, બળતરા) અને શેનાથી રાહત મળે છે તે જણાવો.`
+            : `હોમિયોપેથી વિભાગમાં આપનું સ્વાગત છે. આપની પ્રકૃતિ અનુસાર યોગ્ય દવા પસંદ કરવા માટે, કૃપા કરીને આપની મુખ્ય તકલીફ, દુખાવાનો ચોક્કસ અનુભવ (ધબકારા, સોય ભોંકાવી, બળતરા) અને શેનાથી રાહત મળે છે તે જણાવો.`,
+        };
+        const optHomeo = {
+          EN: ['Throbbing / bursting headache (< Sun, > Cold compress)', 'Skin eczema, itching & burning eruptions (< Warmth)', 'Chronic acidity & stomach pain (> Warm drinks)', 'Joint pain & stiffness (< First motion, > Continuous walk)', 'Respiratory cough / wheezing flare (< Cold drafts)'],
+          HI: ['तेज टीस मारने वाला सिरदर्द (धूप में बढ़ना, ठंडे पानी से आराम)', 'त्वचा में दाने, खुजली व जलन (गर्मी से बढ़ना)', 'पेट में जलन व दर्द (गर्म पानी पीने से आराम)', 'जोड़ों में दर्द व जकड़न (चलने-फिरने से आराम)', 'खांसी, सांस फूलना व सीटी की आवाज (ठंडी हवा से बढ़ना)'],
+          GU: ['ધબકારા મારતો માથાનો દુખાવો (તડકામાં વધવો, ઠંડા પાણીથી રાહત)', 'ચામડી પર ખંજવાળ અને બળતરા (ગરમીથી વધવી)', 'પેટમાં બળતરા અને દુખાવો (ગરમ પીણાંથી રાહત)', 'સાંધાનો દુખાવો અને જકડન (ચાલવાથી રાહત)', 'ખાંસી અને શ્વાસ ચડવો (ઠંડી હવાથી વધવો)'],
+        };
+        return {
+          question: qHomeo[lang],
+          questionLanguage: lang,
+          questionCategory: 'HOMEOPATHY',
+          touchOptions: optHomeo[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Homeopathic individualizing totality and modality opening',
+        };
+      }
+
+      // 1C. Allopathy General / Specialty Initial Opening
       const qText = {
         EN: isCaregiver
           ? `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns the patient is experiencing today?`

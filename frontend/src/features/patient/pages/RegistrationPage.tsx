@@ -119,6 +119,7 @@ export function RegistrationPage() {
 
     const selectedDoc = doctors.find((d) => d.id === selectedDoctorId);
     const selectedDeptId = selectedDoc?.departmentId || formData.departmentId || departments[0]?.id || 'GEN';
+    const effectiveCarePath = selectedSystem === 'AYURVEDA' ? 'AYUSH' : selectedSystem === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY';
 
     setIsSubmitting(true);
     try {
@@ -133,6 +134,8 @@ export function RegistrationPage() {
         preferredLang: (language || 'en').toUpperCase(),
         abhaId: formData.abhaId.trim() || undefined,
         departmentId: selectedDeptId,
+        departmentCode: selectedSystem === 'AYURVEDA' || selectedSystem === 'HOMEOPATHY' ? 'AYUSH' : (selectedDoc?.departmentCode || 'GEN'),
+        carePath: effectiveCarePath,
         doctorId: selectedDoctorId || undefined,
         reasonForVisit: formData.reasonForVisit.trim() || undefined,
         pastMedicalHistory: formData.pastMedicalHistory.trim() || undefined,
@@ -143,6 +146,8 @@ export function RegistrationPage() {
       const res = await api.patients.register(payload);
 
       if (res?.patient) {
+        localStorage.setItem('medikiosk_care_path', effectiveCarePath);
+        localStorage.setItem('medikiosk_selected_system', selectedSystem);
         localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...res.patient, isNewPatient: true, isReturning: false }));
         localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.visit));
         localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.queueEntry));

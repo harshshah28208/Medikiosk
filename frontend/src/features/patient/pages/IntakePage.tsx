@@ -56,19 +56,41 @@ export function IntakePage() {
       try {
         const storedVisit = localStorage.getItem('medikiosk_active_visit');
         const storedPatient = localStorage.getItem('medikiosk_active_patient');
+        const storedDoctor = localStorage.getItem('medikiosk_active_doctor');
+        const storedCarePath = localStorage.getItem('medikiosk_care_path');
+        const storedTargetComplaint = localStorage.getItem('medikiosk_target_complaint');
+        const storedVisitType = localStorage.getItem('medikiosk_visit_type');
         const recentChanges = localStorage.getItem('medikiosk_recent_changes') || undefined;
+
         const parsedVisit = storedVisit ? JSON.parse(storedVisit) : null;
         const parsedPatient = storedPatient ? JSON.parse(storedPatient) : null;
+        const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
         const currentLang = activeLangRef.current;
         const respondentType = localStorage.getItem('medikiosk_respondent_type') || 'PATIENT';
-        const isReturning = Boolean(
-          !parsedPatient?.isNewPatient &&
+        const isNewCase = storedVisitType === 'NEW_CASE';
+        const isReturning = storedVisitType === 'FOLLOW_UP' || Boolean(
+          !isNewCase && !parsedPatient?.isNewPatient &&
           (recentChanges || parsedPatient?.isReturning || (parsedPatient?.visits && parsedPatient.visits.length > 1))
         );
 
-        const res = await api.conversation.start(vId, currentLang.toUpperCase(), false, respondentType, {
+        let carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = 'ALLOPATHY';
+        if (storedCarePath === 'AYUSH' || storedCarePath === 'AYURVEDA' || parsedDoctor?.system === 'AYURVEDA') {
+          carePath = 'AYUSH';
+        } else if (storedCarePath === 'HOMEOPATHY' || parsedDoctor?.system === 'HOMEOPATHY') {
+          carePath = 'HOMEOPATHY';
+        } else if (parsedVisit?.department?.code === 'AYUSH' || parsedVisit?.department?.name?.toLowerCase().includes('ayush')) {
+          carePath = 'AYUSH';
+        }
+
+        const specialty = parsedDoctor?.specialization || parsedVisit?.department?.name || (carePath === 'AYUSH' ? 'Ayurveda' : carePath === 'HOMEOPATHY' ? 'Classical Homeopathy' : 'General Medicine');
+
+        const res = await api.conversation.start(vId, currentLang.toUpperCase(), carePath === 'AYUSH', respondentType, {
+          carePath,
+          specialty,
+          targetComplaint: storedTargetComplaint || parsedVisit?.reasonForVisit,
+          isNewCase,
           isReturningPatient: isReturning,
           recentChanges,
           previousPatientInfo: parsedPatient,
@@ -77,9 +99,9 @@ export function IntakePage() {
         if (isMounted && res?.session) {
           setSession(res.session);
           const initialMsg: ChatMessage = {
-            id: res.message.id || 'welcome',
+            id: res.message?.id || 'welcome',
             role: 'AI',
-            content: res.message.content,
+            content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             options: res.touchOptions || [],
           };
@@ -87,7 +109,7 @@ export function IntakePage() {
           setTouchOptions(res.touchOptions || []);
 
           if (audioEnabled) {
-            speechProvider.speak(res.message.content, currentLang);
+            speechProvider.speak(res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.', currentLang);
           }
         }
       } catch (err) {
@@ -139,12 +161,26 @@ export function IntakePage() {
     setIsProcessing(true);
 
     try {
+      const storedDoctor = localStorage.getItem('medikiosk_active_doctor');
+      const storedCarePath = localStorage.getItem('medikiosk_care_path');
+      const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
+      let carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = 'ALLOPATHY';
+      if (storedCarePath === 'AYUSH' || storedCarePath === 'AYURVEDA' || parsedDoctor?.system === 'AYURVEDA') {
+        carePath = 'AYUSH';
+      } else if (storedCarePath === 'HOMEOPATHY' || parsedDoctor?.system === 'HOMEOPATHY') {
+        carePath = 'HOMEOPATHY';
+      }
+
       const currentLang = activeLangRef.current;
       const sessionId = session?.id || 'demo-session';
       const res = await api.conversation.sendMessage(sessionId, {
         content: textToSend.trim(),
         inputMethod: method,
         language: currentLang.toUpperCase(),
+        carePath,
+        specialty: parsedDoctor?.specialization || (carePath === 'AYUSH' ? 'Ayurveda' : carePath === 'HOMEOPATHY' ? 'Classical Homeopathy' : 'General Medicine'),
+        isAyush: carePath === 'AYUSH',
+        isHomeopathy: carePath === 'HOMEOPATHY',
       });
 
       if (res?.nextQuestion) {
