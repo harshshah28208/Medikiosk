@@ -63,7 +63,32 @@ export function LanguagePage() {
           })}
         </div>
 
-        {/* Quick Route Cards: New Patient vs Existing Patient */}
+        {/* Quick Route Cards: Follow-up continuation vs New Patient vs Existing Patient */}
+        {localStorage.getItem('medikiosk_visit_type') === 'FOLLOW_UP' && (
+          <button
+            onClick={() => {
+              speechProvider.stopSpeaking();
+              const storedVisit = localStorage.getItem('medikiosk_active_visit');
+              const parsed = storedVisit ? JSON.parse(storedVisit) : null;
+              navigate(`/kiosk/intake/${parsed?.id || 'follow-up'}`);
+            }}
+            className="w-full mb-4 p-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-between transition-all touch-target text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                <ArrowRight className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold">Continue to Follow-Up AI Intake</h2>
+                <p className="text-xs text-emerald-100">
+                  {localStorage.getItem('medikiosk_target_complaint') ? `For: ${localStorage.getItem('medikiosk_target_complaint')}` : 'Continue follow-up questionnaire'}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold bg-white text-emerald-800 px-3 py-1.5 rounded-xl shadow-sm">Proceed →</span>
+          </button>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
           <button
             onClick={() => {
@@ -71,6 +96,8 @@ export function LanguagePage() {
               localStorage.removeItem('medikiosk_active_patient');
               localStorage.removeItem('medikiosk_active_visit');
               localStorage.removeItem('medikiosk_active_queue');
+              localStorage.removeItem('medikiosk_visit_type');
+              localStorage.removeItem('medikiosk_target_complaint');
               navigate('/kiosk/register');
             }}
             className="flex items-center gap-4 p-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/30 transition-all touch-target text-left"

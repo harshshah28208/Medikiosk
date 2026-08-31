@@ -412,8 +412,22 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
  * GET /api/doctor/timeline/:patientId
  * Get the longitudinal clinical history for a patient (past visits, complaints, summaries).
  */
-router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/timeline/:patientId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
+
+  // If requester is a patient, ensure they are requesting their own timeline
+  if (req.user?.role === 'PATIENT') {
+    const isOwnRecord = req.user.id === patientId || (req.user as any).patientId === patientId;
+    if (!isOwnRecord) {
+      const p = await prisma.patient.findFirst({
+        where: { OR: [{ userId: req.user.id }, { id: patientId }] },
+      });
+      if (!p || (p.userId && p.userId !== req.user.id && p.id !== patientId)) {
+        res.status(403).json({ error: 'Access denied. You can only view your own longitudinal history.' });
+        return;
+      }
+    }
+  }
 
   const visits = await prisma.visit.findMany({
     where: { patientId },

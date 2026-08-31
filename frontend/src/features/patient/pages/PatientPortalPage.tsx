@@ -309,14 +309,53 @@ Prescription: ${item.lastPrescription || 'None'}
     navigate('/kiosk/language');
   };
 
-  const handleSelectFollowUpEncounter = (record: any) => {
+  const handleSelectFollowUpEncounter = async (record: any) => {
     const targetComplaint = record?.chiefComplaint || record?.doctor?.diagnosis || record?.title || 'Follow-up Consultation';
+    const followUpVisitId = record?.id || record?.visitId || '';
+
+    // Clear old intake session data so follow-up starts fresh
+    localStorage.removeItem('medikiosk_active_session_data');
+    localStorage.removeItem('medikiosk_active_session');
     localStorage.setItem('medikiosk_recent_changes', `Follow-up visit for previous condition: ${targetComplaint}`);
     localStorage.setItem('medikiosk_target_complaint', targetComplaint);
-    localStorage.setItem('medikiosk_follow_up_visit_id', record?.id || record?.visitId || '');
+    localStorage.setItem('medikiosk_follow_up_visit_id', followUpVisitId);
     localStorage.setItem('medikiosk_visit_type', 'FOLLOW_UP');
+
+    const p = patient || (localStorage.getItem('medikiosk_active_patient') ? JSON.parse(localStorage.getItem('medikiosk_active_patient')!) : null);
+    if (p) {
+      localStorage.setItem('medikiosk_active_patient', JSON.stringify({
+        ...p,
+        isReturning: true,
+        isNewPatient: false,
+      }));
+
+      // Try registering the follow-up visit directly so we can open the question panel immediately!
+      try {
+        const regRes = await api.patients.register({
+          name: p.name || 'Patient',
+          phone: p.phone || '9876543210',
+          age: p.age || 35,
+          gender: p.gender || 'MALE',
+          preferredLang: (p.preferredLang || 'en').toUpperCase(),
+          departmentCode: record?.departmentCode || p.departmentCode || 'GEN',
+          reasonForVisit: `Follow-up: ${targetComplaint}`,
+          abhaId: p.abhaId || undefined,
+        });
+
+        if (regRes?.visit) {
+          localStorage.setItem('medikiosk_active_visit', JSON.stringify(regRes.visit));
+          localStorage.setItem('medikiosk_active_queue', JSON.stringify(regRes.queueEntry));
+          setIsActionModalOpen(false);
+          navigate(`/kiosk/intake/${regRes.visit.id}`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Follow-up visit auto-registration notice:', err);
+      }
+    }
+
     setIsActionModalOpen(false);
-    navigate('/kiosk/language');
+    navigate('/kiosk/intake/follow-up');
   };
 
   const handleFollowUp = (record?: any) => {

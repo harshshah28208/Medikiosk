@@ -4060,7 +4060,20 @@ Return ONLY valid JSON (no markdown formatting, no code fences):
       ], true);
 
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
+      if (parsed.isComplete || parsed.questionCategory === 'CLOSING') {
+        parsed.isComplete = true;
+        parsed.questionCategory = 'CLOSING';
+        parsed.question = language === 'HI'
+          ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
+          : language === 'GU'
+          ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
+          : 'Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
+        parsed.touchOptions = language === 'HI'
+          ? ['अपॉइंटमेंट के लिए आगे बढ़ें', 'सारांश देखें', 'एक और जानकारी जोड़ें']
+          : language === 'GU'
+          ? ['કન્સલ્ટેશન માટે આગળ વધો', 'વિગતો જુઓ', 'વધુ એક વિગત ઉમેરો']
+          : ['Proceed to Appointment', 'Review Summary', 'Add One More Detail'];
+      } else if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
         const fallbackQ = await this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
         parsed.touchOptions = fallbackQ.touchOptions;
       }

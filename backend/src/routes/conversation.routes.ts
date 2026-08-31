@@ -216,6 +216,19 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
       if (scoredVisits.length > 0) {
         // Use the highest scoring visit
         matchedVisit = scoredVisits[0].visit;
+      } else {
+        // Fallback: Use the most recent prior visit in the same care path, or simply the most recent prior visit
+        const sameCarePath = allPriorVisits.find(v => {
+          let vCare = 'ALLOPATHY';
+          if (v.sessions?.[0]?.clinicalState) {
+            try {
+              const st = JSON.parse(v.sessions[0].clinicalState);
+              if (st.carePath) vCare = st.carePath;
+            } catch (e) {}
+          }
+          return vCare === carePath;
+        });
+        matchedVisit = sameCarePath || allPriorVisits[0];
       }
     }
 
@@ -635,7 +648,26 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
 
   const combinedHistory = isGenuineFollowUp ? [...priorVisitChatHistory, ...pastMessages] : pastMessages;
   const nextQ = await activeAi.generateNextQuestion(state, currentLang, carePath, specialty, combinedHistory);
-  state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
+  
+  const isCompletionTriggered = isFinalAnswer || nextQ.isComplete;
+  let finalQuestion = nextQ.question;
+  let finalOptions = nextQ.touchOptions;
+
+  if (isCompletionTriggered) {
+    finalQuestion = currentLang === 'HI'
+      ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
+      : currentLang === 'GU'
+      ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
+      : 'Thank you. Your clinical intake is now complete. Your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
+
+    finalOptions = currentLang === 'HI'
+      ? ['अपॉइंटमेंट के लिए आगे बढ़ें', 'सारांश देखें', 'एक और जानकारी जोड़ें']
+      : currentLang === 'GU'
+      ? ['કન્સલ્ટેશન માટે આગળ વધો', 'વિગતો જુઓ', 'વધુ એક વિગત ઉમેરો']
+      : ['Proceed to Appointment', 'Review Summary', 'Add One More Detail'];
+  }
+
+  state.questionsAsked = [...(state.questionsAsked || []), finalQuestion];
 
   // 6. Save Updated State back to DB
   await prisma.conversationSession.update({
@@ -643,6 +675,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     data: {
       clinicalState: JSON.stringify(state),
       language: currentLang,
+      status: isCompletionTriggered ? 'COMPLETED' : 'ACTIVE',
     },
   });
 
@@ -651,18 +684,18 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     data: {
       sessionId: session.id,
       role: 'AI',
-      content: nextQ.question,
+      content: finalQuestion,
       contentLang: currentLang,
       inputMethod: 'TEXT',
-      metadata: JSON.stringify({ options: nextQ.touchOptions, category: nextQ.questionCategory }),
+      metadata: JSON.stringify({ options: finalOptions, category: isCompletionTriggered ? 'CLOSING' : nextQ.questionCategory }),
     },
   });
 
   res.json({
     aiMessage,
-    nextQuestion: nextQ.question,
-    touchOptions: nextQ.touchOptions,
-    isComplete: nextQ.isComplete || isFinalAnswer,
+    nextQuestion: finalQuestion,
+    touchOptions: finalOptions,
+    isComplete: isCompletionTriggered,
     hasRedFlag: detectedAlerts.length > 0,
     redFlagAlert: detectedAlerts[0] || null,
     clinicalState: state,
@@ -848,6 +881,89 @@ router.post('/:sessionId/complete', async (req: AuthRequest, res: Response): Pro
     clinicalHistory,
     clinicalSummary,
     appointment: followUpAppointment,
+  });
+});
+
+/**
+ * GET /api/conversation/:sessionId
+ * Retrieve a conversation session and its messages by ID.
+ */
+router.get('/:sessionId', async (req: AuthRequest, res: Response): Promise<void> => {
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : req.params.sessionId[0];
+
+  const session = await prisma.conversationSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      messages: {
+        orderBy: { timestamp: 'asc' },
+        select: {
+          id: true,
+          role: true,
+          content: true,
+          timestamp: true,
+          contentLang: true,
+          inputMethod: true,
+          metadata: true,
+        },
+      },
+      visit: {
+        include: {
+          patient: true,
+          department: true,
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    res.status(404).json({ error: 'Conversation session not found' });
+    return;
+  }
+
+  // Convert to the format expected by frontend
+  const formattedMessages = session.messages.map((msg: any) => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    timestamp: msg.timestamp,
+    options: msg.metadata ? (JSON.parse(msg.metadata) as { options?: string[] }).options || [] : undefined,
+  }));
+
+  res.json({
+    session: {
+      id: session.id,
+      visitId: session.visitId,
+      language: session.language,
+      inputMethod: session.inputMethod,
+      status: session.status,
+      clinicalState: session.clinicalState,
+      startedAt: session.startedAt,
+      completedAt: session.completedAt,
+    },
+    messages: formattedMessages,
+    visit: session.visit
+      ? {
+          id: session.visit.id,
+          patientId: session.visit.patientId,
+          departmentId: session.visit.departmentId,
+          status: session.visit.status,
+          reasonForVisit: session.visit.reasonForVisit,
+          patient: session.visit.patient
+            ? {
+                id: session.visit.patient.id,
+                name: session.visit.patient.name,
+                mrn: session.visit.patient.mrn,
+              }
+            : null,
+          department: session.visit.department
+            ? {
+                id: session.visit.department.id,
+                name: session.visit.department.name,
+                code: session.visit.department.code,
+              }
+            : null,
+        }
+      : null,
   });
 });
 
