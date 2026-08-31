@@ -365,22 +365,64 @@ export function IntakePage() {
           </div>
         </header>
 
-        {/* Dynamic Adaptive Clinical Intake Indicator */}
-        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700/80 shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>
-              {language === 'hi'
-                ? 'अनुकूली AI क्लिनिकल साक्षात्कार • आपके उत्तरों के आधार पर लाइव विश्लेषण'
-                : language === 'gu'
-                ? 'અનુકૂલી AI ક્લિનિકલ પૂછપરછ • આપના જવાબો અનુસાર લાઈવ પ્રશ્નો'
-                : 'Adaptive Clinical AI • Formulating dynamic follow-up questions tailored to your symptoms'}
-            </span>
-          </div>
-          <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30">
-            {messages.filter(m => m.role === 'AI').length} {language === 'hi' ? 'प्रश्न पूछे गए' : language === 'gu' ? 'પ્રશ્નો પૂછાયા' : 'Questions'}
-          </span>
-        </div>
+        {/* Visual 4-Stage Clinical Intake Progress Stepper */}
+        {(() => {
+          const aiCount = messages.filter(m => m.role === 'AI').length;
+          const currentStage = isComplete || aiCount >= 6 ? 4 : aiCount >= 4 ? 3 : aiCount >= 2 ? 2 : 1;
+          const stages = [
+            { num: 1, label: language === 'hi' ? 'मुख्य समस्या' : language === 'gu' ? 'મુખ્ય સમસ્યા' : 'Chief Concern' },
+            { num: 2, label: language === 'hi' ? 'लक्षण विस्तार' : language === 'gu' ? 'લક્ષણ વિગત' : 'Symptom Details' },
+            { num: 3, label: language === 'hi' ? 'स्वास्थ्य इतिहास' : language === 'gu' ? 'ઇતિહાસ' : 'Medical History' },
+            { num: 4, label: language === 'hi' ? 'समीक्षा व डॉक्टर' : language === 'gu' ? 'ડૉક્ટર સમીક્ષા' : 'Doctor Review' },
+          ];
+
+          return (
+            <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 shrink-0">
+              <div className="flex items-center justify-between gap-1 max-w-2xl mx-auto">
+                {stages.map((st, sIdx) => {
+                  const isActive = currentStage === st.num;
+                  const isDone = currentStage > st.num || isComplete;
+
+                  return (
+                    <React.Fragment key={st.num}>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                            isDone
+                              ? 'bg-emerald-500 text-white shadow-sm'
+                              : isActive
+                              ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}
+                        >
+                          {isDone ? '✓' : st.num}
+                        </div>
+                        <span
+                          className={`text-[11px] font-semibold hidden sm:inline ${
+                            isActive
+                              ? 'text-blue-300'
+                              : isDone
+                              ? 'text-emerald-300'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {st.label}
+                        </span>
+                      </div>
+                      {sIdx < stages.length - 1 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-1 transition-all ${
+                            currentStage > st.num ? 'bg-emerald-500/60' : 'bg-slate-800'
+                          }`}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Emergency Red Flag Notice Banner */}
         {redFlagAlert && (

@@ -6,7 +6,7 @@ import {
   Heart, Calendar, FileText, Activity, ShieldCheck,
   Stethoscope, Clock, ChevronRight, User, Pill, Sparkles,
   ArrowRight, Upload, Phone, LogOut, CheckCircle2, Download, Printer,
-  Eye, X, AlertCircle, ClipboardList, ShieldAlert
+  Eye, X, AlertCircle, ClipboardList, ShieldAlert, RefreshCw
 } from 'lucide-react';
 
 export function PatientPortalPage() {
@@ -292,6 +292,17 @@ Prescription: ${item.lastPrescription || 'None'}
   };
 
   const handleStartNewConsultation = () => {
+    localStorage.removeItem('medikiosk_recent_changes');
+    localStorage.removeItem('medikiosk_target_complaint');
+    localStorage.setItem('medikiosk_visit_type', 'NEW_CASE');
+    navigate('/kiosk/language');
+  };
+
+  const handleFollowUp = (record?: any) => {
+    const targetComplaint = record?.chiefComplaint || record?.doctor?.diagnosis || record?.title || 'Follow-up Consultation';
+    localStorage.setItem('medikiosk_recent_changes', `Follow-up visit for previous condition: ${targetComplaint}`);
+    localStorage.setItem('medikiosk_target_complaint', targetComplaint);
+    localStorage.setItem('medikiosk_visit_type', 'FOLLOW_UP');
     navigate('/kiosk/language');
   };
 
@@ -676,6 +687,15 @@ Prescription: ${item.lastPrescription || 'None'}
                       <span className="text-xs text-slate-400 font-mono">
                         {item.date ? new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Today'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleFollowUp(item)}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 hover:border-emerald-600 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                        title="Start a follow-up consultation for this condition"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Book Follow-up</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDownloadSingleRecord(item, totalRecs - idx)}
