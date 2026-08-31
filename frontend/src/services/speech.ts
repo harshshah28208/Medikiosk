@@ -98,6 +98,44 @@ export class SpeechProvider {
     }
   }
 
+  private speakWithWebSpeech(cleanText: string, language: 'en' | 'hi' | 'gu'): Promise<void> {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        resolve();
+        return;
+      }
+
+      try {
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        const langLocale = language === 'hi' ? 'hi-IN' : language === 'gu' ? 'gu-IN' : 'en-IN';
+        utterance.lang = langLocale;
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+
+        // Try to match appropriate localized voice
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) {
+          const match = voices.find(v => {
+            const vLang = v.lang.replace('_', '-').toLowerCase();
+            return vLang.startsWith(language) || vLang === langLocale.toLowerCase();
+          });
+          if (match) {
+            utterance.voice = match;
+          }
+        }
+
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        resolve();
+      }
+    });
+  }
+
   speak(text: string, language: 'en' | 'hi' | 'gu'): Promise<void> {
     return new Promise((resolve) => {
       if (!text || typeof window === 'undefined') {
@@ -121,35 +159,25 @@ export class SpeechProvider {
       const audio = new Audio(audioUrl);
       this.currentAudio = audio;
 
-      audio.onended = () => {
-        this.currentAudio = null;
-        resolve();
-      };
-
-      audio.onerror = () => {
-        // Fallback to browser Web Speech API if offline
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.lang = language === 'hi' ? 'hi-IN' : language === 'gu' ? 'gu-IN' : 'en-IN';
-          utterance.onend = () => resolve();
-          utterance.onerror = () => resolve();
-          window.speechSynthesis.speak(utterance);
-        } else {
+      let isFinished = false;
+      const finish = () => {
+        if (!isFinished) {
+          isFinished = true;
+          this.currentAudio = null;
           resolve();
         }
+      };
+
+      audio.onended = finish;
+
+      audio.onerror = () => {
+        // Fallback to browser Web Speech API if remote TTS is unreachable
+        this.speakWithWebSpeech(cleanText, language).then(finish);
       };
 
       audio.play().catch(() => {
-        // Fallback for autoplay policy
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.lang = language === 'hi' ? 'hi-IN' : language === 'gu' ? 'gu-IN' : 'en-IN';
-          utterance.onend = () => resolve();
-          utterance.onerror = () => resolve();
-          window.speechSynthesis.speak(utterance);
-        } else {
-          resolve();
-        }
+        // Autoplay policy fallback
+        this.speakWithWebSpeech(cleanText, language).then(finish);
       });
     });
   }

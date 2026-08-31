@@ -465,7 +465,22 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     GU: 'દવાથી પેટમાં ગેસ/ઉબકા જેવું થયું',
   },
 
-  // Closing
+  // Closing & Phase B Handoff
+  {
+    EN: 'Proceed to Appointment',
+    HI: 'अपॉइंटमेंट के लिए आगे बढ़ें',
+    GU: 'કન્સલ્ટેશન માટે આગળ વધો',
+  },
+  {
+    EN: 'Review Summary',
+    HI: 'सारांश देखें',
+    GU: 'વિગતો જુઓ',
+  },
+  {
+    EN: 'Add One More Detail',
+    HI: 'एक और जानकारी जोड़ें',
+    GU: 'વધુ એક વિગત ઉમેરો',
+  },
   {
     EN: 'No, that covers all symptoms — complete intake',
     HI: 'नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें',
@@ -475,6 +490,87 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     EN: 'Yes, I want to add one more detail',
     HI: 'हाँ, मुझे एक और लक्षण बताना है',
     GU: 'હા, મારે બીજું એક લક્ષણ જણાવવું છે',
+  },
+
+  // General & Triage Symptoms
+  {
+    EN: 'Fever / Body Ache',
+    HI: 'बुखार / शरीर दर्द',
+    GU: 'તાવ / શરીરનો દુખાવો',
+  },
+  {
+    EN: 'Chest Pain / Pressure',
+    HI: 'सीने में दर्द / दबाव',
+    GU: 'છાતીમાં દુખાવો / દબાણ',
+  },
+  {
+    EN: 'Severe Abdominal Pain',
+    HI: 'पेट में तेज़ दर्द',
+    GU: 'પેટમાં તીવ્ર દુખાવો',
+  },
+  {
+    EN: 'Cough / Breathlessness',
+    HI: 'खांसी / सांस में तकलीफ',
+    GU: 'ખાંસી / શ્વાસ લેવામાં તકલીફ',
+  },
+  {
+    EN: 'Headache / Dizziness',
+    HI: 'सिरदर्द / चक्कर आना',
+    GU: 'માથાનો દુખાવો / ચક્કર',
+  },
+
+  // AYUSH & Ayurveda Intake Options
+  {
+    EN: 'Acidity, heartburn & sour burps',
+    HI: 'एसिडिटी, सीने में जलन और खट्टी डकारें',
+    GU: 'એસિડિટી, છાતીમાં બળતરા અને ખાટા ઓડકાર',
+  },
+  {
+    EN: 'Sluggish digestion & gas',
+    HI: 'मंदाग्नि, भारीपन और पेट में गैस',
+    GU: 'મંદ પાચન, ભારેપણું અને પેટમાં ગેસ',
+  },
+  {
+    EN: 'Joint pain & body stiffness',
+    HI: 'जोड़ों का दर्द और शरीर में जकड़न',
+    GU: 'સાંધાનો દુખાવો અને શરીરમાં જકડન',
+  },
+  {
+    EN: 'Chronic cough & sinus',
+    HI: 'पुरानी खांसी और साइनस/कफ',
+    GU: 'જૂની ખાંસી અને સાઇનસ/કફ',
+  },
+  {
+    EN: 'Skin itching & eruptions',
+    HI: 'त्वचा में खुजली और चकत्ते',
+    GU: 'ચામડી પર ખંજવાળ અને ચકામા',
+  },
+
+  // Homeopathy Intake Options
+  {
+    EN: 'Throbbing headache (< Sun, > Cold)',
+    HI: 'टीस मारने वाला सिरदर्द (धूप से बढ़ता, ठंडे से आराम)',
+    GU: 'ધબકારા મારતો માથાનો દુખાવો (તડકામાં વધે, ઠંડકથી રાહત)',
+  },
+  {
+    EN: 'Skin itching & eczema (< Warmth)',
+    HI: 'त्वचा में खुजली और एग्जिमा (गर्मी से बढ़ता)',
+    GU: 'ચામડીમાં ખંજવાળ અને ખરજવું (ગરમીથી વધે)',
+  },
+  {
+    EN: 'Chronic acidity & gastric reflux',
+    HI: 'पुरानी एसिडिटी और सीने में जलन',
+    GU: 'જૂની એસિડિટી અને ગેસ્ટ્રિક રિફ્લક્સ',
+  },
+  {
+    EN: 'Joint pain (< First motion)',
+    HI: 'जोड़ों का दर्द (चलना शुरू करने पर ज्यादा)',
+    GU: 'સાંધાનો દુખાવો (હલનચલન શરૂ કરતા વધે)',
+  },
+  {
+    EN: 'Cough / asthma flare (< Cold drafts)',
+    HI: 'खांसी / दमा का दौरा (ठंडी हवा से बढ़ता)',
+    GU: 'ખાંસી / દમનો હુમલો (ઠંડી હવાથી વધે)',
   },
 ];
 
@@ -805,6 +901,26 @@ export class UniversalClinicalEngine implements AIProvider {
 
     const tLower = text.toLowerCase();
 
+    // Check Phase B Closing Statement
+    if (/clinical questioning.*complete|clinical intake.*complete|questioning is now complete|क्लिनिकल पूछताछ पूरी हो गई|ક્લિનિકલ પૂછપરછ પૂર્ણ|પૂછપરછ પૂર્ણ/i.test(tLower)) {
+      const q = {
+        EN: "Thank you. Your clinical questioning is now complete. Your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.",
+        HI: "धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।",
+        GU: "ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Initial Welcome / Chief Complaint Question
+    if (/welcome to|what main symptom|health concern|brought you|स्वास्थ्य समस्या|लक्षण महसूस|શારીરિક તકલીફ|લક્ષણો જણાય|મુખ્ય તકલીફ/i.test(tLower)) {
+      const q = {
+        EN: "Welcome to MediKiosk. What main symptom or health concern brought you in today?",
+        HI: "मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?",
+        GU: "મેડીકિયોસ્ક માં આપનું સ્વાગત છે। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?",
+      };
+      return q[targetLanguage];
+    }
+
     // Check Stage 1: Lifestyle & Daily Routine
     if (tLower.includes('lifestyle') || tLower.includes('sleep') || tLower.includes('routine') || tLower.includes('diet') || tLower.includes('जीवनशैली') || tLower.includes('नींद') || tLower.includes('दिनचर्या') || tLower.includes('खान-पान') || tLower.includes('દિનચર્યા') || tLower.includes('ઊંઘ') || tLower.includes('ખોરાક')) {
       return CLINICAL_TRANSLATIONS.lifestyle[targetLanguage];
@@ -813,6 +929,16 @@ export class UniversalClinicalEngine implements AIProvider {
     // Check Stage 2: Medical History & Allergies
     if (tLower.includes('medical conditions') || tLower.includes('allergy') || tLower.includes('allergies') || tLower.includes('chronic') || tLower.includes('thyroid') || tLower.includes('diabetes') || tLower.includes('पुरानी बीमारी') || tLower.includes('एलर्जी') || tLower.includes('थायराइड') || tLower.includes('જૂની બીમારી') || tLower.includes('એલર્જી') || tLower.includes('ડાયાબિટીસ')) {
       return CLINICAL_TRANSLATIONS.medical_history[targetLanguage];
+    }
+
+    // Check Fever / Respiratory / Sore Throat
+    if (/fever|cough|breath|throat|बुखार|खांसी|गले|તાવ|ઉધરસ|શ્વાસ|ગળા/i.test(tLower)) {
+      const q = {
+        EN: "Are you having a high fever with chills, body ache, or difficulty breathing, and is there any cough or sore throat?",
+        HI: "क्या आपको ठंड लगकर तेज बुखार, बदन दर्द या सांस लेने में तकलीफ है, और क्या खांसी या गले में दर्द हो रहा है?",
+        GU: "શું આપને ઠંડી લાગીને તીવ્ર તાવ, શરીરનો દુખાવો કે શ્વાસ લેવામાં તકલીફ છે, અને ખાંસી કે ગળામાં દુખાવો થાય છે?",
+      };
+      return q[targetLanguage];
     }
 
     // Check Lower Back Pain / Sciatica

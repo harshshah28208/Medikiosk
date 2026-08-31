@@ -333,27 +333,49 @@ export function IntakePage() {
     activeLangRef.current = newLang;
     speechProvider.stopSpeaking();
 
+    const fallbackOptions: Record<LanguageCode, string[]> = {
+      en: ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'],
+      hi: ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'],
+      gu: ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'],
+    };
+
     if (session?.id) {
       try {
         const res = await api.conversation.switchLanguage(session.id, newLang.toUpperCase(), messages);
-        
+        const latestQ = res?.activeQuestion || res?.latestQuestion;
+        const opts = (res?.touchOptions && res.touchOptions.length > 0) ? res.touchOptions : fallbackOptions[newLang];
+
         if (res?.translatedMessages && res.translatedMessages.length > 0) {
           setMessages(res.translatedMessages);
+        } else if (latestQ) {
+          setMessages((prev) => {
+            if (prev.length === 0) return prev;
+            const updated = [...prev];
+            const lastAiIdx = updated.map(m => m.role).lastIndexOf('AI');
+            if (lastAiIdx !== -1) {
+              updated[lastAiIdx] = {
+                ...updated[lastAiIdx],
+                content: latestQ,
+                options: opts,
+              };
+            }
+            return updated;
+          });
         }
 
-        if (res?.touchOptions) {
-          setTouchOptions(res.touchOptions);
-        }
+        setTouchOptions(opts);
 
-        if (res?.latestQuestion && audioEnabled) {
-          speechProvider.speak(res.latestQuestion, newLang);
+        if (latestQ && audioEnabled) {
+          speechProvider.speak(latestQ, newLang);
         }
       } catch (err) {
         console.warn('Language switch translation fallback:', err);
+        setTouchOptions(fallbackOptions[newLang]);
       } finally {
         isSwitchingLangRef.current = false;
       }
     } else {
+      setTouchOptions(fallbackOptions[newLang]);
       isSwitchingLangRef.current = false;
     }
   };
