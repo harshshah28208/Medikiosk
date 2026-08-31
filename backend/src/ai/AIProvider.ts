@@ -1523,9 +1523,10 @@ export class UniversalClinicalEngine implements AIProvider {
       // 1C. Specialty-Specific & Doctor-Specific Initial Openings
       const specLower = effectiveSpecialty.toLowerCase();
       const docName = (state as any).doctorName || null;
-      const docPrefixEN = docName ? ` (Dr. ${docName})` : '';
-      const docPrefixHI = docName ? ` (डॉ. ${docName})` : '';
-      const docPrefixGU = docName ? ` (ડૉ. ${docName})` : '';
+      const cleanDocName = docName ? docName.replace(/^(dr\.?|doctor|वैद्य|ડૉ\.?)\s+/i, '').trim() : null;
+      const docPrefixEN = cleanDocName ? ` (Dr. ${cleanDocName})` : '';
+      const docPrefixHI = cleanDocName ? ` (डॉ. ${cleanDocName})` : '';
+      const docPrefixGU = cleanDocName ? ` (ડૉ. ${cleanDocName})` : '';
 
       // Dermatology
       if (/dermatolog|skin|त्वचा|ચામડી/i.test(specLower)) {
@@ -1880,11 +1881,10 @@ export class UniversalClinicalEngine implements AIProvider {
           clinicalRationale: 'Specialized Urology Intake: Evaluating dysuria, renal colic, stream changes, and hematuria',
         };
       }
-
       // Default & Extensible Clinic Opening (Dynamically adapts to ANY new specialty or doctor)
-      const clinicPrefixEN = docName ? `Dr. ${docName}'s ${effectiveSpecialty} Clinic` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} Clinic` : 'MediKiosk');
-      const clinicPrefixHI = docName ? `डॉ. ${docName} के ${effectiveSpecialty} विभाग` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} विभाग` : 'मेडीकियोस्क');
-      const clinicPrefixGU = docName ? `ડૉ. ${docName} ના ${effectiveSpecialty} વિભાગ` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} વિભાગ` : 'મેડીકિયોસ્ક');
+      const clinicPrefixEN = cleanDocName ? `Dr. ${cleanDocName}'s ${effectiveSpecialty} Clinic` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} Clinic` : 'MediKiosk');
+      const clinicPrefixHI = cleanDocName ? `डॉ. ${cleanDocName} के ${effectiveSpecialty} विभाग` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} विभाग` : 'मेडीकियोस्क');
+      const clinicPrefixGU = cleanDocName ? `ડૉ. ${cleanDocName} ના ${effectiveSpecialty} વિભાગ` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} વિભાગ` : 'મેડીકિયોસ્ક');
 
       const qText = {
         EN: isCaregiver
@@ -1919,7 +1919,7 @@ export class UniversalClinicalEngine implements AIProvider {
     // ----------------------------------------------------
     if (effectiveCarePath === 'AYUSH') {
       const turns = state.turnsCompleted || 0;
-      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+      if (turns <= 1 && !answeredDimensions.has('CHARACTER')) {
         const qText = {
           EN: `What is the specific nature of your ${localizedLabel} (sharp burning heat, throbbing pulsation, or heavy dull ache), and does it worsen in hot sun, after meals, or in cold air?`,
           HI: `आपकी ${localizedLabel} की प्रकृति कैसी है (तेज जलन व तीखा दर्द, धड़कन जैसी टीस, या भारीपन भरा दर्द), और क्या यह धूप, भोजन के बाद या ठंडी हवा में बढ़ता है?`,
@@ -1940,9 +1940,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'AYUSH Dosha profiling: Shirahshula etiology (Vataja/Pittaja/Kaphaja/Amaja)',
         };
-      }
-
-      if (turns === 2 || !state.ayushAssessment?.agni || !state.ayushAssessment?.koshtha) {
+      } else if (turns === 2 && !answeredDimensions.has('TRIGGERS')) {
         const qText = {
           EN: `How is your appetite and digestion (do you feel bloated/heavy after meals, or acidity), and are your bowel movements regular or constipated?`,
           HI: `आपकी भूख और पाचन (अग्नि) कैसी है (क्या खाने के बाद भारीपन या खट्टी डकारें आती हैं), और क्या पेट रोज साफ होता है या कब्ज रहती है?`,
@@ -1963,9 +1961,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'AYUSH Agni & Koshtha Pariksha for metabolic digestive fire and bowel disposition',
         };
-      }
-
-      if (turns === 3 || !state.ayushAssessment?.ahara || !state.ayushAssessment?.vihara) {
+      } else if (turns === 3 && !answeredDimensions.has('LIFESTYLE')) {
         const qText = {
           EN: `What are your daily dietary habits (preference for spicy, oily, or tea/coffee), and what is your sleep routine (do you sleep late at night or take day naps)?`,
           HI: `आपकी खान-पान की आदतें कैसी हैं (तला-भुना, तीखा, चाय/कॉफी अधिक), और सोने की दिनचर्या कैसी है (क्या देर रात जागते हैं या दिन में सोते हैं)?`,
@@ -1986,9 +1982,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'AYUSH Ahara-Vihara assessment for dietary triggers and lifestyle circadian balance',
         };
-      }
-
-      if (turns === 4 || !state.ayushAssessment?.prakriti) {
+      } else if (turns === 4 && !answeredDimensions.has('PAST_HISTORY')) {
         const qText = {
           EN: `How is your natural body temperature tolerance (do you feel excess internal heat or get chilled easily), and do you notice dry skin, joint cracking, or mental restlessness?`,
           HI: `आपकी शारीरिक प्रकृति व तापमान सहनशीलता कैसी है (क्या बहुत जल्दी गर्मी लगती है या ठंड लगती है), और क्या त्वचा में सूखापन या बेचैनी रहती है?`,
@@ -2017,7 +2011,7 @@ export class UniversalClinicalEngine implements AIProvider {
     // ----------------------------------------------------
     if (effectiveCarePath === 'HOMEOPATHY') {
       const turns = state.turnsCompleted || 0;
-      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+      if (turns <= 1 && !answeredDimensions.has('CHARACTER')) {
         const qText = {
           EN: `Can you describe the exact sensation of your ${localizedLabel} (throbbing, bursting, sharp stitching, or heavy band-like constriction), and is it located on the right or left side?`,
           HI: `आपकी ${localizedLabel} में दर्द का सटीक अनुभव कैसा है (टीस मारना, फटने जैसा, सुई चुभने जैसा, या पट्टी से बंधा हुआ), और क्या यह दाईं या बाईं तरफ ज्यादा है?`,
@@ -2038,9 +2032,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Homeopathic individualizing sensation and laterality evaluation',
         };
-      }
-
-      if (turns === 2 || !state.homeopathyAssessment?.modalities?.aggravating?.length) {
+      } else if (turns === 2 && !answeredDimensions.has('TRIGGERS')) {
         const qText = {
           EN: `What specific factors make your ${localizedLabel} worse (sun heat, motion, noise, light, afternoon) and what gives you relief (cold compress, tight bandage, dark room, hard pressure)?`,
           HI: `किस कारण से आपकी ${localizedLabel} बढ़ती है (धूप/गर्मी, हिलने-डुलने, आवाज, रोशनी) और किस चीज से आराम मिलता है (ठंडा पानी, कसकर पट्टी बांधना, अंधेरा कमरा, दबाने से)?`,
@@ -2061,9 +2053,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Homeopathic characteristic modalities (< Aggravation and > Amelioration)',
         };
-      }
-
-      if (turns === 3 || !state.homeopathyAssessment?.thermalState || !state.homeopathyAssessment?.thirst) {
+      } else if (turns === 3 && !answeredDimensions.has('LIFESTYLE')) {
         const qText = {
           EN: `How is your body temperature reaction (are you a chilly person who wants warmth, or hot desiring open cool air), and how is your thirst for water during this complaint?`,
           HI: `आपकी शारीरिक तासीर कैसी है (क्या ठंड ज्यादा लगती है और गर्माहट चाहिए, या गर्मी बर्दाश्त नहीं होती), और इस तकलीफ के दौरान प्यास कैसी लगती है?`,
@@ -2084,9 +2074,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Homeopathic general physical assessment: Thermal disposition & Thirst state',
         };
-      }
-
-      if (turns === 4 || !state.homeopathyAssessment?.mentalState) {
+      } else if (turns === 4 && !answeredDimensions.has('PAST_HISTORY')) {
         const qText = {
           EN: `How is your mental state and mood when you are suffering from ${localizedLabel} (irritable wanting silence, anxious & restless, or weeping easily)?`,
           HI: `इस ${localizedLabel} के दौरान आपका मानसिक स्वभाव व मनोदशा कैसी रहती है (गुस्सा व अकेले रहने की इच्छा, बेचैनी व घबराहट, या रोने जैसा मन)?`,
