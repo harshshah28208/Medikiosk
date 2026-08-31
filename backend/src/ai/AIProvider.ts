@@ -2124,9 +2124,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Neurology migraine aura & sudden vs gradual onset screening',
         };
-      }
-
-      if (turns === 2 || !answeredDimensions.has('CHARACTER')) {
+      } else if (turns === 2 && !answeredDimensions.has('SEVERITY')) {
         const qText = {
           EN: `Do you experience photophobia (light sensitivity), phonophobia (sound sensitivity), facial numbness, or tingling/weakness in your arms or legs?`,
           HI: `क्या आपको तेज रोशनी या आवाज से परेशानी होती है, चेहरे पर सुन्नपन, या हाथ-पैरों में झनझनाहट व कमजोरी महसूस होती है?`,
@@ -2147,9 +2145,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Neurology focal deficits and sensory photophobia/phonophobia evaluation',
         };
-      }
-
-      if (turns === 3 || !answeredDimensions.has('LIFESTYLE')) {
+      } else if (turns === 3 && !answeredDimensions.has('LIFESTYLE')) {
         const qText = {
           EN: `How many days per month do you experience these headaches, what triggers them (sleep loss, stress, screen time), and how often do you take pain relievers?`,
           HI: `महीने में कितने दिन आपको यह सिरदर्द होता है, क्या ट्रिगर करता है (नींद की कमी, तनाव, स्क्रीन टाइम), और कितनी बार दर्द निवारक दवा लेते हैं?`,
@@ -2170,9 +2166,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'Neurology migraine frequency, lifestyle triggers & medication overuse screening',
         };
-      }
-
-      if (turns === 4 || !answeredDimensions.has('PAST_HISTORY')) {
+      } else if (turns === 4 && !answeredDimensions.has('PAST_HISTORY')) {
         const qText = {
           EN: `Is there a family history of migraines or neurological conditions, have you had prior brain MRI/CT scans, and do you have any drug allergies?`,
           HI: `क्या आपके परिवार में किसी को माइग्रेन या तंत्रिका संबंधी बीमारी है, क्या पहले कोई ब्रेन स्कैन/MRI हुआ है, और क्या किसी दवा से एलर्जी है?`,
@@ -2201,7 +2195,7 @@ export class UniversalClinicalEngine implements AIProvider {
     // ----------------------------------------------------
     if (effectiveCarePath === 'ALLOPATHY' && (effectiveSpecialty.toLowerCase().includes('ent') || effectiveSpecialty.toLowerCase().includes('ear'))) {
       const turns = state.turnsCompleted || 0;
-      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+      if (turns <= 1 && !answeredDimensions.has('CHARACTER')) {
         const qText = {
           EN: `Is the pain or heavy pressure concentrated across your forehead, bridge of nose, or cheeks, and does bending forward make it worse?`,
           HI: `क्या दर्द या भारीपन माथे, नाक की हड्डी या गालों के हिस्से पर केंद्रित है, और क्या आगे झुकने पर यह दबाव बढ़ जाता है?`,
@@ -2222,9 +2216,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'ENT acute rhinosinusitis and postural facial pressure evaluation',
         };
-      }
-
-      if (turns === 2 || !answeredDimensions.has('ONSET')) {
+      } else if (turns === 2 && !answeredDimensions.has('ONSET')) {
         const qText = {
           EN: `Do you have nasal congestion, thick yellow/green nasal discharge, post-nasal drip in your throat, or ear fullness/pressure?`,
           HI: `क्या आपकी नाक बंद है, पीला/हरा गाढ़ा स्राव आ रहा है, गले में कफ गिर रहा है (post-nasal drip), या कान में भारीपन लग रहा है?`,
@@ -2245,9 +2237,7 @@ export class UniversalClinicalEngine implements AIProvider {
           isComplete: false,
           clinicalRationale: 'ENT purulent rhinorrhea, Eustachian tube dysfunction & post-nasal drip evaluation',
         };
-      }
-
-      if (turns === 3 || !answeredDimensions.has('LIFESTYLE')) {
+      } else if (turns === 3 && !answeredDimensions.has('PAST_HISTORY')) {
         const qText = {
           EN: `Have you had chronic sinusitis, seasonal dust/cold allergies, or nasal polyps, and did this start after a recent cold or flu?`,
           HI: `क्या आपको पुरानी साइनस की समस्या, धूल/ठंड की एलर्जी है, और क्या यह हाल ही में हुए सर्दी-जुकाम के बाद शुरू हुआ?`,
