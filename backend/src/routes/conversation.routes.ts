@@ -331,6 +331,9 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
 
   const session = await prisma.conversationSession.findUnique({
     where: { id: sessionId },
+    include: {
+      messages: { orderBy: { timestamp: 'asc' } },
+    },
   });
 
   if (!session) {
@@ -338,23 +341,41 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
     return;
   }
 
-  let state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : (session.clinicalState as unknown as ClinicalState);
+  let state: ClinicalState = createInitialClinicalState(lang);
+  if (session.clinicalState) {
+    try {
+      state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : (session.clinicalState as unknown as ClinicalState);
+    } catch {}
+  }
   state.currentLanguage = lang;
 
   const activeAi = getAIProvider();
 
-  // Translate all input messages and touch options in parallel for ultra-fast response
-  const translatedMessages = await Promise.all(
-    messages.map(async (m: any) => {
-      const translatedContent = m.content ? await activeAi.translateText(m.content, lang) : m.content;
+  // Source of messages: either request body or database messages
+  let msgsToTranslate = (Array.isArray(messages) && messages.length > 0 ? messages : session.messages).map((m: any) => {
+    let opts: string[] = Array.isArray(m.options) && m.options.length > 0 ? m.options : [];
+    if (opts.length === 0) {
+      const dbMsg = session.messages.find(dm => dm.id === m.id) || session.messages.find(dm => dm.role === 'AI' && dm.metadata);
+      if (dbMsg?.metadata) {
+        try {
+          const meta = JSON.parse(dbMsg.metadata);
+          if (Array.isArray(meta?.options) && meta.options.length > 0) opts = meta.options;
+        } catch {}
+      }
+    }
+    return { id: m.id, role: m.role, content: m.content, options: opts, timestamp: m.timestamp };
+  });
 
+  // Translate messages and touch options in parallel
+  const translatedMessages = await Promise.all(
+    msgsToTranslate.map(async (m: any) => {
+      const translatedContent = m.content ? await activeAi.translateText(m.content, lang) : m.content;
       let translatedOpts = m.options;
       if (Array.isArray(m.options) && m.options.length > 0) {
         translatedOpts = await Promise.all(
           m.options.map((opt: string) => (opt ? activeAi.translateText(opt, lang) : opt))
         );
       }
-
       return {
         id: m.id,
         role: m.role,
@@ -365,6 +386,11 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
     })
   );
 
+  const lastAI = [...translatedMessages].reverse().find((m) => m.role === 'AI');
+  const activeQuestion = lastAI?.content || '';
+  const touchOptions = lastAI?.options || [];
+
+  // Update DB session and last message
   await prisma.conversationSession.update({
     where: { id: sessionId },
     data: {
@@ -373,13 +399,29 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
     },
   });
 
-  const lastAI = [...translatedMessages].reverse().find((m) => m.role === 'AI');
+  if (session.messages.length > 0) {
+    const lastDbAi = [...session.messages].reverse().find(m => m.role === 'AI');
+    if (lastDbAi) {
+      await prisma.conversationMessage.update({
+        where: { id: lastDbAi.id },
+        data: {
+          content: activeQuestion,
+          contentLang: lang,
+          metadata: JSON.stringify({ options: touchOptions }),
+        },
+      });
+    }
+  }
 
   res.json({
+    message: 'Language switched successfully',
     language: lang,
+    targetLanguage: lang,
     translatedMessages,
-    latestQuestion: lastAI?.content || '',
-    touchOptions: lastAI?.options || [],
+    activeQuestion,
+    latestQuestion: activeQuestion,
+    nextQuestion: activeQuestion,
+    touchOptions,
     clinicalState: state,
   });
 });
@@ -578,93 +620,6 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   });
 });
 
-/**
- * POST /api/conversation/:sessionId/switch-language
- * Switches session language, translates active AI question and touch options into target language
- * while preserving the underlying clinical state variables and completed turns.
- */
-router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Response): Promise<void> => {
-  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : req.params.sessionId[0];
-  const { targetLanguage } = req.body;
-
-  if (!targetLanguage || !['EN', 'HI', 'GU'].includes(targetLanguage.toUpperCase())) {
-    res.status(400).json({ error: 'Valid targetLanguage (EN, HI, GU) is required.' });
-    return;
-  }
-
-  const newLang = targetLanguage.toUpperCase() as 'EN' | 'HI' | 'GU';
-
-  const session = await prisma.conversationSession.findUnique({
-    where: { id: sessionId },
-    include: {
-      messages: { orderBy: { timestamp: 'desc' }, take: 15 },
-    },
-  });
-
-  if (!session) {
-    res.status(404).json({ error: 'Conversation session not found.' });
-    return;
-  }
-
-  let state: ClinicalState = createInitialClinicalState(newLang);
-  if (session.clinicalState) {
-    try {
-      state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : session.clinicalState;
-    } catch {}
-  }
-
-  // Update current language in state without erasing clinical facts or completed turns
-  state.currentLanguage = newLang;
-
-  // Translate the latest AI question and its touch options if present
-  const lastAiMessage = session.messages.find(m => m.role === 'AI');
-  let translatedQuestion = '';
-  let translatedOptions: string[] = [];
-
-  if (lastAiMessage) {
-    let rawOptions: string[] = [];
-    if (lastAiMessage.metadata) {
-      try {
-        const meta = JSON.parse(lastAiMessage.metadata);
-        if (Array.isArray(meta?.options)) {
-          rawOptions = meta.options;
-        }
-      } catch {}
-    }
-
-    translatedQuestion = await aiProvider.translateText(lastAiMessage.content, newLang);
-
-    if (rawOptions.length > 0) {
-      translatedOptions = await Promise.all(rawOptions.map((opt: string) => aiProvider.translateText(opt, newLang)));
-    }
-
-    // Update message record
-    await prisma.conversationMessage.update({
-      where: { id: lastAiMessage.id },
-      data: {
-        content: translatedQuestion,
-        contentLang: newLang,
-        metadata: JSON.stringify({ options: translatedOptions }),
-      },
-    });
-  }
-
-  await prisma.conversationSession.update({
-    where: { id: sessionId },
-    data: {
-      language: newLang,
-      clinicalState: JSON.stringify(state),
-    },
-  });
-
-  res.json({
-    message: 'Language switched successfully',
-    targetLanguage: newLang,
-    activeQuestion: translatedQuestion,
-    touchOptions: translatedOptions,
-    clinicalState: state,
-  });
-});
 
 /**
  * POST /api/conversation/:sessionId/complete

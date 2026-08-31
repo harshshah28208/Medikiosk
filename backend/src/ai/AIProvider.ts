@@ -2762,7 +2762,7 @@ export class UniversalClinicalEngine implements AIProvider {
     }
 
     // Step 5: Medical Background, Ongoing Medications & Drug Allergies
-    if (!answeredDimensions.has('PAST_HISTORY') && !answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES')) {
+    if (!answeredDimensions.has('PAST_HISTORY') || (!answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES'))) {
       const qText = {
         EN: isCaregiver
           ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
@@ -3598,28 +3598,26 @@ Carefully analyze the patient input in ${language} and extract all clinical fact
 
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
     if (!text || !text.trim()) return text;
-    if (targetLanguage === 'EN') return text;
     try {
       const direct = await this.fallback.translateText(text, targetLanguage);
       if (direct && direct !== text) {
         return direct;
       }
 
-      const langName = targetLanguage === 'HI' ? 'Hindi (in Devanagari script)' : targetLanguage === 'GU' ? 'Gujarati (in Gujarati script)' : 'English';
+      const langName = targetLanguage === 'HI' ? 'Hindi (in Devanagari script: हिन्दी)' : targetLanguage === 'GU' ? 'Gujarati (in Gujarati script: ગુજરાતી)' : 'clear, professional English';
       const prompt = `You are a certified clinical medical translator.
-Translate the following medical phrase/question directly into pure, natural, culturally authentic ${langName}.
-Do NOT transliterate into Latin letters. Use authentic ${langName} characters.
-Return ONLY the direct translated string without quotes or explanations.
+Translate the following medical phrase/question/option directly into pure, natural, fluent ${langName}.
+Do NOT add explanations, notes, or quotes. Return ONLY the direct translated string.
 
 Source Text: "${text}"`;
 
       const translated = await this.createChatCompletion([
-        { role: 'system', content: 'You are a hospital translation expert. Return only the direct translated string.' },
+        { role: 'system', content: `You are a hospital translation expert. Return only the direct translation in ${langName}.` },
         { role: 'user', content: prompt }
       ], false);
 
       if (translated && translated.length > 0) {
-        return translated.replace(/^["']|["']$/g, '');
+        return translated.replace(/^["']|["']$/g, '').trim();
       }
       return this.fallback.translateText(text, targetLanguage);
     } catch (e) {
@@ -3687,10 +3685,16 @@ CLINICAL INTERVIEW GUIDELINES:
 
 2. ENCOUNTER PHASES & STRICT 2-PHASE CLOSING PROTOCOL:
    - Phase A (Active Clinical Exploration: "isComplete": false):
-     * If clinical dimensions (Chief Complaint, Care-Path specifics, Lifestyle sub-domains, Medical History & Allergies) are incomplete, formulate ONE next clinical question exploring the missing sub-domain.
-     * "touchOptions" MUST contain ONLY 3-4 medical symptom/parameter choices answering the clinical question. NEVER include handoff actions or proceed buttons during Phase A.
+     * You MUST thoroughly explore ALL clinical dimensions:
+       1. Chief Complaint & Specialty Specifics
+       2. Onset, Duration & Timing
+       3. Severity (1-10), Character & Radiation
+       4. Targeted Lifestyle, Sleep, Diet & Work Routine
+       5. Past Medical History, Ongoing Medications & Drug Allergies
+     * DO NOT set "isComplete": true if any of the above dimensions have not yet been explored in the transcript.
+     * "touchOptions" MUST contain ONLY 3-4 medical symptom/parameter choices answering the clinical question. NEVER include handoff actions during Phase A.
    - Phase B (Intake Completion & Handoff: "isComplete": true):
-     * When all relevant domains are sufficiently gathered, DO NOT ASK ANY MORE CLINICAL QUESTIONS.
+     * ONLY when all 5 clinical dimensions are thoroughly answered, conclude the intake.
      * "questionCategory" MUST be "CLOSING".
      * "question" MUST be exclusively the polite closing statement:
        - If language is EN: "Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room."
