@@ -37,6 +37,11 @@ export function DoctorDashboard() {
   ]);
 
   const [showAllHospitalPatients, setShowAllHospitalPatients] = useState(false);
+  const [queueTab, setQueueTab] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+
+  const activePatients = patients.filter((v: any) => v.status !== 'COMPLETED');
+  const completedPatients = patients.filter((v: any) => v.status === 'COMPLETED');
+  const displayedPatients = queueTab === 'ACTIVE' ? activePatients : completedPatients;
 
   const loadPatients = async (showAll = showAllHospitalPatients) => {
     setIsLoading(true);
@@ -44,12 +49,14 @@ export function DoctorDashboard() {
       const res = await api.doctor.patients(showAll);
       if (res?.visits) {
         setPatients(res.visits);
-        if (res.visits.length > 0) {
-          const currentSelectedStillInList = selectedVisit && res.visits.find((v: any) => v.id === selectedVisit.id);
+        const nonComp = res.visits.filter((v: any) => v.status !== 'COMPLETED');
+        const listToSelect = queueTab === 'ACTIVE' ? (nonComp.length > 0 ? nonComp : res.visits) : res.visits;
+        if (listToSelect.length > 0) {
+          const currentSelectedStillInList = selectedVisit && listToSelect.find((v: any) => v.id === selectedVisit.id);
           if (currentSelectedStillInList) {
             handleSelectPatient(currentSelectedStillInList);
           } else {
-            handleSelectPatient(res.visits[0]);
+            handleSelectPatient(listToSelect[0]);
           }
         } else {
           setSelectedVisit(null);
@@ -405,28 +412,54 @@ MediKiosk Autonomous Clinical Intake System
               <span>OPD Patient Queue</span>
             </h2>
             <span className="text-xs font-mono font-bold px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full">
-              {patients.length} Waiting
+              {activePatients.length} Active
             </span>
           </div>
 
-          {/* Filter Toggle: My Patients vs All Hospital OPD */}
+          {/* Sub-Tabs: Active OPD Queue vs Completed Cases */}
           <div className="flex items-center p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
             <button
-              onClick={() => setShowAllHospitalPatients(false)}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all ${
-                !showAllHospitalPatients
+              onClick={() => setQueueTab('ACTIVE')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                queueTab === 'ACTIVE'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>⚡ Active Queue</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-white/20 rounded-full">{activePatients.length}</span>
+            </button>
+            <button
+              onClick={() => setQueueTab('COMPLETED')}
+              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                queueTab === 'COMPLETED'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>✅ Completed</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-white/20 rounded-full">{completedPatients.length}</span>
+            </button>
+          </div>
+
+          {/* Filter Toggle: My Patients vs All Hospital OPD */}
+          <div className="flex items-center p-1 bg-slate-950/60 rounded-xl border border-slate-800/80 text-[11px]">
+            <button
+              onClick={() => setShowAllHospitalPatients(false)}
+              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer ${
+                !showAllHospitalPatients
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-300'
               }`}
             >
               👤 My Patients
             </button>
             <button
               onClick={() => setShowAllHospitalPatients(true)}
-              className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer ${
                 showAllHospitalPatients
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-300'
               }`}
             >
               🏥 All Hospital OPD
@@ -434,7 +467,11 @@ MediKiosk Autonomous Clinical Intake System
           </div>
 
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-            {patients.map((visit) => {
+            {displayedPatients.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800/60">
+                {queueTab === 'ACTIVE' ? 'No patients currently waiting in active queue.' : 'No completed patient consultations yet.'}
+              </div>
+            ) : displayedPatients.map((visit: any) => {
               const isSelected = selectedVisit?.id === visit.id;
               const hasAlert = visit.emergencyAlerts && visit.emergencyAlerts.length > 0;
               const hasDocs = (visit.documents && visit.documents.length > 0) || (visit.patient?.documents && visit.patient?.documents.length > 0);

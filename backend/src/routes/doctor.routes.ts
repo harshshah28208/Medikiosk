@@ -247,6 +247,16 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
     return;
   }
 
+  // Signature Failure Simulation / HSM Hardware Error verification
+  if (req.body.forceSignatureError === true || req.headers['x-simulate-signature-failure'] === 'true') {
+    res.status(500).json({
+      error: 'CRYPTOGRAPHIC_SIGNATURE_FAILED',
+      message: 'HSM Cryptographic Key Seal failed to generate digital signature. Encounter remains in active queue and is NOT completed.',
+      retryable: true,
+    });
+    return;
+  }
+
   const doctorProfile = await prisma.doctorProfile.findFirst({
     where: { userId: req.user?.id },
     include: { user: true },
