@@ -337,15 +337,17 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
   let state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : (session.clinicalState as unknown as ClinicalState);
   state.currentLanguage = lang;
 
+  const activeAi = getAIProvider();
+
   // Translate all input messages and touch options in parallel for ultra-fast response
   const translatedMessages = await Promise.all(
     messages.map(async (m: any) => {
-      const translatedContent = m.content ? await aiProvider.translateText(m.content, lang) : m.content;
+      const translatedContent = m.content ? await activeAi.translateText(m.content, lang) : m.content;
 
       let translatedOpts = m.options;
       if (Array.isArray(m.options) && m.options.length > 0) {
         translatedOpts = await Promise.all(
-          m.options.map((opt: string) => (opt ? aiProvider.translateText(opt, lang) : opt))
+          m.options.map((opt: string) => (opt ? activeAi.translateText(opt, lang) : opt))
         );
       }
 

@@ -2300,6 +2300,42 @@ export class UniversalClinicalEngine implements AIProvider {
     };
   }
 
+  async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
+    if (!text || !text.trim()) return text;
+    if (targetLanguage === 'EN') return text;
+
+    // Check direct dictionary
+    const dictMatch = translateOptionDirectly(text, targetLanguage);
+    if (dictMatch) return dictMatch;
+
+    for (const key of Object.keys(CLINICAL_TRANSLATIONS)) {
+      const item = CLINICAL_TRANSLATIONS[key];
+      if (item.EN.toLowerCase().includes(text.toLowerCase()) || text.toLowerCase().includes(item.EN.toLowerCase())) {
+        return item[targetLanguage];
+      }
+    }
+
+    // Common phrases fallback
+    const tLower = text.toLowerCase();
+    if (/sleep|routine|diet|stress|खान-पान|દિનચર્યા/i.test(tLower)) {
+      return targetLanguage === 'HI' ? 'आपकी दिनचर्या, रात की नींद (घंटे) और खान-पान की आदतें कैसी हैं?' : 'આપની દિનચર્યા, રાત્રિની ઊંઘ (કલાક) અને ખાનપાનની આદતો કેવી રહે છે?';
+    }
+    if (/ongoing|condition|bp|diabetes|medicines|allerg/i.test(tLower)) {
+      return targetLanguage === 'HI' ? 'क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?' : 'શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?';
+    }
+    if (/symptoms significantly improved|70% relief/i.test(tLower)) {
+      return targetLanguage === 'HI' ? 'लक्षणों में काफी सुधार (70%+ आराम)' : 'લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)';
+    }
+    if (/partial relief|persist/i.test(tLower)) {
+      return targetLanguage === 'HI' ? 'थोड़ा आराम है पर तकलीफ बाकी है' : 'થોડી રાહત છે પણ તકલીફ ચાલુ છે';
+    }
+    if (/worsen|no relief/i.test(tLower)) {
+      return targetLanguage === 'HI' ? 'कोई आराम नहीं / तकलीफ बढ़ गई' : 'કોઈ રાહત નથી / તકલીફ વધી ગઈ';
+    }
+
+    return text;
+  }
+
   async generateClinicalSummary(
     state: ClinicalState,
     patient: any,
@@ -2955,44 +2991,89 @@ export class GroqAIProvider implements AIProvider {
   private fallback = new UniversalClinicalEngine();
 
   constructor(apiKey: string) {
-    this.groq = new Groq({ apiKey, maxRetries: 0, timeout: 4000 });
+    this.groq = new Groq({ apiKey, maxRetries: 1, timeout: 12000 });
     this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   }
 
-  async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
+  private async createChatCompletion(messages: any[], isJson = true): Promise<string> {
+    const candidateModels = [this.model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+    const uniqueModels = [...new Set(candidateModels.filter(Boolean))];
+
+    for (const m of uniqueModels) {
+      try {
+        const res = await this.groq.chat.completions.create({
+          messages,
+          model: m,
+          temperature: 0.2,
+          ...(isJson ? { response_format: { type: 'json_object' } } : {}),
+        });
+        const content = res.choices[0]?.message?.content?.trim();
+        if (content && content.length > 0) return content;
+      } catch (e: any) {
+        // Try next model if rate limit or network error
+      }
+    }
+    throw new Error('All Groq candidate models exhausted');
+  }
+
+  async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY', specialty?: string): Promise<Partial<ClinicalState>> {
     try {
-      const prompt = `You are the clinical fact extraction engine of MediKiosk AI Clinical Intake.
+      const prompt = `You are the autonomous clinical fact extraction engine of MediKiosk AI Clinical Intake.
 Patient Input: "${input}"
-Input Language: ${language}
+Input Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
+Care Path: ${carePath || state.carePath || 'ALLOPATHY'}
+Specialty: ${specialty || state.specialty || 'General Medicine'}
 Current Clinical State: ${JSON.stringify(state)}
 
-Extract all clinical facts into English-normalized structured JSON with no markdown fences:
+Carefully analyze the patient input in ${language} and extract all clinical facts into English-normalized structured JSON with NO markdown formatting:
 {
-  "chiefComplaint": "string | null",
+  "chiefComplaint": "normalized primary chief complaint or null if already set",
   "newSymptoms": [
     {
-      "name": "normalized english symptom name",
-      "originalText": "exact text from patient",
-      "onset": "duration or onset if mentioned or null",
-      "severity": 1-10 or null,
-      "character": "string describing quality/sensation or null"
+      "name": "normalized clinical symptom name in English",
+      "originalText": "exact original statement in ${language}",
+      "onset": "timing/duration (e.g. 2 days, sudden onset) or null",
+      "severity": 1-10 integer rating or null,
+      "character": "detailed description of pain quality, sensation, or modality or null",
+      "progression": "improved | worsened | unchanged | null",
+      "aggravatingFactors": ["string factor"],
+      "relievingFactors": ["string factor"]
     }
   ],
-  "pastConditions": ["string"],
-  "medications": ["string"]
+  "deniedSymptoms": ["symptoms patient explicitly denied having"],
+  "pastMedicalHistory": ["chronic conditions reported (e.g. Hypertension, Diabetes)"],
+  "medications": ["current medications and compliance mentioned"],
+  "allergies": ["drug or food allergies mentioned"],
+  "familyHistory": ["family diseases mentioned (e.g. Father had Diabetes)"],
+  "lifestyle": {
+    "sleep": "sleep hours and quality or null",
+    "diet": "dietary preferences or null",
+    "stress": "stress level or null"
+  },
+  "ayushAssessment": {
+    "prakriti": "Vata | Pitta | Kapha or null",
+    "agni": "digestive fire status or null",
+    "koshtha": "bowel movement pattern or null",
+    "ahara": "dietary triggers or null",
+    "vihara": "lifestyle habits or null"
+  },
+  "homeopathyAssessment": {
+    "sensations": ["characteristic sensations"],
+    "modalities": {
+      "aggravating": ["factors worsening pain"],
+      "ameliorating": ["factors relieving pain"]
+    },
+    "thermalState": "CHILLY | HOT | null",
+    "thirst": "string thirst description or null",
+    "mentalState": "string mood and disposition or null"
+  }
 }`;
 
-      const res = await this.groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You are a hospital medical fact extractor. Output valid JSON only.' },
-          { role: 'user', content: prompt }
-        ],
-        model: this.model,
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      const text = await this.createChatCompletion([
+        { role: 'system', content: 'You are a hospital medical fact extractor. Output valid JSON only with NO markdown fences.' },
+        { role: 'user', content: prompt }
+      ], true);
 
-      const text = res.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(text);
 
       const update: Partial<ClinicalState> = {};
@@ -3003,43 +3084,77 @@ Extract all clinical facts into English-normalized structured JSON with no markd
       if (parsed.newSymptoms && Array.isArray(parsed.newSymptoms) && parsed.newSymptoms.length > 0) {
         update.symptoms = [...(state.symptoms || []), ...parsed.newSymptoms];
       }
-      if (parsed.pastConditions && Array.isArray(parsed.pastConditions) && parsed.pastConditions.length > 0) {
-        update.pastMedicalHistory = [...(state.pastMedicalHistory || []), ...parsed.pastConditions];
+      if (parsed.deniedSymptoms && Array.isArray(parsed.deniedSymptoms) && parsed.deniedSymptoms.length > 0) {
+        update.deniedSymptoms = [...(state.deniedSymptoms || []), ...parsed.deniedSymptoms];
+      }
+      if (parsed.pastMedicalHistory && Array.isArray(parsed.pastMedicalHistory) && parsed.pastMedicalHistory.length > 0) {
+        update.pastMedicalHistory = [...(state.pastMedicalHistory || []), ...parsed.pastMedicalHistory];
       }
       if (parsed.medications && Array.isArray(parsed.medications) && parsed.medications.length > 0) {
-        const newMeds = parsed.medications.map((m: string) => ({ name: m }));
+        const newMeds = parsed.medications.map((m: any) => typeof m === 'string' ? { name: m } : m);
         update.medications = [...(state.medications || []), ...newMeds];
       }
-      const fallbackResult = await this.fallback.extractFacts(input, state, language);
+      if (parsed.allergies && Array.isArray(parsed.allergies) && parsed.allergies.length > 0) {
+        update.allergies = [...(state.allergies || []), ...parsed.allergies];
+      }
+      if (parsed.familyHistory && Array.isArray(parsed.familyHistory) && parsed.familyHistory.length > 0) {
+        update.familyHistory = [...(state.familyHistory || []), ...parsed.familyHistory];
+      }
+      if (parsed.lifestyle && Object.values(parsed.lifestyle).some(Boolean)) {
+        update.lifestyle = { ...(state.lifestyle || {}), ...parsed.lifestyle };
+      }
+      if (parsed.ayushAssessment && Object.values(parsed.ayushAssessment).some(Boolean)) {
+        update.ayushAssessment = { ...(state.ayushAssessment || {}), ...parsed.ayushAssessment };
+      }
+      if (parsed.homeopathyAssessment && Object.values(parsed.homeopathyAssessment).some(Boolean)) {
+        update.homeopathyAssessment = { ...(state.homeopathyAssessment || {}), ...parsed.homeopathyAssessment };
+      }
+
+      const fallbackResult = await this.fallback.extractFacts(input, state, language, carePath, specialty);
       return { ...fallbackResult, ...update };
     } catch (e) {
-      return this.fallback.extractFacts(input, state, language);
+      return this.fallback.extractFacts(input, state, language, carePath, specialty);
     }
   }
 
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
+    if (!text || !text.trim()) return text;
+    if (targetLanguage === 'EN') return text;
     try {
       const direct = await this.fallback.translateText(text, targetLanguage);
       if (direct && direct !== text) {
         return direct;
       }
 
-      const prompt = `Translate into pure, natural ${targetLanguage}: "${text}"`;
-      const res = await this.groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You are a clinical intake translator. Return ONLY the direct translation.' },
-          { role: 'user', content: prompt }
-        ],
-        model: this.model,
-        temperature: 0.1
-      });
-      return res.choices[0]?.message?.content?.trim() || direct;
+      const langName = targetLanguage === 'HI' ? 'Hindi (in Devanagari script)' : targetLanguage === 'GU' ? 'Gujarati (in Gujarati script)' : 'English';
+      const prompt = `You are a certified clinical medical translator.
+Translate the following medical phrase/question directly into pure, natural, culturally authentic ${langName}.
+Do NOT transliterate into Latin letters. Use authentic ${langName} characters.
+Return ONLY the direct translated string without quotes or explanations.
+
+Source Text: "${text}"`;
+
+      const translated = await this.createChatCompletion([
+        { role: 'system', content: 'You are a hospital translation expert. Return only the direct translated string.' },
+        { role: 'user', content: prompt }
+      ], false);
+
+      if (translated && translated.length > 0) {
+        return translated.replace(/^["']|["']$/g, '');
+      }
+      return this.fallback.translateText(text, targetLanguage);
     } catch (e) {
       return this.fallback.translateText(text, targetLanguage);
     }
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean, specialty?: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
+  async generateNextQuestion(
+    state: ClinicalState,
+    language: 'EN' | 'HI' | 'GU',
+    carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean,
+    specialty?: string,
+    conversationHistory?: Array<{ role: string; content: string }>
+  ): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
       const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
@@ -3047,95 +3162,80 @@ Extract all clinical facts into English-normalized structured JSON with no markd
       const effectiveCarePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = typeof carePath === 'string'
         ? carePath
         : (carePath === true || state.carePath === 'AYUSH' ? 'AYUSH' : (state.carePath === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY'));
-      const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
+      const effectiveSpecialty: string = specialty || state.specialty || (effectiveCarePath === 'AYUSH' ? 'Ayurveda' : effectiveCarePath === 'HOMEOPATHY' ? 'Classical Homeopathy' : 'General Medicine');
 
       const historyFormatted = conversationHistory && conversationHistory.length > 0
         ? conversationHistory.map(m => `${m.role === 'AI' ? 'Doctor AI' : 'Patient'}: "${m.content}"`).join('\n')
         : (state.questionsAsked || []).map((q, idx) => `Turn ${idx + 1} Question: "${q}"`).join('\n');
 
+      const langDirective = language === 'HI'
+        ? 'STRICT REQUIREMENT: All questions, touch options, and responses MUST be written in pure, grammatically fluent HINDI (Devanagari script: हिन्दी).'
+        : language === 'GU'
+        ? 'STRICT REQUIREMENT: All questions, touch options, and responses MUST be written in pure, grammatically fluent GUJARATI (Gujarati script: ગુજરાતી).'
+        : 'STRICT REQUIREMENT: All questions, touch options, and responses MUST be written in professional, clear ENGLISH.';
+
       const prompt = `You are MediKiosk Autonomous Clinical AI Intake Doctor.
-Your mission is to conduct an empathetic, comprehensive, multi-turn clinical intake interview with the patient (or caregiver).
+Your goal is to conduct a THOROUGH, IN-DEPTH, PROFESSIONAL medical intake interview with the patient (or caregiver).
+Do NOT ask half-cooked, brief, or superficial questions. Conduct a comprehensive clinical consultation.
+
+${langDirective}
 
 CONVERSATION TRANSCRIPT SO FAR:
 ${historyFormatted}
 
 ACTIVE CLINICAL CONTEXT:
 Care Path: ${effectiveCarePath}
-Specialty Clinic: ${effectiveSpecialty}
+Doctor Specialty: ${effectiveSpecialty}
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
 ${!isNew && prevInfo ? `Previous Visit Record:
-- Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (PRIMARY GROUND TRUTH: YOU MUST INQUIRE STRICTLY ABOUT THIS SPECIFIC COMPLAINT)
+- Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (GROUND TRUTH: FOCUS ON THIS COMPLAINT)
 - Prior Visit Date: ${prevInfo.lastVisitDate}
 - Prior Prescriptions: ${prevInfo.pastPrescriptions?.join(', ') || 'None'}
-- Administrative Clinic: ${prevInfo.lastDepartment} (NEVER assume symptoms from clinic name; ONLY focus on "${prevInfo.lastComplaint}")` : ''}
-Current Chief Complaint / Symptoms: "${state.chiefComplaint || ''}"
-Patient Just Answered / Stated: "${state.latestAnswer || ''}"
+- Prior Clinic: ${prevInfo.lastDepartment}` : ''}
+Current Chief Complaint: "${state.chiefComplaint || 'Not yet established'}"
+Patient Just Answered: "${state.latestAnswer || 'Initial Turn'}"
 Target Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
-Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of the patient' : 'Patient themselves'}
-Clinical History Gathered So Far: ${JSON.stringify(state)}
-Turns Completed: ${state.turnsCompleted}
+Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of patient' : 'Patient'}
+Gathered Clinical Dimensions: ${JSON.stringify(state)}
+Turns Completed: ${state.turnsCompleted || 0}
 
-CLINICAL DOCTOR RULES & CARE-PATH ADAPTIVE PHILOSOPHY:
+CLINICAL INTERVIEW GUIDELINES:
 
-1. CARE PATH SPECIFIC INTAKE INTELLIGENCE:
-   - AYUSH (Ayurveda): Inquire deeply into Prakriti/Vikriti, Agni (digestive fire: Mandagni/Tikshnagni/Vishamagni), Koshtha (bowel habits/constipation), Ahara-Vihara (dietary tastes, oily/spicy food, late night sleep / Ratri Jagarana, stress), and Tridosha imbalances (Vata/Pitta/Kapha).
-   - HOMEOPATHY: Dynamic case-taking focused on characteristic sensations (throbbing, bursting, stitching, band-like), individualizing modalities (< Aggravations like sun, motion, noise, time vs > Ameliorations like cold water, dark room, hard pressure), Thermal reaction (Chilly vs Hot patient), Thirst state during acute pain, and Mental/Emotional generals (irritability, anxiety, desire for solitude).
-   - ALLOPATHY (Neurology): Inquire into aura (visual flashes, zigzag lines), sudden thunderclap vs gradual onset, focal neurological symptoms (photophobia, phonophobia, facial/limb numbness or weakness), migraine frequency, and medication overuse.
-   - ALLOPATHY (ENT): Inquire into sinus distribution (forehead, bridge of nose, cheeks, worse on bending forward), nasal congestion, purulent discharge, post-nasal drip, ear fullness, and environmental triggers.
-   - ALLOPATHY (General Medicine): Inquire into onset, duration, severity (1-10), systemic red flags (fever, neck stiffness, BP), lifestyle (sleep, screen time, stress), chronic diseases (hypertension, diabetes), regular medications, and drug allergies.
+1. CARE-PATH ADAPTIVE PROTOCOLS:
+   - AYUSH (Ayurveda): Inquire thoroughly into Dosha imbalance (Pitta burning heat / acid, Kapha heaviness / congestion, Vata dryness / acute ache), Agni (digestive fire & metabolic strength), Koshtha (bowel movement regular vs constipated), Ahara-Vihara (dietary habits, spicy/oily food, tea/coffee, sleep routine / Ratri Jagarana), and constitutional Prakriti.
+   - HOMEOPATHY: Dynamic classical case-taking exploring characteristic sensations (throbbing, bursting, stitching, tearing, heavy band), laterality (left vs right), modalities (< Aggravations by heat, cold, sun, motion, pressure, time vs > Ameliorations by cold compress, warmth, dark room, rest), thermal disposition (Chilly wanting blankets vs Hot wanting cool air), thirst state, and mental/emotional state (irritability, anxiety, sadness).
+   - ALLOPATHY (General / Specialty): Inquire thoroughly into onset, duration, severity (1-10), pain character, anatomical location, radiation, functional limits, chronic diseases (Hypertension, Diabetes, Thyroid, Asthma), regular medications with dosages, and drug allergies.
 
-2. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Chief Complaint -> Care-Path Characterization -> Lifestyle & Routine -> Past Medical History & Allergies -> Closing Verification.
-   - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language and ask what chief complaint or symptoms brought them to the hospital.
-   - Turn 1 (Onset & Specific Pathology): Explore onset, duration, and care-path specific pathology.
-   - Turn 2 (Systemic & Lifestyle Inquiry): Explore relevant lifestyle/metabolic/modalities dimensions.
-   - Turn 3 (Past Medical History, Medications & Allergies): Inquire about chronic conditions, regular daily medications, and drug allergies.
-   - Turn 4+ (Closing Verification): When clinical dimensions are addressed in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
+2. ENCOUNTER PHASES (CONDUCT A COMPLETE, DEEP INTAKE):
+   - Turn 0 (Initial Opening): If starting fresh, warmly welcome the patient in ${language} to the ${effectiveSpecialty} clinic and inquire about their chief complaint and main concerns with specific symptom options.
+   - Turn 1 (Symptom Exploration & Care-Path Specifics): Inquire into exact onset, sensation, severity, and care-path triggers.
+   - Turn 2 (Systemic, Metabolic & Lifestyle Dimensions): Inquire into digestion, sleep schedule, stress, and lifestyle factors.
+   - Turn 3 (Medical History, Current Medications & Allergies): Inquire about ongoing chronic medical conditions (BP, Diabetes, Thyroid), regular medicines, and drug allergies.
+   - Turn 4+ (Completion & Consultation Hand-off): When clinical dimensions are covered, set "isComplete": true and "questionCategory": "CLOSING" asking if they are ready to proceed with doctor consultation. Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
 
-3. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - Base your inquiry strictly on "${prevInfo?.lastComplaint || 'the previous condition'}".
-   - Turn 0: Ask how that specific complaint has progressed.
-   - Turn 1: Inquire about residual symptoms or exacerbation.
-   - Turn 2: Inquire about adherence to prescribed medications ("${prevInfo?.pastPrescriptions?.join(', ') || 'prescribed medicines'}").
-   - Turn 3+: Closing verification.
+3. TOUCH OPTIONS:
+   - Provide 3-4 natural, comprehensive, one-tap selectable options in pure ${language} that give meaningful clinical answers to your question.
 
-4. TOUCH OPTIONS:
-   - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
+4. ANTI-REPETITION:
+   - NEVER repeat a question or ask about an area already answered in the transcript.
 
-5. ANTI-REPETITION & QUESTION MEMORY:
-   - NEVER re-ask any question, symptom, or dimension already answered in the transcript or state.
-
-6. NEGATION & CONTEXT RIGOR:
-   - Explicitly respect negations ("No vomiting" = denied, NOT unknown).
-   - Distinguish family history ("Father has diabetes" = family history only, NOT patient diabetes).
-   - Distinguish temporal context ("Had fever last month" = historical, NOT current).
-
-7. LANGUAGE:
-   - Formulate the question, touchOptions, and rationale in pure, natural, culturally fluent ${language} (EN = English, HI = Hindi, GU = Gujarati).
-
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown formatting, no code fences):
 {
-  "question": "dynamic follow-up question in pure ${language}",
+  "question": "thorough clinical question in pure ${language}",
   "questionLanguage": "${language}",
   "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | HOMEOPATHY | CLOSING",
-  "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
+  "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}", "Option 4 in ${language}"],
   "isRedFlag": boolean,
-  "redFlagReason": "string | null",
+  "redFlagReason": "string description or null",
   "isComplete": boolean,
-  "clinicalRationale": "Diagnostic reasoning for this follow-up inquiry"
+  "clinicalRationale": "Diagnostic rationale for this inquiry"
 }`;
 
-      const res = await this.groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You are MediKiosk Autonomous Clinical AI Intake Doctor. Return ONLY valid JSON with no markdown.' },
-          { role: 'user', content: prompt }
-        ],
-        model: this.model,
-        temperature: 0.2,
-        response_format: { type: 'json_object' }
-      });
+      const text = await this.createChatCompletion([
+        { role: 'system', content: `You are MediKiosk Autonomous Clinical AI Intake Doctor. Return ONLY valid JSON in pure ${language}.` },
+        { role: 'user', content: prompt }
+      ], true);
 
-      const text = res.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
         const fallbackQ = await this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
@@ -3177,17 +3277,11 @@ Rules:
 
 Return ONLY valid JSON.`;
 
-      const res = await this.groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You are a hospital clinical documentation AI. Return valid JSON only.' },
-          { role: 'user', content: prompt }
-        ],
-        model: this.model,
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
+      const text = await this.createChatCompletion([
+        { role: 'system', content: 'You are a hospital clinical documentation AI. Return valid JSON only.' },
+        { role: 'user', content: prompt }
+      ], true);
 
-      const text = res.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(text);
       if (!parsed.historyOfPresentIllness && !parsed.presentingConcern) {
         return this.fallback.generateClinicalSummary(state, patient, vitals, documents, effectiveCarePath, effectiveSpecialty);
