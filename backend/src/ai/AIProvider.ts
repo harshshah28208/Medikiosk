@@ -3768,7 +3768,7 @@ Carefully analyze the patient input in ${language} and extract all clinical fact
       }
 
       // 2. Check structured clinical stage translations
-      const directClinical = this.fallback.translateText(text, targetLanguage);
+      const directClinical = await this.fallback.translateText(text, targetLanguage);
       if (directClinical && directClinical !== text) {
         return directClinical;
       }
