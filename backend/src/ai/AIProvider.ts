@@ -728,6 +728,7 @@ export class UniversalClinicalEngine implements AIProvider {
           sleep: text,
           diet: text,
           activity: text,
+          stress: state.lifestyle?.stress || 'Normal daily routine and stress level',
           occupation: state.lifestyle?.occupation || '',
           smoking: state.lifestyle?.smoking || null,
           alcohol: state.lifestyle?.alcohol || null,
@@ -2290,42 +2291,6 @@ export class UniversalClinicalEngine implements AIProvider {
       isComplete: true,
       clinicalRationale: 'All clinical domains assessed; finalized for doctor consultation handoff',
     };
-  }
-
-  async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
-    if (!text || !text.trim()) return text;
-    if (targetLanguage === 'EN') return text;
-
-    // Check direct dictionary
-    const dictMatch = translateOptionDirectly(text, targetLanguage);
-    if (dictMatch) return dictMatch;
-
-    for (const key of Object.keys(CLINICAL_TRANSLATIONS)) {
-      const item = CLINICAL_TRANSLATIONS[key];
-      if (item.EN.toLowerCase().includes(text.toLowerCase()) || text.toLowerCase().includes(item.EN.toLowerCase())) {
-        return item[targetLanguage];
-      }
-    }
-
-    // Common phrases fallback
-    const tLower = text.toLowerCase();
-    if (/sleep|routine|diet|stress|खान-पान|દિનચર્યા/i.test(tLower)) {
-      return targetLanguage === 'HI' ? 'आपकी दिनचर्या, रात की नींद (घंटे) और खान-पान की आदतें कैसी हैं?' : 'આપની દિનચર્યા, રાત્રિની ઊંઘ (કલાક) અને ખાનપાનની આદતો કેવી રહે છે?';
-    }
-    if (/ongoing|condition|bp|diabetes|medicines|allerg/i.test(tLower)) {
-      return targetLanguage === 'HI' ? 'क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?' : 'શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?';
-    }
-    if (/symptoms significantly improved|70% relief/i.test(tLower)) {
-      return targetLanguage === 'HI' ? 'लक्षणों में काफी सुधार (70%+ आराम)' : 'લક્ષણોમાં સારો સુધારો (૭૦%+ રાહત)';
-    }
-    if (/partial relief|persist/i.test(tLower)) {
-      return targetLanguage === 'HI' ? 'थोड़ा आराम है पर तकलीफ बाकी है' : 'થોડી રાહત છે પણ તકલીફ ચાલુ છે';
-    }
-    if (/worsen|no relief/i.test(tLower)) {
-      return targetLanguage === 'HI' ? 'कोई आराम नहीं / तकलीफ बढ़ गई' : 'કોઈ રાહત નથી / તકલીફ વધી ગઈ';
-    }
-
-    return text;
   }
 
   async generateClinicalSummary(
