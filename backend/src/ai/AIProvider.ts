@@ -1125,12 +1125,62 @@ export class UniversalClinicalEngine implements AIProvider {
 
     // Check Stage 1: Lifestyle & Daily Routine
     if (tLower.includes('lifestyle') || tLower.includes('sleep') || tLower.includes('routine') || tLower.includes('diet') || tLower.includes('जीवनशैली') || tLower.includes('नींद') || tLower.includes('दिनचर्या') || tLower.includes('खान-पान') || tLower.includes('દિનચર્યા') || tLower.includes('ઊંઘ') || tLower.includes('ખોરાક')) {
-      return CLINICAL_TRANSLATIONS.lifestyle[targetLanguage];
+      const q = {
+        EN: "How is your daily routine—including exact hours of sleep per night, sleep quality, dietary habits, and daily stress level?",
+        HI: "आपकी दिनचर्या कैसी है—रात में कितने घंटे गहरी नींद आती है, खान-पान की आदतें और तनाव का स्तर कैसा है?",
+        GU: "આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?",
+      };
+      return q[targetLanguage];
     }
 
-    // Check Stage 2: Medical History & Allergies
-    if (tLower.includes('medical conditions') || tLower.includes('allergy') || tLower.includes('allergies') || tLower.includes('chronic') || tLower.includes('thyroid') || tLower.includes('diabetes') || tLower.includes('पुरानी बीमारी') || tLower.includes('एलर्जी') || tLower.includes('थायराइड') || tLower.includes('જૂની બીમારી') || tLower.includes('એલર્જી') || tLower.includes('ડાયાબિટીસ')) {
-      return CLINICAL_TRANSLATIONS.medical_history[targetLanguage];
+    // Check Stage 2: Medical History & Chronic Conditions
+    if (tLower.includes('chronic health conditions') || tLower.includes('prior surgeries') || tLower.includes('family history') || tLower.includes('पुरानी बीमारी') || tLower.includes('सर्जरी का इतिहास') || tLower.includes('પરિવારમાં') || tLower.includes('સર્જરીનો ઇતિહાસ') || tLower.includes('હૃદય રોગ')) {
+      const q = {
+        EN: "Do you or your close family have a history of chronic health conditions (BP, Diabetes, Thyroid, Asthma, Heart disease), or prior surgeries?",
+        HI: "क्या आपको या आपके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, दिल की बीमारी) या कोई सर्जरी का इतिहास है?",
+        GU: "શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Stage 3: Prescription Medications & Allergies
+    if (tLower.includes('prescription medicines') || tLower.includes('drug allergies') || tLower.includes('penicillin') || tLower.includes('नियमित दवाइयां') || tLower.includes('दवा से एलर्जी') || tLower.includes('નિયમિત દવાઓ') || tLower.includes('દવાની એલર્જી')) {
+      const q = {
+        EN: "What regular prescription medicines do you take daily, and do you have any known drug allergies (such as Penicillin, Sulfa, or pain medicines)?",
+        HI: "आप रोज कौन सी नियमित दवाइयां लेते हैं, और क्या आपको किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या दर्द की दवा) है?",
+        GU: "આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Associated Symptoms
+    if (tLower.includes('associated symptoms') || tLower.includes('fever, nausea, dizziness') || tLower.includes('अन्य लक्षण') || tLower.includes('जी मिचलाना, चक्कर') || tLower.includes('અન્ય લક્ષણો') || tLower.includes('ઉબકા, ચક્કર')) {
+      const q = {
+        EN: "Do you have any associated symptoms such as fever, nausea, dizziness, breathing trouble, headache, or unusual swelling/discharge?",
+        HI: "क्या आपको बुखार, जी मिचलाना, चक्कर आना, सांस फूलना, सिरदर्द या कोई सूजन/स्राव जैसे अन्य लक्षण भी महसूस हो रहे हैं?",
+        GU: "શું આપને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ જણાય છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Triggers & Modalities
+    if (tLower.includes('factors make') || tLower.includes('bring relief') || tLower.includes('तकलीफ बढ़ती है') || tLower.includes('आराम मिलता है') || tLower.includes('તકલીફ વધે છે') || tLower.includes('રાહત મળે છે')) {
+      const q = {
+        EN: "What specific factors make your condition worse (such as food, movement, weather, posture, stress, or time of day), and does anything bring relief?",
+        HI: "किस कारण से आपकी तकलीफ बढ़ती है (जैसे खान-पान, हिलने-डुलने, मौसम, तनाव या खास समय पर) और किस चीज से आराम मिलता है?",
+        GU: "કયા કારણોથી આપની તકલીફ વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Severity & Nature
+    if (tLower.includes('severity and nature') || tLower.includes('गंभीरता और प्रकार') || tLower.includes('તીવ્રતા અને પ્રકાર')) {
+      const q = {
+        EN: "How would you describe the severity and nature of your condition? Does any specific movement or time of day make it worse?",
+        HI: "आपकी इस समस्या की गंभीरता और प्रकार कैसा है? क्या किसी खास गतिविधि या समय पर यह बढ़ती है?",
+        GU: "આપની આ તકલીફ ની તીવ્રતા અને પ્રકાર કેવો છે? શું કોઈ ચોક્કસ પ્રવૃત્તિ કે સમયે તકલીફ વધે છે?",
+      };
+      return q[targetLanguage];
     }
 
     // Check Returning Patient Progression (Turn 0)
@@ -1177,8 +1227,6 @@ export class UniversalClinicalEngine implements AIProvider {
     if (tLower.includes('covers all symptoms') || tLower.includes('thank you') || tLower.includes('धन्यवाद') || tLower.includes('આભાર')) {
       return CLINICAL_TRANSLATIONS.closing[targetLanguage];
     }
-
-    return text;
 
     return text;
   }

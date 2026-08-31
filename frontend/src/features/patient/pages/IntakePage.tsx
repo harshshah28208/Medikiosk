@@ -341,12 +341,104 @@ export function IntakePage() {
       gu: ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'],
     };
 
+    // 1. Instant optimistic local translation pass for messages & touch options
+    const optionDict = [
+      { en: 'Fever / Body Ache', hi: 'बुखार / शरीर दर्द', gu: 'તાવ / શરીરનો દુખાવો' },
+      { en: 'Chest Pain / Pressure', hi: 'सीने में दर्द / दबाव', gu: 'છાતીમાં દુખાવો / દબાણ' },
+      { en: 'Severe Abdominal Pain', hi: 'पेट में तेज़ दर्द', gu: 'પેટમાં તીવ્ર દુખાવો' },
+      { en: 'Cough / Breathlessness', hi: 'खांसी / सांस में तकलीफ', gu: 'ખાંસી / શ્વાસ લેવામાં તકલીફ' },
+      { en: 'Headache / Dizziness', hi: 'सिरदर्द / चक्कर आना', gu: 'માથાનો દુખાવો / ચક્કર' },
+      { en: 'Proceed to Appointment', hi: 'अपॉइंटमेंट के लिए आगे बढ़ें', gu: 'કન્સલ્ટેશન માટે આગળ વધો' },
+      { en: 'Review Summary', hi: 'सारांश देखें', gu: 'વિગતો જુઓ' },
+      { en: 'Add One More Detail', hi: 'एक और जानकारी जोड़ें', gu: 'વધુ એક વિગત ઉમેરો' },
+      { en: 'Since today / past few hours', hi: 'आज से / कुछ घंटों से', gu: 'આજથી / થોડા કલાકોથી' },
+      { en: '2 to 3 days', hi: '2-3 दिनों से', gu: '૨-૩ દિવસથી' },
+      { en: '1 to 2 weeks', hi: '1-2 सप्ताह से', gu: '૧-૨ અઠવાડિયાથી' },
+      { en: 'More than a month (chronic)', hi: 'एक महीने से अधिक समय से', gu: 'એક મહિનાથી વધુ સમયથી' },
+      { en: 'Mild discomfort / Manageable daily routine', hi: 'हल्की तकलीफ / सामान्य दिनचर्या चल रही है', gu: 'હળવી તકલીફ / સામાન્ય દિનચર્યા ચાલુ છે' },
+      { en: 'Moderate discomfort limiting work & physical activity', hi: 'मध्यम परेशानी जिससे काम में रुकावट है', gu: 'મધ્યમ તકલીફ જેનાથી કામમાં મુશ્કેલી છે' },
+      { en: 'Severe continuous pain / discomfort disturbing sleep', hi: 'लगातार तेज तकलीफ जिससे नींद नहीं आ रही', gu: 'સતત તીવ્ર તકલીફ જેથી ઊંઘ આવતી નથી' },
+      { en: 'Fever / Chills & Body aches', hi: 'बुखार / कंपकंपी और बदन दर्द', gu: 'તાવ / ધ્રુજારી અને કળતર' },
+      { en: 'Nausea, vomiting or stomach discomfort', hi: 'जी मिचलाना, उल्टी या पेट में तकलीफ', gu: 'ઉબકા, ઉલટી કે પેટમાં તકલીફ' },
+      { en: 'Dizziness, lightheadedness or fatigue', hi: 'चक्कर आना, कमजोरी या भारीपन', gu: 'ચક્કર આવવા, અશક્તિ કે થાક' },
+      { en: 'No other associated symptoms noticed', hi: 'कोई अन्य संबंधित लक्षण नहीं है', gu: 'કોઈ અન્ય સંબંધિત લક્ષણો નથી' },
+      { en: 'Worse with movement / physical exertion; better with rest', hi: 'काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', gu: 'શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે' },
+      { en: 'Normal 7-8 hrs sleep & balanced home-cooked food', hi: 'सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', gu: 'સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક' },
+      { en: 'No chronic conditions & no prior surgeries', hi: 'कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', gu: 'કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ' },
+      { en: 'Taking daily BP / Diabetes / Thyroid tablets', hi: 'रोज बीपी / शुगर / थायराइड की दवा लेते हैं', gu: 'રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ' },
+      { en: 'No regular medicines & No known drug allergies (NKDA)', hi: 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', gu: 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)' },
+    ];
+
+    const translateOptLocal = (optStr: string) => {
+      const match = optionDict.find(d => d.en.toLowerCase() === optStr.toLowerCase() || d.hi.trim() === optStr.trim() || d.gu.trim() === optStr.trim());
+      return match ? match[newLang] : optStr;
+    };
+
+    const translateQLocal = (raw: string) => {
+      if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા|नींद|ઊંઘ|खान-पान|ખોરાક/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'आपकी दिनचर्या कैसी है—रात में कितने घंटे गहरी नींद आती है, खान-पान की आदतें और तनाव का स्तर कैसा है?'
+          : newLang === 'gu'
+          ? 'આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?'
+          : 'How is your daily routine—including exact hours of sleep per night, sleep quality, dietary habits, and daily stress level?';
+      }
+      if (/medical history|chronic health|surgeries|पुरानी बीमारी|सर्जरी|બીમારી|સર્જરી/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'क्या आपको या आपके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, दिल की बीमारी) या कोई सर्जरी का इतिहास है?'
+          : newLang === 'gu'
+          ? 'શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?'
+          : 'Do you or your close family have a history of chronic health conditions (BP, Diabetes, Thyroid, Asthma, Heart disease), or prior surgeries?';
+      }
+      if (/prescription medicines|drug allergies|penicillin|दवाइयां|दवा से एलर्जी|દવાઓ|દવાની એલર્જી/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'आप रोज कौन सी नियमित दवाइयां लेते हैं, और क्या आपको किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या दर्द की दवा) है?'
+          : newLang === 'gu'
+          ? 'આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?'
+          : 'What regular prescription medicines do you take daily, and do you have any known drug allergies (such as Penicillin, Sulfa, or pain medicines)?';
+      }
+      if (/clinical intake is complete|clinical questioning.*complete|क्लिनिकल पूछताछ पूरी|પૂછપરછ પૂર્ણ/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
+          : newLang === 'gu'
+          ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
+          : 'Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
+      }
+      if (/how long|begin suddenly|कितने समय|अचानक शुरू|કેટલા સમય|અચાનક શરૂ/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'आपको यह तकलीफ कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?'
+          : newLang === 'gu'
+          ? 'તમને આ તકલીફ કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?'
+          : 'How long have you been experiencing this symptom, and did it begin suddenly or gradually?';
+      }
+      if (/welcome|symptom|health concern|स्वागत|સ્વાગત/i.test(raw)) {
+        return newLang === 'hi'
+          ? 'अस्पताल में आपका स्वागत है। कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?'
+          : newLang === 'gu'
+          ? 'હોસ્પિટલમાં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો જણાય છે?'
+          : 'Welcome to the clinic. Please describe what primary symptoms or health concerns brought you in today?';
+      }
+      return raw;
+    };
+
+    // Optimistically translate local state
+    setMessages(prev => prev.map(m => ({
+      ...m,
+      content: m.role === 'AI' ? translateQLocal(m.content) : m.content,
+      options: m.options ? m.options.map(translateOptLocal) : undefined,
+    })));
+
+    setTouchOptions(prev => {
+      if (!prev || prev.length === 0) return fallbackOptions[newLang];
+      return prev.map(translateOptLocal);
+    });
+
+    // 2. Sync with backend API translation service
     if (session?.id) {
       try {
         const res = await api.conversation.switchLanguage(session.id, newLang.toUpperCase(), messages);
         const latestQ = res?.activeQuestion || res?.latestQuestion;
-        
         const translatedMsgs = res?.translatedMessages;
+        
         let activeOpts = (res?.touchOptions && res.touchOptions.length > 0) ? res.touchOptions : undefined;
         if (!activeOpts && translatedMsgs && translatedMsgs.length > 0) {
           const lastAiInTranslated = translatedMsgs.slice().reverse().find((m: any) => m.role === 'AI');
@@ -354,15 +446,11 @@ export function IntakePage() {
             activeOpts = lastAiInTranslated.options;
           }
         }
-        if (!activeOpts || activeOpts.length === 0) {
-          const lastAiMsg = messages.slice().reverse().find(m => m.role === 'AI');
-          activeOpts = lastAiMsg?.options && lastAiMsg.options.length > 0 ? lastAiMsg.options : fallbackOptions[newLang];
-        }
 
         if (translatedMsgs && translatedMsgs.length > 0) {
           setMessages(translatedMsgs);
         } else if (latestQ) {
-          setMessages((prev) => {
+          setMessages(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];
             const lastAiIdx = updated.map(m => m.role).lastIndexOf('AI');
@@ -370,26 +458,26 @@ export function IntakePage() {
               updated[lastAiIdx] = {
                 ...updated[lastAiIdx],
                 content: latestQ,
-                options: activeOpts,
+                options: activeOpts || updated[lastAiIdx].options,
               };
             }
             return updated;
           });
         }
 
-        setTouchOptions(activeOpts);
+        if (activeOpts && activeOpts.length > 0) {
+          setTouchOptions(activeOpts);
+        }
 
         if (latestQ && audioEnabled) {
-          speechProvider.speak(latestQ, newLang);
+          speechProvider.speak(latestQ, newLang).catch(() => {});
         }
       } catch (err) {
-        console.warn('Language switch translation fallback:', err);
-        setTouchOptions(fallbackOptions[newLang]);
+        console.warn('Language switch background sync notice:', err);
       } finally {
         isSwitchingLangRef.current = false;
       }
     } else {
-      setTouchOptions(fallbackOptions[newLang]);
       isSwitchingLangRef.current = false;
     }
   };
