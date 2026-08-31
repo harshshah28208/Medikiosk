@@ -609,7 +609,8 @@ router.post('/:sessionId/complete', async (req: AuthRequest, res: Response): Pro
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : (state.carePath || 'ALLOPATHY'));
   const specialty = state.specialty || (visit as any).doctor?.specialization || visit.department?.name || 'General Medicine';
 
-  const summaryDraft = await aiProvider.generateClinicalSummary(
+  const activeAi = getAIProvider();
+  const summaryDraft = await activeAi.generateClinicalSummary(
     state,
     visit.patient,
     visit.vitals?.[0],

@@ -610,7 +610,6 @@ export class UniversalClinicalEngine implements AIProvider {
       const entry = `${relation}: ${condition}`;
       if (!famList.includes(entry)) famList.push(entry);
       update.familyHistory = famList;
-      return update;
     }
 
     // 3. Historical / Resolved Illness
@@ -622,7 +621,6 @@ export class UniversalClinicalEngine implements AIProvider {
       const pastMed = [...(state.pastMedicalHistory || [])];
       if (!pastMed.includes(text)) pastMed.push(text);
       update.pastMedicalHistory = pastMed;
-      return update;
     }
 
     // 4. Care-Path Specific Attribute Extraction
@@ -2991,7 +2989,7 @@ export class GroqAIProvider implements AIProvider {
   private fallback = new UniversalClinicalEngine();
 
   constructor(apiKey: string) {
-    this.groq = new Groq({ apiKey, maxRetries: 1, timeout: 12000 });
+    this.groq = new Groq({ apiKey, maxRetries: 0, timeout: 6000 });
     this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   }
 
@@ -3010,7 +3008,7 @@ export class GroqAIProvider implements AIProvider {
         const content = res.choices[0]?.message?.content?.trim();
         if (content && content.length > 0) return content;
       } catch (e: any) {
-        // Try next model if rate limit or network error
+        // Continue to next candidate model
       }
     }
     throw new Error('All Groq candidate models exhausted');
