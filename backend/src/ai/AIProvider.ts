@@ -1881,10 +1881,10 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // Default General OPD Opening
-      const clinicPrefixEN = docName ? `Dr. ${docName}'s General Medicine OPD` : 'MediKiosk';
-      const clinicPrefixHI = docName ? `डॉ. ${docName} के सामान्य चिकित्सा (General Medicine) ओपीडी` : 'मेडीकियोस्क';
-      const clinicPrefixGU = docName ? `ડૉ. ${docName} ના જનરલ મેડિસિન ઓપીડી` : 'મેડીકિયોસ્ક';
+      // Default & Extensible Clinic Opening (Dynamically adapts to ANY new specialty or doctor)
+      const clinicPrefixEN = docName ? `Dr. ${docName}'s ${effectiveSpecialty} Clinic` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} Clinic` : 'MediKiosk');
+      const clinicPrefixHI = docName ? `डॉ. ${docName} के ${effectiveSpecialty} विभाग` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} विभाग` : 'मेडीकियोस्क');
+      const clinicPrefixGU = docName ? `ડૉ. ${docName} ના ${effectiveSpecialty} વિભાગ` : (effectiveSpecialty !== 'General Medicine' ? `${effectiveSpecialty} વિભાગ` : 'મેડીકિયોસ્ક');
 
       const qText = {
         EN: isCaregiver
