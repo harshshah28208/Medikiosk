@@ -12,12 +12,13 @@ export const registerPatientSchema = z.object({
   preferredLang: z.string().optional().default('EN'),
   abhaId: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
+  departmentCode: z.string().optional().nullable(),
   doctorId: z.string().optional().nullable(),
   reasonForVisit: z.string().optional().nullable(),
   pastMedicalHistory: z.string().optional().nullable(),
   currentMedications: z.string().optional().nullable(),
   allergies: z.string().optional().nullable(),
-});
+}).passthrough();
 
 export const patientLookupSchema = z.object({
   query: z.string().min(1, 'Search query is required'),

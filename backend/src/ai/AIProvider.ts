@@ -2252,9 +2252,9 @@ export class UniversalClinicalEngine implements AIProvider {
     const chief = state.chiefComplaint || 'Patient presented for OPD consultation';
 
     // 1. Common Baseline Extracted Findings
-    const onsetVal = state.onset || state.symptoms?.find(s => s.onset)?.onset || (state.symptoms?.[0]?.onset ? state.symptoms[0].onset : 'UNKNOWN / NOT_ASSESSED');
-    const durationVal = state.duration || state.symptoms?.find(s => s.duration)?.duration || (state.symptoms?.[0]?.duration ? state.symptoms[0].duration : 'UNKNOWN / NOT_ASSESSED');
-    const severityVal = state.severity || (state.symptoms?.find(s => s.severity)?.severity ? `${state.symptoms.find(s => s.severity)!.severity}/10` : 'UNKNOWN / NOT_ASSESSED');
+    const onsetVal = (state as any).onset || state.symptoms?.find(s => s.onset)?.onset || (state.symptoms?.[0]?.onset ? state.symptoms[0].onset : 'UNKNOWN / NOT_ASSESSED');
+    const durationVal = (state as any).duration || state.symptoms?.find(s => s.duration)?.duration || (state.symptoms?.[0]?.duration ? state.symptoms[0].duration : 'UNKNOWN / NOT_ASSESSED');
+    const severityVal = (state as any).severity || (state.symptoms?.find(s => s.severity)?.severity ? `${state.symptoms.find(s => s.severity)!.severity}/10` : 'UNKNOWN / NOT_ASSESSED');
     const characterVal = state.symptoms?.find(s => s.character)?.character || 'UNKNOWN / NOT_ASSESSED';
     const radiationVal = state.symptoms?.find(s => s.radiation)?.radiation || 'UNKNOWN / NOT_ASSESSED';
 
@@ -2460,7 +2460,7 @@ export class UniversalClinicalEngine implements AIProvider {
         symptomHistory: `Onset: ${onsetVal}. Duration: ${durationVal}. Progression: ${state.symptoms?.find(s => s.progression)?.progression || 'Gradual aggravation with heat and stress'}.`,
         dailyRoutine: viharaVal,
         diet: aharaVal,
-        lifestyle: `Ahara: ${aharaVal} • Vihara: ${viharaVal} • Stress: ${state.lifestyle?.stressLevel || 'Moderate to High'}`,
+        lifestyle: `Ahara: ${aharaVal} • Vihara: ${viharaVal} • Stress: ${(state.lifestyle as any)?.stressLevel || 'Moderate to High'}`,
         relevantGeneralCharacteristics: `Thermal Tolerance: Ushna Asahatva (Heat intolerant) • Sveda: Heavy perspiration • Physical Energy: Moderate`,
         ayushAssessment: {
           prakriti: prakritiVal,
@@ -2510,7 +2510,7 @@ export class UniversalClinicalEngine implements AIProvider {
     // PATH 2: HOMEOPATHY SUMMARY
     // ───────────────────────────────────────────────
     if (effectiveCarePath === 'HOMEOPATHY') {
-      const sensation = state.homeopathyAssessment?.characteristicSensation || (state.symptoms?.find(s => s.character)?.character ? `${state.symptoms.find(s => s.character)!.character} sensation` : 'Right-sided throbbing and bursting sensation as if head will split open');
+      const sensation = (state.homeopathyAssessment as any)?.characteristicSensation || (state.symptoms?.find(s => s.character)?.character ? `${state.symptoms.find(s => s.character)!.character} sensation` : 'Right-sided throbbing and bursting sensation as if head will split open');
       const modalitiesStr = state.homeopathyAssessment?.modalities || '< Sunlight, < Movement/motion, < Noise and bright light | > Cold tight bandage, > Lying in a quiet dark room';
       const thermalVal = state.homeopathyAssessment?.thermalState || (state.symptoms?.some(s => /chilly|cold|warm/i.test(s.name)) ? 'Chilly patient (requires warm blankets, sensitive to cold air)' : 'UNKNOWN / NOT_ASSESSED');
       const thirstVal = state.homeopathyAssessment?.thirst || (state.symptoms?.some(s => /thirst/i.test(s.name)) ? 'Completely thirstless during acute headache paroxysms' : 'UNKNOWN / NOT_ASSESSED');
@@ -2707,7 +2707,13 @@ Return ONLY the direct translated sentence:
     }
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
+  async generateNextQuestion(
+    state: ClinicalState,
+    language: 'EN' | 'HI' | 'GU',
+    carePath?: boolean | 'AYUSH' | 'ALLOPATHY' | 'HOMEOPATHY',
+    specialty?: string,
+    conversationHistory?: Array<{ role: string; content: string }>
+  ): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
       const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
@@ -2796,13 +2802,13 @@ Return ONLY valid JSON (no markdown fences):
       const text = res.response.text().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
-        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
         parsed.touchOptions = fallbackQ.touchOptions;
       }
       return parsed;
     } catch (e: any) {
       console.log(`[AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
-      return this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+      return this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
     }
   }
 

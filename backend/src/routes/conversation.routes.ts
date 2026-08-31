@@ -89,7 +89,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
   const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
-  const specialty = req.body.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+  const specialty = req.body.specialty || (visit as any).doctor?.specialization || visit.department?.name || 'General Medicine';
 
   // Check if patient explicitly requested a NEW CASE (or brand new complaint)
   const isExplicitNewCase = req.body.isNewCase === true || req.body.visitType === 'NEW_CASE';
@@ -221,15 +221,16 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
 
   // Seamlessly populate known background allergies and chronic diseases from patient record
   if (visit.patient) {
-    if (visit.patient.allergies && Array.isArray(visit.patient.allergies)) {
-      initialState.allergies = visit.patient.allergies.map((a: any) => ({
+    const patientObj = visit.patient as any;
+    if (patientObj.allergies && Array.isArray(patientObj.allergies)) {
+      initialState.allergies = patientObj.allergies.map((a: any) => ({
         allergen: a.allergen || a,
         reaction: a.reaction || 'Hypersensitivity',
         severity: a.severity || 'MODERATE',
       }));
     }
-    if (visit.patient.medicalHistory && typeof visit.patient.medicalHistory === 'string') {
-      const conditions = visit.patient.medicalHistory.split(/[,;\n]+/).map((c: string) => c.trim()).filter(Boolean);
+    if (patientObj.medicalHistory && typeof patientObj.medicalHistory === 'string') {
+      const conditions = patientObj.medicalHistory.split(/[,;\n]+/).map((c: string) => c.trim()).filter(Boolean);
       if (conditions.length > 0) {
         initialState.pastMedicalHistory = conditions;
       }
@@ -421,7 +422,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath') || state.carePath === 'HOMEOPATHY';
   const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved') || state.carePath === 'AYUSH';
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : (state.carePath || 'ALLOPATHY')));
-  const specialty = state.specialty || session.visit.doctor?.specialization || session.visit.department?.name || 'General Medicine';
+  const specialty = state.specialty || (session.visit as any).doctor?.specialization || session.visit.department?.name || 'General Medicine';
 
   // 2. Fact Extraction via Live Autonomous Clinical AI
   const activeAi = getAIProvider();
@@ -602,7 +603,7 @@ router.post('/:sessionId/complete', async (req: AuthRequest, res: Response): Pro
   const isHomeo = deptName.toLowerCase().includes('homeopath') || state.carePath === 'HOMEOPATHY';
   const isAyu = deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved') || state.carePath === 'AYUSH';
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : (state.carePath || 'ALLOPATHY'));
-  const specialty = state.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+  const specialty = state.specialty || (visit as any).doctor?.specialization || visit.department?.name || 'General Medicine';
 
   const summaryDraft = await aiProvider.generateClinicalSummary(
     state,

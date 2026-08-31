@@ -35,7 +35,8 @@ async function run() {
         age: 36,
         gender: 'MALE',
         address: 'Vadodara, Gujarat',
-        preferredLang: 'EN',
+        preferredLang: 'en',
+        departmentCode: carePath === 'AYUSH' || carePath === 'HOMEOPATHY' ? 'AYUSH' : 'GEN',
         reasonForVisit: 'Severe persistent headache',
         carePath,
       }),
@@ -43,6 +44,10 @@ async function run() {
 
     const patient = regRes.data?.patient;
     const visit = regRes.data?.visit;
+    if (!visit) {
+      console.error('Registration failed:', regRes.status, regRes.data);
+      throw new Error(`Registration failed: ${JSON.stringify(regRes.data)}`);
+    }
 
     // Start Conversation Session
     const startRes = await request('/conversation/start', {
@@ -75,8 +80,7 @@ async function run() {
           language: 'EN',
           inputMethod: 'TEXT',
           carePath,
-          isAyush: carePath === 'AYUSH',
-          isHomeopathy: carePath === 'HOMEOPATHY',
+          departmentCode: carePath === 'AYUSH' || carePath === 'HOMEOPATHY' ? 'AYUSH' : 'GEN',
         }),
       });
 

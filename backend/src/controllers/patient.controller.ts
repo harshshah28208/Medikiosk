@@ -30,8 +30,8 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
   let department = null;
   if (doctor?.department) {
     department = doctor.department;
-  } else if (input.departmentId || input.departmentCode || input.department) {
-    const query = String(input.departmentId || input.departmentCode || input.department).trim();
+  } else if (input.departmentId || (input as any).departmentCode || (input as any).department) {
+    const query = String(input.departmentId || (input as any).departmentCode || (input as any).department).trim();
     department = await prisma.department.findFirst({
       where: {
         OR: [
