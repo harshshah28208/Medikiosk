@@ -6,8 +6,8 @@ import type { ClinicalState, QuestionOutput } from './ClinicalState.js';
 import { RedFlagEngine } from './RedFlagEngine.js';
 
 export interface AIProvider {
-  extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>>;
-  generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush?: boolean, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput>;
+  extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY', specialty?: string): Promise<Partial<ClinicalState>>;
+  generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean, specialty?: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput>;
   translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string>;
   generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any>;
 }
@@ -573,9 +573,94 @@ function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): str
 }
 
 export class UniversalClinicalEngine implements AIProvider {
-  async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU'): Promise<Partial<ClinicalState>> {
+  async extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY', specialty?: string): Promise<Partial<ClinicalState>> {
     const text = input.trim();
     const update: Partial<ClinicalState> = {};
+    const tLower = text.toLowerCase();
+    const effectiveCarePath = carePath || state.carePath || 'ALLOPATHY';
+
+    // 1. Explicit Negation / Denied Symptoms
+    if (/\b(no|not|don't have|dont have|denies|deny|without|no history of)\b|नहीं|ના|નથી/i.test(tLower)) {
+      const deniedList = [...(state.deniedSymptoms || [])];
+      if (/vomit|उल्टी|ઉલટી/i.test(tLower) && !deniedList.includes('vomiting')) deniedList.push('vomiting');
+      if (/fever|बुखार|તાવ/i.test(tLower) && !deniedList.includes('fever')) deniedList.push('fever');
+      if (/dizz|चक्कर|ચક્કર/i.test(tLower) && !deniedList.includes('dizziness')) deniedList.push('dizziness');
+      if (/numb|weakness|सुन्नपन|ખાલી/i.test(tLower) && !deniedList.includes('focal neurological deficit')) deniedList.push('focal neurological deficit');
+      if (/blur|vision|धुंधला|ઝાંખું/i.test(tLower) && !deniedList.includes('visual disturbance')) deniedList.push('visual disturbance');
+      if (/neck|stiff|गर्दन|ગરદન/i.test(tLower) && !deniedList.includes('neck stiffness')) deniedList.push('neck stiffness');
+      if (/blood|खून|લોહી/i.test(tLower) && !deniedList.includes('bleeding')) deniedList.push('bleeding');
+      
+      update.deniedSymptoms = deniedList;
+    }
+
+    // 2. Family History Detection
+    if (/\b(father|mother|brother|sister|parent|family|dad|mom|grandpa|grandma)\b|पिताजी|माताजी|परिवार|પિતાજી|માતાજી|પરિવાર/i.test(tLower)) {
+      const famList = [...(state.familyHistory || [])];
+      let relation = 'Family Member';
+      if (/father|dad|पिता|પિતા/i.test(tLower)) relation = 'Father';
+      else if (/mother|mom|माता|માતા/i.test(tLower)) relation = 'Mother';
+      else if (/brother|sister|भाई|બહેન/i.test(tLower)) relation = 'Sibling';
+
+      let condition = text;
+      if (/diabetes|sugar|शुगर|ડાયાબિટીસ/i.test(tLower)) condition = 'Diabetes Mellitus';
+      else if (/bp|hypertension|blood pressure|बीपी/i.test(tLower)) condition = 'Hypertension';
+      else if (/heart|cardiac|दिल|हार्ट/i.test(tLower)) condition = 'Cardiac Disease';
+      else if (/migraine|माइग्रेन|આધાશીશી/i.test(tLower)) condition = 'Migraine';
+
+      const entry = `${relation}: ${condition}`;
+      if (!famList.includes(entry)) famList.push(entry);
+      update.familyHistory = famList;
+      return update;
+    }
+
+    // 3. Historical / Resolved Illness
+    if (/\b(had|last month|last year|past|childhood|previously|resolved|ago)\b|पहले|गया|પહેલા|ગયા મહિને/i.test(tLower)) {
+      const histList = [...(state.historicalFindings || [])];
+      if (!histList.includes(text)) histList.push(text);
+      update.historicalFindings = histList;
+      
+      const pastMed = [...(state.pastMedicalHistory || [])];
+      if (!pastMed.includes(text)) pastMed.push(text);
+      update.pastMedicalHistory = pastMed;
+      return update;
+    }
+
+    // 4. Care-Path Specific Attribute Extraction
+    if (effectiveCarePath === 'AYUSH') {
+      const currentAyush = { ...(state.ayushAssessment || {}) };
+      if (/heavy|bloat|slow|mandagni|गैस|भारीपन|મંદ|સુસ્તી/i.test(tLower)) currentAyush.agni = 'MANDAGNI';
+      else if (/burning|acid|acidity|tikshna|जलन|તીક્ષ્ણ/i.test(tLower)) currentAyush.agni = 'TIKSHNAGNI';
+      else if (/irregular|visham|विषम/i.test(tLower)) currentAyush.agni = 'VISHAMAGNI';
+
+      if (/constipat|hard stool|krura|कब्ज|कड़ा|કબજિયાત|કઠણ/i.test(tLower)) currentAyush.koshtha = 'KRURA';
+      else if (/loose|soft|mridu|पतला|મૃદુ/i.test(tLower)) currentAyush.koshtha = 'MRIDU';
+
+      if (/spicy|oily|tea|coffee|fast food|तला-भुना|તીખું|તળેલું/i.test(tLower)) currentAyush.ahara = text;
+      if (/late night|night shift|sleep late|दिनचर्या|મોડી રાત્રે/i.test(tLower)) currentAyush.vihara = text;
+      update.ayushAssessment = currentAyush;
+    } else if (effectiveCarePath === 'HOMEOPATHY') {
+      const currentHomeo = { ...(state.homeopathyAssessment || { modalities: { aggravating: [], relieving: [] } }) };
+      const aggList = [...(currentHomeo.modalities?.aggravating || [])];
+      const relList = [...(currentHomeo.modalities?.relieving || [])];
+
+      if (/sun|heat|warmth|movement|motion|noise|light|afternoon|धूप|गर्मी|हिलने|તડકો|ગરમી/i.test(tLower)) {
+        if (!aggList.includes(text)) aggList.push(text);
+      }
+      if (/cold|wash|dark|sleep|pressure|bandage|ठंडा|अंधेरे|दबाने|ઠંડુ|અંધારા|દબાવવાથી/i.test(tLower)) {
+        if (!relList.includes(text)) relList.push(text);
+      }
+      currentHomeo.modalities = { aggravating: aggList, relieving: relList };
+
+      if (/chilly|cold easily|cold drafts|ठंड ज्यादा|ઠંડી વધારે/i.test(tLower)) currentHomeo.thermalState = 'CHILLY';
+      else if (/hot|heat easily|open air|गर्मी बर्दाश्त नहीं|ગરમી સહન ન થાય/i.test(tLower)) currentHomeo.thermalState = 'HOT';
+
+      if (/thirstless|no thirst|don't feel thirsty|प्यास नहीं|તરસ નથી/i.test(tLower)) currentHomeo.thirst = 'THIRSTLESS';
+      else if (/thirsty|large quantities|small sips|ज्यादा पानी|ખૂબ પાણી/i.test(tLower)) currentHomeo.thirst = text;
+
+      if (/irritable|angry|alone|quiet|anxious|weep|गुस्सा|अकेले|શાંતિ|ચીડચીડાપણું/i.test(tLower)) currentHomeo.mentalState = text;
+
+      update.homeopathyAssessment = currentHomeo;
+    }
     const turns = state.turnsCompleted || 0;
     const isNew = state.isNewPatient !== false;
 
@@ -871,12 +956,18 @@ export class UniversalClinicalEngine implements AIProvider {
     return text;
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
+  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean, specialty?: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     const lang: 'EN' | 'HI' | 'GU' = (language?.toUpperCase() as 'EN' | 'HI' | 'GU') || (state.currentLanguage as 'EN' | 'HI' | 'GU') || 'EN';
     const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
     const complaintText = state.chiefComplaint || 'problem';
     const localizedLabel = getSymptomLabelInLang(complaintText, lang);
     const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
+    
+    // Resolve Care Path & Specialty
+    const effectiveCarePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = typeof carePath === 'string'
+      ? carePath
+      : (carePath === true || state.carePath === 'AYUSH' ? 'AYUSH' : (state.carePath === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY'));
+    const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
 
     // Track answered clinical dimensions from turns, state, and conversation transcript to guarantee smooth stage progression
     const answeredDimensions = new Set<string>();
@@ -1174,6 +1265,375 @@ export class UniversalClinicalEngine implements AIProvider {
         isComplete: false,
         clinicalRationale: 'Establishing active chief complaint on initial new patient intake turn',
       };
+    }
+
+    // ----------------------------------------------------
+    // CARE PATH 1: AYUSH (Ayurveda & Integrative Medicine)
+    // ----------------------------------------------------
+    if (effectiveCarePath === 'AYUSH') {
+      const turns = state.turnsCompleted || 0;
+      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+        const qText = {
+          EN: `What is the specific nature of your ${localizedLabel} (sharp burning heat, throbbing pulsation, or heavy dull ache), and does it worsen in hot sun, after meals, or in cold air?`,
+          HI: `आपकी ${localizedLabel} की प्रकृति कैसी है (तेज जलन व तीखा दर्द, धड़कन जैसी टीस, या भारीपन भरा दर्द), और क्या यह धूप, भोजन के बाद या ठंडी हवा में बढ़ता है?`,
+          GU: `આપની ${localizedLabel} નો પ્રકાર કેવો છે (તીક્ષ્ણ બળતરા, ધબકારા સાથે દુખાવો, કે ભારેપણું), અને શું તે તડકામાં, જમ્યા પછી કે ઠંડી હવામાં વધે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Sharp burning pain worse in sunlight / heat (Pitta)', 'Heavy dull ache with head heaviness in mornings (Kapha)', 'Throbbing pain triggered by mental stress & fatigue (Vata)', 'Ache after skipping meals or indigestion (Ama)'],
+          HI: ['तेज जलन व धूप/गर्मी में बढ़ने वाला दर्द (पित्त)', 'सुबह सिर में भारीपन व जकड़न (कफ)', 'तनाव व थकान से टीस मारने वाला दर्द (वात)', 'भूख रोकने या अपच के बाद होने वाला दर्द (आम)'],
+          GU: ['તીવ્ર બળતરા અને તડકા/ગરમીથી વધતો દુખાવો (પિત્ત)', 'સવારે માથામાં ભારેપણું અને જકડન (કફ)', 'તણાવ અને થાકથી ધબકતો દુખાવો (વાત)', 'ભૂખ્યા રહેવાથી કે અપચા પછી થતો દુખાવો (આમ)'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'AYUSH',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'AYUSH Dosha profiling: Shirahshula etiology (Vataja/Pittaja/Kaphaja/Amaja)',
+        };
+      }
+
+      if (turns === 2 || !state.ayushAssessment?.agni || !state.ayushAssessment?.koshtha) {
+        const qText = {
+          EN: `How is your appetite and digestion (do you feel bloated/heavy after meals, or acidity), and are your bowel movements regular or constipated?`,
+          HI: `आपकी भूख और पाचन (अग्नि) कैसी है (क्या खाने के बाद भारीपन या खट्टी डकारें आती हैं), और क्या पेट रोज साफ होता है या कब्ज रहती है?`,
+          GU: `આપની ભૂખ અને પાચન (અગ્નિ) કેવું રહે છે (શું જમ્યા પછી ભારેપણું કે એસિડિટી થાય છે), અને પેટ રોજ સાફ થાય છે કે કબજિયાત રહે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Normal digestion & clear daily bowel movements', 'Sluggish digestion, bloating & heavy feeling (Mandagni)', 'Acid reflux, sour burps & burning hunger (Tikshnagni)', 'Irregular appetite & hard constipated stools (Krura Koshtha)'],
+          HI: ['सामान्य पाचन और रोज पेट साफ होता है', 'धीमा पाचन, भारीपन व पेट फूलना (मंदाग्नि)', 'खट्टी डकारें, सीने में जलन व तेज भूख (तीक्ष्णाग्नि)', 'अनियमित भूख और कब्ज/कड़ा मल (क्रूर कोष्ठ)'],
+          GU: ['સામાન્ય પાચન અને રોજ પેટ સાફ થાય છે', 'ધીમું પાચન, ભારેપણું અને પેટ ફૂલવું (મંદાગ્નિ)', 'ખાટા ઓડકાર, છાતીમાં બળતરા અને તીવ્ર ભૂખ (તીક્ષ્ણાગ્નિ)', 'અનિયમિત ભૂખ અને કબજિયાત/કઠણ મળ (ક્રૂર કોષ્ઠ)'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'AYUSH',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'AYUSH Agni & Koshtha Pariksha for metabolic digestive fire and bowel disposition',
+        };
+      }
+
+      if (turns === 3 || !state.ayushAssessment?.ahara || !state.ayushAssessment?.vihara) {
+        const qText = {
+          EN: `What are your daily dietary habits (preference for spicy, oily, or tea/coffee), and what is your sleep routine (do you sleep late at night or take day naps)?`,
+          HI: `आपकी खान-पान की आदतें कैसी हैं (तला-भुना, तीखा, चाय/कॉफी अधिक), और सोने की दिनचर्या कैसी है (क्या देर रात जागते हैं या दिन में सोते हैं)?`,
+          GU: `આપની ખાનપાનની આદતો કેવી છે (તળેલું, તીખું, ચા/કોફી વધુ), અને ઊંઘની દિનચર્યા કેવી છે (મોડી રાત સુધી જાગવું કે દિવસે ઊંઘવું)?`,
+        };
+        const touchOpts = {
+          EN: ['Frequent spicy/oily food, tea & irregular meal times', 'Late night sleep (>12 AM) & waking tired (Ratri Jagarana)', 'Simple home-cooked food & regular 7-8 hrs sleep', 'Excess dry/cold foods & high mental workload'],
+          HI: ['तला-भुना, तीखा खाना, अधिक चाय व अनियमित समय', 'देर रात सोना (>12 बजे) व सुबह थकान (रात्रि जागरण)', 'घर का सादा भोजन और 7-8 घंटे नियमित नींद', 'सूखा/ठंडा भोजन और अधिक मानसिक तनाव'],
+          GU: ['તળેલું, તીખું ભોજન, વધુ ચા અને અનિયમિત સમય', 'મોડી રાત્રે ઊંઘવું (>૧૨ વાગ્યે) અને સવારે થાક (રાત્રિ જાગરણ)', 'ઘરનો સાદો ખોરાક અને ૭-૮ કલાક નિયમિત ઊંઘ', 'સૂકો/ઠંડો ખોરાક અને વધુ માનસિક તણાવ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'AYUSH',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'AYUSH Ahara-Vihara assessment for dietary triggers and lifestyle circadian balance',
+        };
+      }
+
+      if (turns === 4 || !state.ayushAssessment?.prakriti) {
+        const qText = {
+          EN: `How is your natural body temperature tolerance (do you feel excess internal heat or get chilled easily), and do you notice dry skin, joint cracking, or mental restlessness?`,
+          HI: `आपकी शारीरिक प्रकृति व तापमान सहनशीलता कैसी है (क्या बहुत जल्दी गर्मी लगती है या ठंड लगती है), और क्या त्वचा में सूखापन या बेचैनी रहती है?`,
+          GU: `આપની શારીરિક પ્રકૃતિ અને તાપમાન સહનશીલતા કેવી છે (શું ખૂબ જલ્દી ગરમી લાગે છે કે ઠંડી લાગે છે), અને ચામડીમાં સૂકાપણું કે બેચેની રહે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Intolerant to heat, sweat easily, warm body (Pitta)', 'Feel cold easily, dry skin, anxious mind (Vata)', 'Calm constitution, heavy build, slow digestion (Kapha)', 'Mixed traits with seasonal variations'],
+          HI: ['गर्मी सहन नहीं होती, पसीना अधिक व शरीर गर्म (पित्त)', 'जल्दी ठंड लगना, रूखी त्वचा व बेचैनी (वात)', 'शांत स्वभाव, भारी शरीर व सुस्त पाचन (कफ)', 'मौसम के अनुसार बदलने वाले लक्षण'],
+          GU: ['ગરમી સહન ન થવી, વધુ પરસેવો અને ગરમ શરીર (પિત્ત)', 'જલ્દી ઠંડી લાગવી, સૂકી ચામડી અને બેચેની (વાત)', 'શાંત સ્વભાવ, ભારે શરીર અને ધીમું પાચન (કફ)', 'ઋતુ પ્રમાણે બદલાતા લક્ષણો'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'AYUSH',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'AYUSH Prakriti Pariksha: Doshic constitutional assessment',
+        };
+      }
+    }
+
+    // ----------------------------------------------------
+    // CARE PATH 2: HOMEOPATHY (Classical Case-Taking)
+    // ----------------------------------------------------
+    if (effectiveCarePath === 'HOMEOPATHY') {
+      const turns = state.turnsCompleted || 0;
+      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+        const qText = {
+          EN: `Can you describe the exact sensation of your ${localizedLabel} (throbbing, bursting, sharp stitching, or heavy band-like constriction), and is it located on the right or left side?`,
+          HI: `आपकी ${localizedLabel} में दर्द का सटीक अनुभव कैसा है (टीस मारना, फटने जैसा, सुई चुभने जैसा, या पट्टी से बंधा हुआ), और क्या यह दाईं या बाईं तरफ ज्यादा है?`,
+          GU: `આપની ${localizedLabel} માં દુખાવાનો ચોક્કસ અનુભવ કેવો છે (ધબકારા મારતો, ફાટી જતો, સોય ભોંકાય તેવો, કે પાટાથી બાંધ્યો હોય તેવો), અને જમણી કે ડાબી બાજુ છે?`,
+        };
+        const touchOpts = {
+          EN: ['Right-sided throbbing / hammering sensation', 'Left-sided sharp stitching or piercing ache', 'Bursting sensation as if head would split open', 'Heavy tight band constriction across temples & forehead'],
+          HI: ['दाईं तरफ तेज टीस व हथौड़े जैसा दर्द', 'बाईं तरफ सुई चुभने या कांटे जैसा दर्द', 'सिर फटने जैसा तेज दबाव व भारीपन', 'माथे व कनपटी पर कसी हुई पट्टी जैसा खिंचाव'],
+          GU: ['જમણી બાજુ તીવ્ર ધબકારા અને હથોડા જેવો દુખાવો', 'ડાબી બાજુ સોય ભોંકાય તેવો તીક્ષ્ણ દુખાવો', 'માથું ફાટી જશે તેવું ભારે દબાણ', 'કપાળ પર કસીને બાંધેલા પાટા જેવું ખેંચાણ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'HOMEOPATHY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Homeopathic individualizing sensation and laterality evaluation',
+        };
+      }
+
+      if (turns === 2 || !state.homeopathyAssessment?.modalities?.aggravating?.length) {
+        const qText = {
+          EN: `What specific factors make your ${localizedLabel} worse (sun heat, motion, noise, light, afternoon) and what gives you relief (cold compress, tight bandage, dark room, hard pressure)?`,
+          HI: `किस कारण से आपकी ${localizedLabel} बढ़ती है (धूप/गर्मी, हिलने-डुलने, आवाज, रोशनी) और किस चीज से आराम मिलता है (ठंडा पानी, कसकर पट्टी बांधना, अंधेरा कमरा, दबाने से)?`,
+          GU: `કયા કારણોથી આપની ${localizedLabel} વધે છે (તડકો/ગરમી, હલનચલન, અવાજ, પ્રકાશ) અને શેનાથી રાહત મળે છે (ઠંડુ પાણી, પાટો બાંધવો, અંધારામાં સૂવું, દબાવવાથી)?`,
+        };
+        const touchOpts = {
+          EN: ['Worse from sun heat, motion & noise; better in dark room', 'Better from cold water wash & tight bandaging', 'Worse in morning & 3 PM; better from hard pressure & rest', 'Worse from cold drafts & mental exertion; better from warmth'],
+          HI: ['धूप, हिलने व आवाज से बढ़ता है; अंधेरे कमरे में आराम', 'ठंडे पानी से धोने व कसकर बांधने से आराम', 'सुबह व दोपहर 3 बजे बढ़ता है; दबाने से आराम', 'ठंडी हवा व दिमागी काम से बढ़ता है; गर्माहट से आराम'],
+          GU: ['તડકો, હલનચલન અને અવાજથી વધે છે; અંધારામાં રાહત', 'ઠંડા પાણીથી ધોવા અને કસીને બાંધવાથી રાહત', 'સવારે અને બપોરે ૩ વાગ્યે વધે છે; દબાવવાથી રાહત', 'ઠંડી હવા અને માનસિક શ્રમથી વધે છે; ગરમીથી રાહત'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'HOMEOPATHY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Homeopathic characteristic modalities (< Aggravation and > Amelioration)',
+        };
+      }
+
+      if (turns === 3 || !state.homeopathyAssessment?.thermalState || !state.homeopathyAssessment?.thirst) {
+        const qText = {
+          EN: `How is your body temperature reaction (are you a chilly person who wants warmth, or hot desiring open cool air), and how is your thirst for water during this complaint?`,
+          HI: `आपकी शारीरिक तासीर कैसी है (क्या ठंड ज्यादा लगती है और गर्माहट चाहिए, या गर्मी बर्दाश्त नहीं होती), और इस तकलीफ के दौरान प्यास कैसी लगती है?`,
+          GU: `આપની શારીરિક તાસીર કેવી છે (શું ઠંડી વધુ લાગે છે અને ગરમી જોઈએ, કે ગરમી સહન નથી થતી), અને આ તકલીફ દરમિયાન પાણીની તરસ કેવી લાગે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Chilly patient (wants warmth/blanket) & Thirstless', 'Hot patient (desires cold open air & breeze) & Thirsty', 'Thirsty for large quantities of cold water at long intervals', 'Thirsty for small sips of warm water frequently'],
+          HI: ['ठंड ज्यादा लगना (गर्माहट/कंबल चाहिए) व प्यास न लगना', 'गर्मी सहन न होना (खुली हवा/पंखे की इच्छा) व अधिक प्यास', 'लंबे समय में ज्यादा मात्रा में ठंडा पानी पीने की प्यास', 'थोड़ी-थोड़ी देर में घूंट-घूंट गर्म पानी की प्यास'],
+          GU: ['ઠંડી વધુ લાગવી (ગરમી/ધાબળો જોઈએ) અને તરસ ન લાગવી', 'ગરમી સહન ન થવી (ખુલ્લી હવા/પંખાની ઇચ્છા) અને વધુ તરસ', 'લાંબા સમયે વધુ માત્રામાં ઠંડુ પાણી પીવાની તરસ', 'વારંવાર ઘૂંટડે-ઘૂંટડે ગરમ પાણીની તરસ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'HOMEOPATHY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Homeopathic general physical assessment: Thermal disposition & Thirst state',
+        };
+      }
+
+      if (turns === 4 || !state.homeopathyAssessment?.mentalState) {
+        const qText = {
+          EN: `How is your mental state and mood when you are suffering from ${localizedLabel} (irritable wanting silence, anxious & restless, or weeping easily)?`,
+          HI: `इस ${localizedLabel} के दौरान आपका मानसिक स्वभाव व मनोदशा कैसी रहती है (गुस्सा व अकेले रहने की इच्छा, बेचैनी व घबराहट, या रोने जैसा मन)?`,
+          GU: `આ ${localizedLabel} દરમિયાન આપનો માનસિક સ્વભાવ કેવો રહે છે (ચીડચીડાપણું અને એકલા રહેવું, બેચેની અને ગભરામણ, કે રડવું આવવું)?`,
+        };
+        const touchOpts = {
+          EN: ['Highly irritable — want to be left alone in total silence', 'Anxious & restless — unable to stay in one position', 'Quiet & weeps easily — comforted by consolation', 'Mentally fatigued & unable to concentrate on work'],
+          HI: ['बहुत चिड़चिड़ापन — बिल्कुल अकेले व शांत रहने की इच्छा', 'बेचैनी व घबराहट — एक जगह चैन नहीं मिलना', 'उदास व रोने का मन — सांत्वना से अच्छा लगना', 'दिमागी थकान और काम पर ध्यान न लगना'],
+          GU: ['ખૂબ ચીડચીડાપણું — શાંતિથી એકલા રહેવાની ઇચ્છા', 'બેચેની અને ગભરામણ — એક જગ્યાએ ચેન ન પડવું', 'ઉદાસ અને રડવાનું મન — આશ્વાસનથી સારું લાગવું', 'માનસિક થાક અને કામમાં ધ્યાન ન લાગવું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'HOMEOPATHY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Homeopathic mental and emotional general state assessment',
+        };
+      }
+    }
+
+    // ----------------------------------------------------
+    // CARE PATH 3A: ALLOPATHY + Neurology
+    // ----------------------------------------------------
+    if (effectiveCarePath === 'ALLOPATHY' && effectiveSpecialty.toLowerCase().includes('neuro')) {
+      const turns = state.turnsCompleted || 0;
+      if (turns <= 1 || !answeredDimensions.has('ONSET')) {
+        const qText = {
+          EN: `How suddenly did your ${localizedLabel} begin, and do you experience visual auras like flashing lights, zigzag lines, blind spots, or wavy vision?`,
+          HI: `आपकी ${localizedLabel} कितनी अचानक शुरू हुई, और क्या दर्द से पहले आँखों के आगे चमकती रोशनी, आड़ी-तिरछी रेखाएं या धुंधलापन दिखता है?`,
+          GU: `આપની ${localizedLabel} કેટલી અચાનક શરૂ થઈ, અને શું દુખાવા પહેલાં આંખો સામે ચમકારા, ઝિગઝેગ લાઈન કે ઝાંખપ દેખાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Visual aura (flashes of light / zigzag lines before pain)', 'Sudden severe onset within minutes (thunderclap)', 'Gradual onset that builds up over several hours', 'No visual aura, constant aching pressure'],
+          HI: ['आँखों के आगे चमकती रोशनी / रेखाएं (विजुअल ऑरा)', 'कुछ ही मिनटों में अचानक बहुत तेज दर्द', 'धीरे-धीरे कई घंटों में बढ़ने वाला दर्द', 'कोई रोशनी का असर नहीं, सिर्फ भारी दबाव'],
+          GU: ['આંખો સામે ચમકારા / લાઈન દેખાવી (વિઝ્યુઅલ ઓરા)', 'થોડી જ મિનિટોમાં અચાનક તીવ્ર દુખાવો', 'ધીમે-ધીમે કલાકોમાં વધતો દુખાવો', 'કોઈ ચમકારા નથી, માત્ર સતત દબાણ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Neurology migraine aura & sudden vs gradual onset screening',
+        };
+      }
+
+      if (turns === 2 || !answeredDimensions.has('CHARACTER')) {
+        const qText = {
+          EN: `Do you experience photophobia (light sensitivity), phonophobia (sound sensitivity), facial numbness, or tingling/weakness in your arms or legs?`,
+          HI: `क्या आपको तेज रोशनी या आवाज से परेशानी होती है, चेहरे पर सुन्नपन, या हाथ-पैरों में झनझनाहट व कमजोरी महसूस होती है?`,
+          GU: `શું આપને વધુ પ્રકાશ કે અવાજથી તકલીફ થાય છે, ચહેરા પર સુન્નતા, કે હાથ-પગમાં ખાલી ચડવી કે નબળાઈ જણાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Severe light & sound sensitivity with nausea', 'Numbness or tingling in face / fingers', 'Mild photophobia without weakness or numbness', 'No sensory sensitivity or focal weakness'],
+          HI: ['तेज रोशनी व आवाज से भारी परेशानी और जी मिचलाना', 'चेहरे या उंगलियों में सुन्नपन/झनझनाहट', 'हल्की रोशनी से दिक्कत पर कोई सुन्नपन नहीं', 'कोई सुन्नपन या कमजोरी नहीं'],
+          GU: ['વધુ પ્રકાશ અને અવાજથી ભારે તકલીફ અને ઉબકા', 'ચહેરા કે આંગળીઓમાં ખાલી ચડવી/ઝણઝણાટી', 'પ્રકાશથી હળવી તકલીફ પણ કોઈ નબળાઈ નથી', 'કોઈ ખાલી કે નબળાઈ નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Neurology focal deficits and sensory photophobia/phonophobia evaluation',
+        };
+      }
+
+      if (turns === 3 || !answeredDimensions.has('LIFESTYLE')) {
+        const qText = {
+          EN: `How many days per month do you experience these headaches, what triggers them (sleep loss, stress, screen time), and how often do you take pain relievers?`,
+          HI: `महीने में कितने दिन आपको यह सिरदर्द होता है, क्या ट्रिगर करता है (नींद की कमी, तनाव, स्क्रीन टाइम), और कितनी बार दर्द निवारक दवा लेते हैं?`,
+          GU: `મહિનામાં કેટલા દિવસ આપને આ માથાનો દુખાવો થાય છે, કયા કારણે વધે છે (ઊંઘની કમી, તણાવ, સ્ક્રીન ટાઈમ), અને કેટલી વાર પેઈનકિલર લો છો?`,
+        };
+        const touchOpts = {
+          EN: ['1 to 3 attacks/month, triggered by stress & sleep loss', 'Frequent attacks (>8-10 days/month), taking regular pain tablets', 'Triggered by bright screen exposure, skipped meals or dehydration', 'Occasional episodic headache relieved by rest'],
+          HI: ['महीने में 1-3 बार, तनाव व कम नींद से ट्रिगर', 'महीने में 8-10+ दिन, नियमित पेनकिलर खानी पड़ती है', 'स्क्रीन देखने, खाना छूटने या पानी की कमी से ट्रिगर', 'कभी-कभार दर्द जो आराम करने से ठीक हो जाता है'],
+          GU: ['મહિનામાં ૧-૩ વાર, તણાવ અને ઓછી ઊંઘથી વધે છે', 'મહિનામાં ૮-૧૦+ દિવસ, નિયમિત પેઈનકિલર લેવી પડે છે', 'સ્ક્રીન જોવાથી, ભોજન છૂટવાથી કે ડીહાઈડ્રેશનથી વધે છે', 'ક્યારેક થતો દુખાવો જે આરામથી મટી જાય છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'LIFESTYLE',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Neurology migraine frequency, lifestyle triggers & medication overuse screening',
+        };
+      }
+
+      if (turns === 4 || !answeredDimensions.has('PAST_HISTORY')) {
+        const qText = {
+          EN: `Is there a family history of migraines or neurological conditions, have you had prior brain MRI/CT scans, and do you have any drug allergies?`,
+          HI: `क्या आपके परिवार में किसी को माइग्रेन या तंत्रिका संबंधी बीमारी है, क्या पहले कोई ब्रेन स्कैन/MRI हुआ है, और क्या किसी दवा से एलर्जी है?`,
+          GU: `શું આપના પરિવારમાં કોઈને માઈગ્રેન છે, શું અગાઉ બ્રેઈન MRI/CT સ્કેન કરાવેલ છે, અને કોઈ દવાની એલર્જી છે?`,
+        };
+        const touchOpts = {
+          EN: ['Family history of migraine / No prior brain MRI', 'No chronic illness & No known drug allergies (NKDA)', 'Hypertension / Under regular medical review', 'Known allergy to NSAIDs / Pain relievers'],
+          HI: ['परिवार में माइग्रेन का इतिहास / पहले MRI नहीं हुआ', 'कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'बीपी की समस्या / नियमित जांच में हैं', 'दर्द की दवाओं (NSAIDs) से एलर्जी है'],
+          GU: ['પરિવારમાં માઈગ્રેનનો ઇતિહાસ / અગાઉ MRI નથી કરાવેલ', 'કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'બીપીની તકલીફ / નિયમિત દવા લઈએ છીએ', 'પેઈનકિલર દવાની એલર્જી છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'PAST_HISTORY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Neurology family history, neuroimaging background, and drug safety',
+        };
+      }
+    }
+
+    // ----------------------------------------------------
+    // CARE PATH 3B: ALLOPATHY + ENT
+    // ----------------------------------------------------
+    if (effectiveCarePath === 'ALLOPATHY' && (effectiveSpecialty.toLowerCase().includes('ent') || effectiveSpecialty.toLowerCase().includes('ear'))) {
+      const turns = state.turnsCompleted || 0;
+      if (turns <= 1 || !answeredDimensions.has('CHARACTER')) {
+        const qText = {
+          EN: `Is the pain or heavy pressure concentrated across your forehead, bridge of nose, or cheeks, and does bending forward make it worse?`,
+          HI: `क्या दर्द या भारीपन माथे, नाक की हड्डी या गालों के हिस्से पर केंद्रित है, और क्या आगे झुकने पर यह दबाव बढ़ जाता है?`,
+          GU: `શું દુખાવો કે ભારેપણું કપાળ, નાકના ટેરવા કે ગાલના ભાગ પર છે, અને આગળ વાંકા વળવાથી દબાણ વધે છે?`,
+        };
+        const touchOpts = {
+          EN: ['Severe pressure over forehead & cheeks, worse on bending forward', 'Pain concentrated behind eyes and bridge of nose', 'Throbbing ache radiating to upper teeth and jaw', 'Diffuse head heaviness without localized sinus pain'],
+          HI: ['माथे और गालों पर भारी दबाव, आगे झुकने पर बढ़ता है', 'आँखों के पीछे व नाक की हड्डी में तेज दर्द', 'ऊपरी दांतों व जबड़े तक फैलने वाला दर्द', 'पूरे सिर में भारीपन पर कोई खास साइनस दर्द नहीं'],
+          GU: ['કપાળ અને ગાલ પર ભારે દબાણ, આગળ વળતાં વધે છે', 'આંખોની પાછળ અને નાકના ભાગે તીવ્ર દુખાવો', 'ઉપરના દાંત અને જડબા સુધી ફેલાતો દુખાવો', 'સમગ્ર માથામાં ભારેપણું પણ ચોક્કસ સાયનસ દર્દ નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'ENT acute rhinosinusitis and postural facial pressure evaluation',
+        };
+      }
+
+      if (turns === 2 || !answeredDimensions.has('ONSET')) {
+        const qText = {
+          EN: `Do you have nasal congestion, thick yellow/green nasal discharge, post-nasal drip in your throat, or ear fullness/pressure?`,
+          HI: `क्या आपकी नाक बंद है, पीला/हरा गाढ़ा स्राव आ रहा है, गले में कफ गिर रहा है (post-nasal drip), या कान में भारीपन लग रहा है?`,
+          GU: `શું આપનું નાક બંધ છે, પીળું/લીલું પરુ જેવું પાણી આવે છે, ગળામાં કફ પડે છે, કે કાનમાં ભારેપણું જણાય છે?`,
+        };
+        const touchOpts = {
+          EN: ['Nasal blockage with thick yellowish discharge & post-nasal drip', 'Ear fullness & blocked sensation with facial pressure', 'Dry nasal congestion without discharge', 'No nasal discharge or ear symptoms'],
+          HI: ['नाक बंद, गाढ़ा पीला स्राव और गले में बलगम गिरना', 'कान में भारीपन/बंद होना और चेहरे पर दबाव', 'सूखी नाक बंद बिना किसी स्राव के', 'कोई नाक या कान की तकलीफ नहीं है'],
+          GU: ['નાક બંધ, ઘટ્ટ પીળો સ્ત્રાવ અને ગળામાં કફ પડવો', 'કાનમાં ભારેપણું/બંધ થવું અને ચહેરા પર દબાણ', 'સૂકું નાક બંધ કોઈ સ્ત્રાવ વગર', 'કોઈ નાક કે કાનની તકલીફ નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'ENT purulent rhinorrhea, Eustachian tube dysfunction & post-nasal drip evaluation',
+        };
+      }
+
+      if (turns === 3 || !answeredDimensions.has('LIFESTYLE')) {
+        const qText = {
+          EN: `Have you had chronic sinusitis, seasonal dust/cold allergies, or nasal polyps, and did this start after a recent cold or flu?`,
+          HI: `क्या आपको पुरानी साइनस की समस्या, धूल/ठंड की एलर्जी है, और क्या यह हाल ही में हुए सर्दी-जुकाम के बाद शुरू हुआ?`,
+          GU: `શું આપને જૂની સાયનસની તકલીફ, ધૂળ/ઠંડીની એલર્જી છે, અને શું આ તાજેતરમાં શરદી-ઉધરસ પછી શરૂ થયું?`,
+        };
+        const touchOpts = {
+          EN: ['Started after a recent viral cold / sore throat', 'History of recurrent chronic sinusitis & dust allergy', 'Triggered by AC / cold drafts & weather changes', 'First episode without prior sinus issues'],
+          HI: ['हाल ही में हुए सर्दी-जुकाम/गले के दर्द के बाद शुरू हुआ', 'बार-बार साइनस व धूल से एलर्जी का इतिहास', 'एसी / ठंडी हवा व मौसम बदलने से ट्रिगर', 'पहली बार हुआ है, पहले कोई साइनस नहीं था'],
+          GU: ['તાજેતરમાં શરદી/ગળામાં દુખાવા પછી શરૂ થયું', 'વારંવાર સાયનસ અને ધૂળની એલર્જીનો ઇતિહાસ', 'એસી / ઠંડી હવા અને ઋતુ બદલાવાથી વધે છે', 'પહેલી વાર થયું છે, અગાઉ સાયનસ નહોતું'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'PAST_HISTORY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'ENT allergic rhinitis triggers, prior viral upper respiratory history',
+        };
+      }
     }
 
     // Step 2: Clinical Symptoms & Primary Complaint Exploration (Onset & Timing)
@@ -2277,11 +2737,15 @@ Extract all clinical facts into English-normalized structured JSON with no markd
     }
   }
 
-  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', isAyush = false, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
+  async generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean, specialty?: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput> {
     try {
       const isCaregiver = state.respondentType === 'CAREGIVER' || state.respondentType === 'STAFF_ASSISTED';
       const isNew = state.isNewPatient === false ? false : (state.isNewPatient === true ? true : !state.previousVisitInfo);
       const prevInfo = state.previousVisitInfo;
+      const effectiveCarePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = typeof carePath === 'string'
+        ? carePath
+        : (carePath === true || state.carePath === 'AYUSH' ? 'AYUSH' : (state.carePath === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY'));
+      const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
 
       const historyFormatted = conversationHistory && conversationHistory.length > 0
         ? conversationHistory.map(m => `${m.role === 'AI' ? 'Doctor AI' : 'Patient'}: "${m.content}"`).join('\n')
@@ -2294,6 +2758,8 @@ CONVERSATION TRANSCRIPT SO FAR:
 ${historyFormatted}
 
 ACTIVE CLINICAL CONTEXT:
+Care Path: ${effectiveCarePath}
+Specialty Clinic: ${effectiveSpecialty}
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
 ${!isNew && prevInfo ? `Previous Visit Record:
 - Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (PRIMARY GROUND TRUTH: YOU MUST INQUIRE STRICTLY ABOUT THIS SPECIFIC COMPLAINT)
@@ -2307,54 +2773,49 @@ Respondent: ${isCaregiver ? 'Caregiver / Family Member answering on behalf of th
 Clinical History Gathered So Far: ${JSON.stringify(state)}
 Turns Completed: ${state.turnsCompleted}
 
-CLINICAL DOCTOR RULES & ADAPTIVE INTAKE PHILOSOPHY:
+CLINICAL DOCTOR RULES & CARE-PATH ADAPTIVE PHILOSOPHY:
 
-1. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
-   - Goal: Chief Complaint -> Complaint Characterization -> Symptom-Targeted Lifestyle & Routine -> Past Medical History & Allergies -> Closing Verification.
+1. CARE PATH SPECIFIC INTAKE INTELLIGENCE:
+   - AYUSH (Ayurveda): Inquire deeply into Prakriti/Vikriti, Agni (digestive fire: Mandagni/Tikshnagni/Vishamagni), Koshtha (bowel habits/constipation), Ahara-Vihara (dietary tastes, oily/spicy food, late night sleep / Ratri Jagarana, stress), and Tridosha imbalances (Vata/Pitta/Kapha).
+   - HOMEOPATHY: Dynamic case-taking focused on characteristic sensations (throbbing, bursting, stitching, band-like), individualizing modalities (< Aggravations like sun, motion, noise, time vs > Ameliorations like cold water, dark room, hard pressure), Thermal reaction (Chilly vs Hot patient), Thirst state during acute pain, and Mental/Emotional generals (irritability, anxiety, desire for solitude).
+   - ALLOPATHY (Neurology): Inquire into aura (visual flashes, zigzag lines), sudden thunderclap vs gradual onset, focal neurological symptoms (photophobia, phonophobia, facial/limb numbness or weakness), migraine frequency, and medication overuse.
+   - ALLOPATHY (ENT): Inquire into sinus distribution (forehead, bridge of nose, cheeks, worse on bending forward), nasal congestion, purulent discharge, post-nasal drip, ear fullness, and environmental triggers.
+   - ALLOPATHY (General Medicine): Inquire into onset, duration, severity (1-10), systemic red flags (fever, neck stiffness, BP), lifestyle (sleep, screen time, stress), chronic diseases (hypertension, diabetes), regular medications, and drug allergies.
+
+2. NEW PATIENT WORKFLOW (Patient Type: NEW PATIENT):
+   - Goal: Chief Complaint -> Care-Path Characterization -> Lifestyle & Routine -> Past Medical History & Allergies -> Closing Verification.
    - Turn 0 (Initial Greeting): If no questions asked yet, warmly welcome the patient in simple language and ask what chief complaint or symptoms brought them to the hospital.
-   - Turn 1 (Onset & Specific Pathology): Explore when and how the chief complaint began (sudden vs gradual, duration) and specific pathology (severity 1-10, character, triggers, radiation, relieving factors).
-   - Turn 2 (Symptom-Tailored Lifestyle & Daily Habits): As an expert physician, you dynamically choose the most relevant lifestyle dimension based on their specific complaint (e.g. sitting/lifting for back/joint pain; sleep/screen/stress for headaches; meal timings/spicy food for acidity; dust/smoking for cough; exertion/stress/salt for chest/hypertension).
-   - Turn 3 (Past Medical History, Medications & Allergies): Inquire about chronic conditions (BP, Sugar, Thyroid, Asthma), regular daily medications, prior surgeries, and known drug allergies.
-   - Turn 4+ (Closing Verification): When chief complaint, targeted lifestyle baseline, and medical background are addressed in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
+   - Turn 1 (Onset & Specific Pathology): Explore onset, duration, and care-path specific pathology.
+   - Turn 2 (Systemic & Lifestyle Inquiry): Explore relevant lifestyle/metabolic/modalities dimensions.
+   - Turn 3 (Past Medical History, Medications & Allergies): Inquire about chronic conditions, regular daily medications, and drug allergies.
+   - Turn 4+ (Closing Verification): When clinical dimensions are addressed in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
 
-2. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
-   - CRITICAL REQUIREMENT — EXACT COMPLAINT ANCHOR (COMPLAINT OVERRIDES DEPARTMENT):
-     * Base your clinical inquiry 100% on the patient's actual reported symptom/complaint ("${prevInfo?.lastComplaint || 'the previous condition'}"), NEVER infer or assume symptoms from the clinic/department name!
-     * Example: If the patient's previous visit record lists Department: "Dermatology" (or General Medicine) but their actual chief complaint was "Back pain", your follow-up MUST BE STRICTLY ABOUT THE BACK PAIN (bending, spine stiffness, radiating pain, response to pain meds), and you MUST NEVER ask about skin or rashes!
-     * The previous chief complaint "${prevInfo?.lastComplaint || 'the previous condition'}" is the sole clinical anchor for all follow-up questions.
-   - Specific Disease Anchor Examples:
-     * If previous visit complaint was Back pain (even in Dermatology) -> Follow-up on lumbar stiffness, bending, radiating leg pain, and posture.
-     * If previous visit complaint was Hypertension / Headache -> Follow-up on Blood Pressure readings, morning headaches, dizziness, and Tab Amlodipine 5mg adherence.
-     * If previous visit complaint was Diabetes -> Follow-up on blood sugar levels, polyuria/thirst, foot numbness, diet adherence, and Metformin.
-     * If previous visit complaint was Asthma / Wheezing -> Follow-up on inhaler usage, shortness of breath, nocturnal wheezing attacks, and cold/dust triggers.
-     * If previous visit complaint was Osteoarthritis / Knee Pain -> Follow-up on walking distance, joint stiffness, swelling, and response to pain medications.
-     * If previous visit complaint was Urological / Genitourinary -> Follow-up on urinary stream, physical development concerns, testicular ache, and prescribed supplements.
-     * If previous visit complaint was Skin Rash / Eczema -> Follow-up on itching severity, spreading of rashes, and topical ointment application.
-   - Stage Sequence for Returning Patients:
-     * Turn 0: Greet the patient back, specifically name their actual prior complaint ("${prevInfo?.lastComplaint || 'your prior condition'}"), and ask how that specific complaint has progressed (improved, worsened, unchanged, or if a new problem appeared).
-     * Turn 1: Inquire about specific clinical markers, residual symptoms, or exacerbation of that EXACT previous complaint.
-     * Turn 2: Inquire about adherence to the EXACT previously prescribed medications ("${prevInfo?.pastPrescriptions?.join(', ') || 'prescribed medicines'}"), side-effects, and refill requirements.
-     * Turn 3+ (Closing Verification): When disease progression, residual concerns, and medications are evaluated in the transcript, YOU MUST set "isComplete": true and "questionCategory": "CLOSING" with the closing completion question ("Thank you. Your clinical intake details are complete. Would you like to proceed with your appointment now?"). Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
+3. RETURNING / PREVIOUS PATIENT WORKFLOW (Patient Type: EXISTING / RETURNING PATIENT):
+   - Base your inquiry strictly on "${prevInfo?.lastComplaint || 'the previous condition'}".
+   - Turn 0: Ask how that specific complaint has progressed.
+   - Turn 1: Inquire about residual symptoms or exacerbation.
+   - Turn 2: Inquire about adherence to prescribed medications ("${prevInfo?.pastPrescriptions?.join(', ') || 'prescribed medicines'}").
+   - Turn 3+: Closing verification.
 
-3. TOUCH OPTIONS:
+4. TOUCH OPTIONS:
    - For EVERY question, generate 3-4 natural, highly appropriate one-tap touchOptions in pure ${language} that directly answer this specific question.
 
-4. ANTI-REPETITION & QUESTION MEMORY:
+5. ANTI-REPETITION & QUESTION MEMORY:
    - NEVER re-ask any question, symptom, or dimension already answered in the transcript or state.
 
-5. NEGATION & CONTEXT RIGOR:
+6. NEGATION & CONTEXT RIGOR:
    - Explicitly respect negations ("No vomiting" = denied, NOT unknown).
    - Distinguish family history ("Father has diabetes" = family history only, NOT patient diabetes).
    - Distinguish temporal context ("Had fever last month" = historical, NOT current).
 
-6. LANGUAGE:
+7. LANGUAGE:
    - Formulate the question, touchOptions, and rationale in pure, natural, culturally fluent ${language} (EN = English, HI = Hindi, GU = Gujarati).
 
 Return ONLY valid JSON:
 {
   "question": "dynamic follow-up question in pure ${language}",
   "questionLanguage": "${language}",
-  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | CLOSING",
+  "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | HOMEOPATHY | CLOSING",
   "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
   "isRedFlag": boolean,
   "redFlagReason": "string | null",
@@ -2375,13 +2836,13 @@ Return ONLY valid JSON:
       const text = res.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
-        const fallbackQ = await this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
         parsed.touchOptions = fallbackQ.touchOptions;
       }
       return parsed;
     } catch (e: any) {
       console.log(`[Groq AI Engine] Notice: ${e?.message?.slice(0, 80) || 'using clinical fallback'}`);
-      return this.fallback.generateNextQuestion(state, language, isAyush, conversationHistory);
+      return this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
     }
   }
 

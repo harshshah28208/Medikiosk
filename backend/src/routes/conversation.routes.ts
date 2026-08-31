@@ -57,6 +57,8 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     visitId,
     language = 'EN',
     isAyush = false,
+    isHomeopathy = false,
+    carePath: requestedCarePath,
     respondentType = 'PATIENT',
     isReturningPatient,
     recentChanges,
@@ -160,7 +162,13 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     };
   }
 
-  const initialState = createInitialClinicalState(initialLang, respType);
+  const deptName = visit.department?.name || '';
+  const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
+  const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
+  const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
+  const specialty = visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+
+  const initialState = createInitialClinicalState(initialLang, respType, carePath, specialty);
   initialState.isNewPatient = isNewPatient;
   initialState.previousVisitInfo = previousVisitInfo;
   if (recentChanges) {
@@ -197,7 +205,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
 
   // Generate dynamic opening question entirely from live Groq AI using stored prior history
   const activeAi = getAIProvider();
-  const initialAIOutput = await activeAi.generateNextQuestion(initialState, initialLang, isAyush, priorVisitChatHistory);
+  const initialAIOutput = await activeAi.generateNextQuestion(initialState, initialLang, carePath, specialty, priorVisitChatHistory);
   initialState.questionsAsked = [initialAIOutput.question];
 
   const session = await prisma.conversationSession.create({
@@ -316,7 +324,7 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
  */
 router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Promise<void> => {
   const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : req.params.sessionId[0];
-  const { content, inputMethod = 'VOICE', language = 'EN', rawTranscript, isAyush = false } = req.body;
+  const { content, inputMethod = 'VOICE', language = 'EN', rawTranscript, isAyush = false, isHomeopathy = false, carePath: requestedCarePath } = req.body;
 
   if (!content || !content.trim()) {
     res.status(400).json({ error: 'Message content is required' });
@@ -352,9 +360,15 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     },
   });
 
+  const deptName = session.visit.department?.name || '';
+  const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath') || state.carePath === 'HOMEOPATHY';
+  const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved') || state.carePath === 'AYUSH';
+  const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : (state.carePath || 'ALLOPATHY')));
+  const specialty = state.specialty || session.visit.doctor?.specialization || session.visit.department?.name || 'General Medicine';
+
   // 2. Fact Extraction via Live Autonomous Clinical AI
   const activeAi = getAIProvider();
-  const extractedFacts = await activeAi.extractFacts(content, state, currentLang);
+  const extractedFacts = await activeAi.extractFacts(content, state, currentLang, carePath, specialty);
 
   // Check if patient selected completion option or completed intake
   const isFinalAnswer =
@@ -365,6 +379,8 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   state = {
     ...state,
     ...extractedFacts,
+    carePath,
+    specialty,
     latestAnswer: content.trim(),
     turnsCompleted: (state.turnsCompleted || 0) + 1,
     currentLanguage: currentLang,
@@ -458,7 +474,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   }
 
   const combinedHistory = [...priorVisitChatHistory, ...pastMessages];
-  const nextQ = await activeAi.generateNextQuestion(state, currentLang, isAyush, combinedHistory);
+  const nextQ = await activeAi.generateNextQuestion(state, currentLang, carePath, specialty, combinedHistory);
   state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
 
   // 6. Save Updated State back to DB

@@ -43,6 +43,14 @@ export interface ClinicalState {
     alcohol: string | null;      // Alcohol use
   };
 
+  // Care Path & Specialty Context
+  carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY';
+  specialty?: string; // e.g. 'General Medicine', 'Neurology', 'ENT', 'Cardiology', 'Ayurveda', 'Classical Homeopathy'
+
+  // Confirmed vs Denied Symptoms
+  deniedSymptoms: string[]; // Explicitly negated symptoms (e.g., "no vomiting", "no fever")
+  historicalFindings: string[]; // Past resolved episodes (e.g., "had fever last month")
+
   // Family & Social History
   familyHistory: string[];
   socialHistory: {
@@ -55,14 +63,35 @@ export interface ClinicalState {
   // Review of Systems (relevant findings)
   reviewOfSystems: Record<string, string | null>;
 
-  // AYUSH Assessment (if applicable)
+  // AYUSH Assessment (Ayurveda & Integrative Medicine)
   ayushAssessment?: {
     prakriti?: string;
     vikriti?: string;
-    agni?: string;
-    koshtha?: string;
-    ahara?: string;
-    vihara?: string;
+    agni?: string;       // Mandagni, Tikshnagni, Vishamagni, Samagni
+    koshtha?: string;    // Krura, Mridu, Madhyama
+    ahara?: string;      // Diet, tastes, appetite
+    vihara?: string;     // Daily routine, sleep patterns
+    mutra?: string;
+    mala?: string;
+    jihva?: string;
+    sara?: string;
+    satmya?: string;
+    vyayamaShakti?: string;
+    aharaShakti?: string;
+  };
+
+  // Homeopathy Clinical Assessment
+  homeopathyAssessment?: {
+    miasm?: string;             // Psora, Sycosis, Syphilis, Tubercular
+    thermalState?: string;      // Chilly vs Hot patient
+    thirst?: string;            // Thirsty (large/small quantities) vs Thirstless
+    modalities?: {
+      aggravating?: string[];   // < Sun, < Motion, < Cold air, < 3 PM, etc.
+      relieving?: string[];     // > Hard pressure, > Cold compress, > Dark room, etc.
+    };
+    mentalState?: string;       // Irritable, anxious, desires solitude, etc.
+    concomitants?: string[];    // Symptoms appearing simultaneously with chief complaint
+    timeModalities?: string[];  // Specific periodicity / time of day
   };
 
   // Detected Red Flags
@@ -99,7 +128,7 @@ export interface ClinicalState {
 export interface QuestionOutput {
   question: string;
   questionLanguage: 'EN' | 'HI' | 'GU';
-  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'LIFESTYLE' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH' | 'CLOSING';
+  questionCategory: 'CHIEF_COMPLAINT' | 'ONSET' | 'DURATION' | 'SEVERITY' | 'LOCATION' | 'CHARACTER' | 'RADIATION' | 'ASSOCIATED' | 'PAST_HISTORY' | 'LIFESTYLE' | 'MEDICATIONS' | 'ALLERGIES' | 'AYUSH' | 'HOMEOPATHY' | 'CLOSING';
   touchOptions: string[];
   isRedFlag: boolean;
   redFlagReason: string | null;
@@ -107,12 +136,16 @@ export interface QuestionOutput {
   clinicalRationale: string;
 }
 
-export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN', respondentType: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED' = 'PATIENT'): ClinicalState {
+export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN', respondentType: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED' = 'PATIENT', carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = 'ALLOPATHY', specialty: string = 'General Medicine'): ClinicalState {
   return {
+    carePath,
+    specialty,
     chiefComplaint: null,
     chiefComplaintOriginal: null,
     symptoms: [],
     associatedSymptoms: [],
+    deniedSymptoms: [],
+    historicalFindings: [],
     pastMedicalHistory: [],
     pastSurgicalHistory: [],
     medications: [],
@@ -144,4 +177,3 @@ export function createInitialClinicalState(language: 'EN' | 'HI' | 'GU' = 'EN', 
     respondentType,
   };
 }
-
