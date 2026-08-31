@@ -91,11 +91,15 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
   const specialty = req.body.specialty || (visit as any).doctor?.specialization || visit.department?.name || 'General Medicine';
 
-  // Check if patient explicitly requested a NEW CASE (or brand new complaint)
-  const isExplicitNewCase = req.body.isNewCase === true || req.body.visitType === 'NEW_CASE';
+  // Check if patient explicitly requested a NEW CASE or is not a follow-up
+  const isExplicitNewCase = req.body.isNewCase === true ||
+    req.body.visitType === 'NEW_CASE' ||
+    req.body.isReturningPatient === false ||
+    (!req.body.isReturningPatient && !req.body.followUpVisitId && !req.body.recentChanges) ||
+    Boolean(visit.reasonForVisit && /new complaint|new symptom|new problem|नई समस्या|નવી સમસ્યા/i.test(visit.reasonForVisit));
 
-  // Fetch ALL prior completed visits for this patient to find the matching case
-  const allPriorVisits = await prisma.visit.findMany({
+  // Fetch prior completed visits for this patient ONLY if this is a genuine follow-up
+  const allPriorVisits = isExplicitNewCase ? [] : await prisma.visit.findMany({
     where: {
       patientId: visit.patientId,
       id: { not: visit.id },
@@ -507,35 +511,38 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     select: { role: true, content: true },
   });
 
-  // Query prior visit's conversation messages for complete historical context
+  // Query prior visit's conversation messages ONLY IF this is a genuine follow-up session
   let priorVisitChatHistory: Array<{ role: string; content: string }> = [];
-  try {
-    const priorSession = await prisma.conversationSession.findFirst({
-      where: {
-        visit: {
-          patientId: session.visit.patientId,
-          id: { not: session.visitId },
+  const isGenuineFollowUp = state.isNewPatient === false && Boolean(state.previousVisitInfo);
+  if (isGenuineFollowUp) {
+    try {
+      const priorSession = await prisma.conversationSession.findFirst({
+        where: {
+          visit: {
+            patientId: session.visit.patientId,
+            id: { not: session.visitId },
+          },
         },
-      },
-      orderBy: { startedAt: 'desc' },
-      include: {
-        messages: {
-          orderBy: { timestamp: 'asc' },
-          select: { role: true, content: true },
+        orderBy: { startedAt: 'desc' },
+        include: {
+          messages: {
+            orderBy: { timestamp: 'asc' },
+            select: { role: true, content: true },
+          },
         },
-      },
-    });
-    if (priorSession?.messages?.length) {
-      priorVisitChatHistory = priorSession.messages.map(m => ({
-        role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
-        content: m.content,
-      }));
+      });
+      if (priorSession?.messages?.length) {
+        priorVisitChatHistory = priorSession.messages.map(m => ({
+          role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
+          content: m.content,
+        }));
+      }
+    } catch (e) {
+      console.warn('Prior chat history fetch notice:', e);
     }
-  } catch (e) {
-    console.warn('Prior chat history fetch notice:', e);
   }
 
-  const combinedHistory = [...priorVisitChatHistory, ...pastMessages];
+  const combinedHistory = isGenuineFollowUp ? [...priorVisitChatHistory, ...pastMessages] : pastMessages;
   const nextQ = await activeAi.generateNextQuestion(state, currentLang, carePath, specialty, combinedHistory);
   state.questionsAsked = [...(state.questionsAsked || []), nextQ.question];
 
