@@ -500,53 +500,73 @@ export const api = {
         body: JSON.stringify({ targetLanguage, messages }),
       }).catch(() => {
         const langLower = (targetLanguage || 'en').toLowerCase();
-        const targetLangUpper = (targetLanguage || 'EN').toUpperCase() as 'EN' | 'HI' | 'GU';
+        const targetLangKey = langLower === 'hi' ? 'hi' : langLower === 'gu' ? 'gu' : 'en';
 
         // Find the most recent AI message to preserve the current question
         const lastAiMsg = messages.slice().reverse().find((m: any) => m.role === 'AI');
         const rawContent = lastAiMsg?.content || 'Welcome to MediKiosk. What main symptom or health concern brought you in today?';
         const rawOptions = lastAiMsg?.options || ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
 
-        // Quick translation dictionary for common options
-        const optionMap: Record<string, Record<string, string>> = {
-          'fever / body ache': { en: 'Fever / Body Ache', hi: 'बुखार / शरीर दर्द', gu: 'તાવ / શરીરનો દુખાવો' },
-          'chest pain / pressure': { en: 'Chest Pain / Pressure', hi: 'सीने में दर्द / दबाव', gu: 'છાતીમાં દુખાવો / દબાણ' },
-          'severe abdominal pain': { en: 'Severe Abdominal Pain', hi: 'पेट में तेज़ दर्द', gu: 'પેટમાં તીવ્ર દુખાવો' },
-          'cough / breathlessness': { en: 'Cough / Breathlessness', hi: 'खांसी / सांस में तकलीफ', gu: 'ખાંસી / શ્વાસ લેવામાં તકલીફ' },
-          'headache / dizziness': { en: 'Headache / Dizziness', hi: 'सिरदर्द / चक्कर आना', gu: 'માથાનો દુખાવો / ચક્કર' },
-          'proceed to appointment': { en: 'Proceed to Appointment', hi: 'अपॉइंटमेंट के लिए आगे बढ़ें', gu: 'કન્સલ્ટેશન માટે આગળ વધો' },
-          'review summary': { en: 'Review Summary', hi: 'सारांश देखें', gu: 'વિગતો જુઓ' },
-          'add one more detail': { en: 'Add One More Detail', hi: 'एक और जानकारी जोड़ें', gu: 'વધુ એક વિગત ઉમેરો' },
-        };
+        // Fully bidirectional option dictionary for EN <-> HI <-> GU
+        const optionDict = [
+          { en: 'Fever / Body Ache', hi: 'बुखार / शरीर दर्द', gu: 'તાવ / શરીરનો દુખાવો' },
+          { en: 'Chest Pain / Pressure', hi: 'सीने में दर्द / दबाव', gu: 'છાતીમાં દુખાવો / દબાણ' },
+          { en: 'Severe Abdominal Pain', hi: 'पेट में तेज़ दर्द', gu: 'પેટમાં તીવ્ર દુખાવો' },
+          { en: 'Cough / Breathlessness', hi: 'खांसी / सांस में तकलीफ', gu: 'ખાંસી / શ્વાસ લેવામાં તકલીફ' },
+          { en: 'Headache / Dizziness', hi: 'सिरदर्द / चक्कर आना', gu: 'માથાનો દુખાવો / ચક્કર' },
+          { en: 'Proceed to Appointment', hi: 'अपॉइंटमेंट के लिए आगे बढ़ें', gu: 'કન્સલ્ટેશન માટે આગળ વધો' },
+          { en: 'Review Summary', hi: 'सारांश देखें', gu: 'વિગતો જુઓ' },
+          { en: 'Add One More Detail', hi: 'एक और जानकारी जोड़ें', gu: 'વધુ એક વિગત ઉમેરો' },
+          { en: 'No, that covers all symptoms — complete intake', hi: 'नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें', gu: 'ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો' },
+          { en: 'Yes, I want to add one more detail', hi: 'हाँ, मुझे एक और लक्षण बताना है', gu: 'હા, મારે બીજું એક લક્ષણ જણાવવું છે' },
+          { en: 'Acidity, heartburn & sour burps', hi: 'एसिडिटी, सीने में जलन और खट्टी डकारें', gu: 'એસિડિટી, છાતીમાં બળતરા અને ખાટા ઓડકાર' },
+          { en: 'Sluggish digestion & gas', hi: 'मंदाग्नि, भारीपन और पेट में गैस', gu: 'મંદ પાચન, ભારેપણું અને પેટમાં ગેસ' },
+          { en: 'Joint pain & body stiffness', hi: 'जोड़ों का दर्द और शरीर में जकड़न', gu: 'સાંધાનો દુખાવો અને શરીરમાં જકડન' },
+          { en: 'Chronic cough & sinus', hi: 'पुरानी खांसी और साइनस/कफ', gu: 'જૂની ખાંસી અને સાઇનસ/કફ' },
+          { en: 'Skin itching & eruptions', hi: 'त्वचा में खुजली और चकत्ते', gu: 'ચામડી પર ખંજવાળ અને ચકામા' },
+          { en: 'Throbbing headache (< Sun, > Cold)', hi: 'टीस मारने वाला सिरदर्द (धूप से बढ़ता, ठंडे से आराम)', gu: 'ધબકારા મારતો માથાનો દુખાવો (તડકામાં વધે, ઠંડકથી રાહત)' },
+          { en: 'Skin itching & eczema (< Warmth)', hi: 'त्वचा में खुजली और एग्जिमा (गर्मी से बढ़ता)', gu: 'ચામડીમાં ખંજવાળ અને ખરજવું (ગરમીથી વધે)' },
+          { en: 'Chronic acidity & gastric reflux', hi: 'पुरानी एसिडिटी और सीने में जलन', gu: 'જૂની એસિડિટી અને ગેસ્ટ્રિક રિફ્લક્સ' },
+          { en: 'Joint pain (< First motion)', hi: 'जोड़ों का दर्द (चलना शुरू करने पर ज्यादा)', gu: 'સાંધાનો દુખાવો (હલનચલન શરૂ કરતા વધે)' },
+          { en: 'Cough / asthma flare (< Cold drafts)', hi: 'खांसी / दमा का दौरा (ठंडी हवा से बढ़ता)', gu: 'ખાંસી / દમનો હુમલો (ઠંડી હવાથી વધે)' },
+        ];
 
         const translatedOpts = rawOptions.map((opt: string) => {
-          const key = opt.trim().toLowerCase();
-          if (optionMap[key] && optionMap[key][langLower]) {
-            return optionMap[key][langLower];
+          const clean = opt.trim().toLowerCase();
+          const match = optionDict.find(item =>
+            item.en.toLowerCase() === clean ||
+            item.hi.trim() === opt.trim() ||
+            item.gu.trim() === opt.trim() ||
+            clean.includes(item.en.toLowerCase()) ||
+            item.hi.includes(opt.trim()) ||
+            item.gu.includes(opt.trim())
+          );
+          if (match && match[targetLangKey]) {
+            return match[targetLangKey];
           }
           return opt;
         });
 
         let translatedQ = rawContent;
-        if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા/i.test(rawContent)) {
+        if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા|नींद|ઊંઘ|खान-पान|ખોરાક/i.test(rawContent)) {
           translatedQ = langLower === 'hi'
             ? 'आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक सक्रियता, खान-पान का समय और तनाव का स्तर?'
             : langLower === 'gu'
             ? 'આપની દિનચર્યા કેવી છે—જેમ કે ઊંઘના કલાકો, શારીરિક પ્રવૃત્તિ, આહાર અને તણાવનું પ્રમાણ?'
             : 'How is your daily routine—such as sleep hours, physical activity, diet, and stress level?';
-        } else if (/medical conditions|allergy|chronic|दवा|બીમારી/i.test(rawContent)) {
+        } else if (/medical conditions|allergy|chronic|दवा|બીમારી|बीमारी|एलर्जी|એલર્જી/i.test(rawContent)) {
           translatedQ = langLower === 'hi'
             ? 'क्या आप नियमित कोई दवाई लेते हैं, या कोई पुरानी बीमारी (बीपी, शुगर, थायराइड) या दवा से एलर्जी है?'
             : langLower === 'gu'
             ? 'શું આપ નિયમિત કોઈ દવા લો છો, અથવા કોઈ જૂની બીમારી (બીપી, સુગર, થાઈરોઈડ) કે દવાની એલર્જી છે?'
             : 'Do you take any regular medications, or have any chronic conditions (BP, Diabetes, Thyroid) or allergies?';
-        } else if (/clinical questioning.*complete|क्लिनिकल पूछताछ पूरी/i.test(rawContent)) {
+        } else if (/clinical questioning.*complete|clinical intake.*complete|क्लिनिकल पूछताछ पूरी|પૂછપરછ પૂર્ણ/i.test(rawContent)) {
           translatedQ = langLower === 'hi'
             ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
             : langLower === 'gu'
             ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
             : 'Thank you. Your clinical questioning is now complete. Your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
-        } else if (/welcome|symptom|health concern|समस्या|તકલીફ/i.test(rawContent)) {
+        } else if (/welcome|symptom|health concern|समस्या|तकलीफ|તકલીફ|લક્ષણ/i.test(rawContent)) {
           translatedQ = langLower === 'hi'
             ? 'मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?'
             : langLower === 'gu'
