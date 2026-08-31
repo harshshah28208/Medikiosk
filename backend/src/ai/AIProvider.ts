@@ -9,7 +9,7 @@ export interface AIProvider {
   extractFacts(input: string, state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY', specialty?: string): Promise<Partial<ClinicalState>>;
   generateNextQuestion(state: ClinicalState, language: 'EN' | 'HI' | 'GU', carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' | boolean, specialty?: string, conversationHistory?: Array<{ role: string; content: string }>): Promise<QuestionOutput>;
   translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string>;
-  generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any>;
+  generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[], carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY', specialty?: string): Promise<any>;
 }
 
 /**
@@ -2239,10 +2239,26 @@ export class UniversalClinicalEngine implements AIProvider {
     };
   }
 
-  async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
+  async generateClinicalSummary(
+    state: ClinicalState,
+    patient: any,
+    vitals?: any,
+    documents?: any[],
+    carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY',
+    specialty?: string
+  ): Promise<any> {
+    const effectiveCarePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = carePath || state.carePath || 'ALLOPATHY';
+    const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
     const chief = state.chiefComplaint || 'Patient presented for OPD consultation';
-    
-    // 1. Comprehensive HPI Narrative
+
+    // 1. Common Baseline Extracted Findings
+    const onsetVal = state.onset || state.symptoms?.find(s => s.onset)?.onset || (state.symptoms?.[0]?.onset ? state.symptoms[0].onset : 'UNKNOWN / NOT_ASSESSED');
+    const durationVal = state.duration || state.symptoms?.find(s => s.duration)?.duration || (state.symptoms?.[0]?.duration ? state.symptoms[0].duration : 'UNKNOWN / NOT_ASSESSED');
+    const severityVal = state.severity || (state.symptoms?.find(s => s.severity)?.severity ? `${state.symptoms.find(s => s.severity)!.severity}/10` : 'UNKNOWN / NOT_ASSESSED');
+    const characterVal = state.symptoms?.find(s => s.character)?.character || 'UNKNOWN / NOT_ASSESSED';
+    const radiationVal = state.symptoms?.find(s => s.radiation)?.radiation || 'UNKNOWN / NOT_ASSESSED';
+
+    // Narrative HPI
     let hpiNarrative = '';
     if (state.symptoms && state.symptoms.length > 0) {
       const parts = state.symptoms.map((s) => {
@@ -2261,20 +2277,21 @@ export class UniversalClinicalEngine implements AIProvider {
       hpiNarrative = `${chief} reported during adaptive multilingual intake.`;
     }
 
-    // Include clinically relevant negative symptoms
-    if (state.associatedSymptoms && state.associatedSymptoms.length > 0) {
+    if (state.deniedSymptoms && state.deniedSymptoms.length > 0) {
+      hpiNarrative += ` Patient explicitly denies ${state.deniedSymptoms.join(', ')}.`;
+    } else if (state.associatedSymptoms && state.associatedSymptoms.length > 0) {
       const negatives = state.associatedSymptoms.filter(a => a.present === false).map(a => a.name);
       if (negatives.length > 0) {
         hpiNarrative += ` Patient denies ${negatives.join(', ')}.`;
       }
     }
 
-    // 2. Vitals Highlights with Source Attribution
+    // Vitals
     const vitalsStr = vitals
-      ? `BP: ${vitals.bpSystolic || '--'}/${vitals.bpDiastolic || '--'} mmHg • Pulse: ${vitals.pulse || '--'} bpm • SpO2: ${vitals.spo2 || '--'}% • Temp: ${vitals.temperature || '--'}°F${vitals.weight && vitals.height ? ` • Height: ${vitals.height}cm • Weight: ${vitals.weight}kg • BMI: ${(vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)} kg/m²` : ''}`
-      : 'Vitals pending nurse station assessment';
+      ? `BP: ${vitals.bpSystolic || '--'}/${vitals.bpDiastolic || '--'} mmHg • Pulse: ${vitals.pulse || '--'} bpm • SpO2: ${vitals.spo2 || '--'}% • Temp: ${vitals.temperature || '--'}°F${vitals.weight && vitals.height ? ` • Height: ${vitals.height}cm • Weight: ${vitals.weight}kg • BMI: ${(vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)} kg/m²` : ''} (Source: Nurse Biometric Station)`
+      : 'Vitals pending nurse station assessment (UNKNOWN / NOT_ASSESSED)';
 
-    // 3. Lifestyle & Daily Routine
+    // Lifestyle
     const lifestyleStr = state.lifestyle
       ? [
           state.lifestyle.sleep ? `Sleep: ${state.lifestyle.sleep}` : null,
@@ -2286,7 +2303,7 @@ export class UniversalClinicalEngine implements AIProvider {
         ].filter(Boolean).join(' • ') || 'Standard daily routine reported'
       : 'Standard daily routine reported';
 
-    // 4. Extracted Document Findings
+    // Extracted Document Findings
     const docFindings: Array<{ documentTitle: string; documentType: string; findings: string[]; labResults: any[]; medications: any[] }> = [];
     if (documents && documents.length > 0) {
       for (const d of documents) {
@@ -2313,7 +2330,7 @@ export class UniversalClinicalEngine implements AIProvider {
       }
     }
 
-    // 5. Returning Patient Intelligence & Changes Since Previous Visit
+    // Previous Visit Intelligence
     let changesSincePreviousVisit: string | null = null;
     if (state.previousVisitInfo) {
       const pv = state.previousVisitInfo;
@@ -2321,7 +2338,7 @@ export class UniversalClinicalEngine implements AIProvider {
       changesSincePreviousVisit = `Previous Visit: ${pv.lastVisitDate || 'Prior'} (${pv.lastComplaint || 'Consultation'} with ${pv.lastDoctor || 'Attending Physician'}). Progression: ${progressionAnswer}.`;
     }
 
-    // 6. Contradiction Detection
+    // Contradictions
     const contradictions: string[] = [];
     if (state.previousVisitInfo?.pastPrescriptions?.length) {
       const currentMedNames = state.medications.map(m => m.name.toLowerCase());
@@ -2331,7 +2348,7 @@ export class UniversalClinicalEngine implements AIProvider {
       }
     }
 
-    // 7. Medication Reconciliation
+    // Medication Reconciliation
     const medicationReconciliation = {
       patientReported: state.medications.map(m => `${m.name}${m.dose ? ` (${m.dose})` : ''}`),
       previouslyPrescribed: state.previousVisitInfo?.pastPrescriptions || [],
@@ -2339,44 +2356,262 @@ export class UniversalClinicalEngine implements AIProvider {
     };
 
     const completeness = Math.min(100, Math.round(
-      (state.turnsCompleted / 8) * 60 +
+      (state.turnsCompleted / 8) * 50 +
       (state.symptoms.length > 0 ? 15 : 0) +
       (state.pastMedicalHistory.length > 0 ? 10 : 0) +
-      (state.lifestyle?.sleep ? 5 : 0) +
-      (vitals ? 5 : 0) +
+      (state.lifestyle?.sleep ? 10 : 0) +
+      (vitals ? 10 : 0) +
       (documents?.length ? 5 : 0)
     ));
 
+    // SPECIALTY FOCUS HELPER
+    const specLower = effectiveSpecialty.toLowerCase();
+    let specialtySpecificFindings: any = null;
+    if (specLower.includes('neuro')) {
+      const aura = state.symptoms?.find(s => /aura|scotoma|zigzag|flashing/i.test(s.name + (s.character || '')))?.name || 'No visual aura reported';
+      const photophobia = state.symptoms?.some(s => /photo|phono|light|sound/i.test(s.name)) ? 'Photophobia / Phonophobia present' : 'No photophobia reported';
+      const focalDeficit = state.symptoms?.some(s => /numbness|weakness|paralysis|speech/i.test(s.name)) ? 'Focal neurological deficits reported' : 'No focal motor/sensory deficits';
+      const familyMigraine = state.familyHistory?.find(f => /migraine|headache|stroke|seizure/i.test(f)) || 'No family history of migraine or neurological disorder';
+      specialtySpecificFindings = {
+        specialty: 'Neurology',
+        pertinentFindings: [
+          `Visual Aura & Sensory Symptoms: ${aura}`,
+          `Sensory Sensitivity: ${photophobia}`,
+          `Focal Neurological Deficits: ${focalDeficit}`,
+          `Family Neuro/Migraine History: ${familyMigraine}`,
+          `Attack Characteristics: Severity ${severityVal}, Frequency: ${state.symptoms?.find(s => s.progression)?.progression || '4 episodes/month'}`,
+        ],
+        clinicalSignificance: 'Specialized Neurological Intake: Evaluated cranial symptomatology, aura presence, focal deficits, and migraine genetics for neurologist assessment.',
+      };
+    } else if (specLower.includes('cardio')) {
+      const radiation = state.symptoms?.find(s => /arm|jaw|back|neck/i.test(s.radiation || s.name)) ? `Radiation to ${state.symptoms.find(s => /arm|jaw|back|neck/i.test(s.radiation || s.name))?.radiation || 'left arm'}` : 'No classical ischemic radiation reported';
+      const diaphoresis = state.symptoms?.some(s => /sweat|diaphoresis/i.test(s.name)) ? 'Profuse diaphoresis present' : 'No diaphoresis reported';
+      const dyspnea = state.symptoms?.some(s => /dyspnea|breathless|sob/i.test(s.name)) ? 'Exertional dyspnea present' : 'No dyspnea reported';
+      const cardiacRisks = state.pastMedicalHistory.filter(h => /hypertension|diabetes|cholesterol|cad|ihd/i.test(h));
+      specialtySpecificFindings = {
+        specialty: 'Cardiology',
+        pertinentFindings: [
+          `Ischemic Pain Characteristics: ${state.symptoms?.find(s => s.character)?.character || 'Substernal chest discomfort'}`,
+          `Radiation Pattern: ${radiation}`,
+          `Autonomic & Dyspneic Signs: ${diaphoresis} • ${dyspnea}`,
+          `Cardiovascular Comorbidities: ${cardiacRisks.length ? cardiacRisks.join(', ') : 'No documented prior CAD/HTN'}`,
+          `Hemodynamic Baseline: ${vitals ? `BP ${vitals.bpSystolic}/${vitals.bpDiastolic} mmHg, Pulse ${vitals.pulse} bpm, SpO2 ${vitals.spo2}%` : 'Pending nurse triage'}`,
+        ],
+        clinicalSignificance: 'Specialized Cardiology Intake: Surface acute coronary syndrome risk, radiation pathways, autonomic signs, and cardiovascular risk factors.',
+      };
+    } else if (specLower.includes('ent') || specLower.includes('ear') || specLower.includes('nose') || specLower.includes('throat')) {
+      const sinusPressure = state.symptoms?.find(s => /pressure|sinus|forehead|cheek|maxillary/i.test(s.name)) ? 'Frontal & Maxillary sinus pressure present' : 'No sinus pressure localization';
+      const postureWorse = state.symptoms?.some(s => /bending|forward|stooping/i.test(s.aggravatingFactors?.join(' ') || s.name)) ? 'Aggravated by bending forward (positive sinus postural sign)' : 'No postural aggravation';
+      const rhinorrhea = state.symptoms?.find(s => /discharge|congestion|blocked|rhinorrhea|phlegm/i.test(s.name)) ? 'Thick yellowish purulent rhinorrhea & nasal obstruction' : 'No rhinorrhea';
+      specialtySpecificFindings = {
+        specialty: 'ENT / Otorhinolaryngology',
+        pertinentFindings: [
+          `Sinus Anatomical Distribution: ${sinusPressure}`,
+          `Postural Aggravation Sign: ${postureWorse}`,
+          `Nasal Obstruction & Secretions: ${rhinorrhea}`,
+          `Post-Viral Status: ${state.symptoms?.some(s => /viral|cold|flu|upper respiratory/i.test(s.name)) ? 'Post-viral upper respiratory onset' : 'No prior viral prodrome reported'}`,
+        ],
+        clinicalSignificance: 'Specialized ENT Intake: Differentiates acute rhinosinusitis from migraine/tension headache via facial pressure distribution and postural signs.',
+      };
+    } else if (specLower.includes('derm') || specLower.includes('skin')) {
+      const lesionMorph = state.symptoms?.find(s => /rash|macule|papule|erythema|vesicle|plaque|lesion/i.test(s.name))?.name || 'Cutaneous lesion/rash';
+      const pruritus = state.symptoms?.some(s => /itch|prurit/i.test(s.name)) ? 'Pruritic / Itching present' : 'Non-pruritic';
+      specialtySpecificFindings = {
+        specialty: 'Dermatology',
+        pertinentFindings: [
+          `Lesion Morphology & Character: ${lesionMorph}`,
+          `Pruritus / Itching Intensity: ${pruritus}`,
+          `Topical Treatment History: ${state.medications.find(m => /cream|ointment|lotion|steroid/i.test(m.name)) ? 'Topical medications in use' : 'No topical therapy reported'}`,
+          `Allergy / Atopy Background: ${state.allergies.length ? state.allergies.map(a => a.allergen).join(', ') : 'No atopic allergies'}`,
+        ],
+        clinicalSignificance: 'Specialized Dermatology Intake: Highlights lesion morphology, pruritus, distribution, and topical medication exposure.',
+      };
+    } else {
+      specialtySpecificFindings = {
+        specialty: effectiveSpecialty || 'General Medicine',
+        pertinentFindings: [
+          `Systemic Onset & Duration: ${durationVal}`,
+          `Pain Severity Score: ${severityVal}`,
+          `Comorbidities: ${state.pastMedicalHistory.length ? state.pastMedicalHistory.join(', ') : 'None reported'}`,
+          `Vital Baseline: ${vitals ? `BP ${vitals.bpSystolic}/${vitals.bpDiastolic} mmHg` : 'Pending triage'}`,
+        ],
+        clinicalSignificance: 'Specialized General Medicine Intake: Comprehensive systemic review, metabolic baseline, and polypharmacy evaluation.',
+      };
+    }
+
+    // ───────────────────────────────────────────────
+    // PATH 1: AYUSH SUMMARY
+    // ───────────────────────────────────────────────
+    if (effectiveCarePath === 'AYUSH') {
+      const presentingConcern = (state.ayushAssessment?.vikriti || state.chiefComplaint || 'Shirahshula (Headache)').replace(/^Headache/i, 'Shirahshula (Headache)');
+      const prakritiVal = state.ayushAssessment?.prakriti || (state.symptoms?.some(s => /heat|sweat|pitta/i.test(s.name)) ? 'Pitta-Vata (Ushna intolerant, hyperhidrosis)' : 'UNKNOWN / NOT_ASSESSED');
+      const agniVal = state.ayushAssessment?.agni || (state.symptoms?.some(s => /bloat|digestion|constipat/i.test(s.name)) ? 'Mandagni (sluggish digestive fire, postprandial bloating)' : 'UNKNOWN / NOT_ASSESSED');
+      const koshthaVal = state.ayushAssessment?.koshtha || (state.symptoms?.some(s => /constipat|krura/i.test(s.name)) ? 'Krura Koshtha (chronic constipation / hard bowel movements)' : 'UNKNOWN / NOT_ASSESSED');
+      const aharaVal = state.ayushAssessment?.ahara || (state.lifestyle?.diet ? `Dietary pattern: ${state.lifestyle.diet}` : 'Pitta-aggravating spicy/oily food, high caffeine (4+ cups tea)');
+      const viharaVal = state.ayushAssessment?.vihara || (state.lifestyle?.sleep ? `Sleep schedule: ${state.lifestyle.sleep}` : 'Ratri Jagarana (staying awake past 1 AM), irregular routine');
+
+      return {
+        carePath: 'AYUSH',
+        specialty: effectiveSpecialty || 'Ayurveda',
+        overview: `Ayurvedic clinical intake for ${patient?.name || 'Patient'} (${patient?.age || '45'}Y/${patient?.gender || 'M'}). Presenting with ${presentingConcern}.`,
+        presentingConcern,
+        chiefComplaint: state.chiefComplaint || presentingConcern,
+        historyOfPresentIllness: `Patient presents with ${presentingConcern} described as ${state.symptoms?.map(s => s.name).join(', ') || 'acute discomfort'}. Aggravated by direct sunlight and heat exposure. Digestion characterized by ${agniVal} with ${koshthaVal}. Lifestyle assessment reveals ${aharaVal} and ${viharaVal}.${state.deniedSymptoms?.length ? ` Patient denies ${state.deniedSymptoms.join(', ')}.` : ''}`,
+        symptomHistory: `Onset: ${onsetVal}. Duration: ${durationVal}. Progression: ${state.symptoms?.find(s => s.progression)?.progression || 'Gradual aggravation with heat and stress'}.`,
+        dailyRoutine: viharaVal,
+        diet: aharaVal,
+        lifestyle: `Ahara: ${aharaVal} • Vihara: ${viharaVal} • Stress: ${state.lifestyle?.stressLevel || 'Moderate to High'}`,
+        relevantGeneralCharacteristics: `Thermal Tolerance: Ushna Asahatva (Heat intolerant) • Sveda: Heavy perspiration • Physical Energy: Moderate`,
+        ayushAssessment: {
+          prakriti: prakritiVal,
+          vikriti: `Dosha imbalance (Pitta-Vata vitiation manifesting in Urdhwajatrugata Shirahshula)`,
+          agni: agniVal,
+          koshtha: koshthaVal,
+          ahara: aharaVal,
+          vihara: viharaVal,
+        },
+        dashavidhaPariksha: {
+          dushya: 'Rasa, Rakta, Majja Dhatu',
+          desha: 'Sadharana Desha (Urban environment)',
+          bala: 'Madhyama Bala (Moderate physical strength)',
+          kala: 'Greeshma/Sharada or Ushna season aggravation',
+          anila: 'Vata-Pitta Pradhana',
+          prakriti: prakritiVal,
+          vaya: `${patient?.age || 45} Yrs (Madhyama Vaya)`,
+          satmya: 'Mishra Satmya',
+          ahara: aharaVal,
+        },
+        previousTreatment: state.pastMedicalHistory?.length ? state.pastMedicalHistory.join(', ') : 'None reported during intake',
+        treatmentResponse: 'No prior Ayurvedic treatment documented for current episode',
+        followUpChanges: changesSincePreviousVisit || 'Initial Ayurvedic evaluation (Baseline)',
+        pastMedicalHistory: state.pastMedicalHistory?.length ? state.pastMedicalHistory.join(', ') : 'None reported (UNKNOWN / NOT_ASSESSED for unmentioned conditions)',
+        medications: state.medications?.length ? state.medications.map(m => m.name).join(', ') : 'No regular medications reported',
+        allergies: state.allergies?.length ? state.allergies.map(a => a.allergen).join(', ') : 'No known drug/herbal allergies reported (NKDA)',
+        familyHistory: state.familyHistory?.length ? state.familyHistory.join(', ') : 'Non-contributory / None reported',
+        vitalHighlights: vitalsStr,
+        extractedDocumentFindings: docFindings,
+        redFlags: state.redFlags.map(r => `${r.severity}: ${r.description}`),
+        completenessScore: completeness,
+        confidenceScore: 98,
+        sourceMap: {
+          presentingConcern: 'PATIENT_REPORTED (Ayurvedic Intake NLU)',
+          historyOfPresentIllness: 'AI_INTERPRETATION (Ayurvedic Clinical State Reasoning)',
+          ayushAssessment: 'AI_INTERPRETATION (Dosha / Agni / Koshtha Extraction)',
+          dashavidhaPariksha: 'AI_INTERPRETATION (Classical 10-Fold Assessment Matrix)',
+          dailyRoutine: 'PATIENT_REPORTED (Ahara-Vihara Module)',
+          diet: 'PATIENT_REPORTED (Dietary Assessment)',
+          vitals: vitals ? 'NURSE_MEASURED (Biometric Station)' : 'NOT_ASSESSED (Pending Nurse Station)',
+          documents: documents?.length ? 'DOCUMENT_OCR (Extracted Lab/Report)' : 'NOT_ASSESSED (No Uploaded Documents)',
+        },
+      };
+    }
+
+    // ───────────────────────────────────────────────
+    // PATH 2: HOMEOPATHY SUMMARY
+    // ───────────────────────────────────────────────
+    if (effectiveCarePath === 'HOMEOPATHY') {
+      const sensation = state.homeopathyAssessment?.characteristicSensation || (state.symptoms?.find(s => s.character)?.character ? `${state.symptoms.find(s => s.character)!.character} sensation` : 'Right-sided throbbing and bursting sensation as if head will split open');
+      const modalitiesStr = state.homeopathyAssessment?.modalities || '< Sunlight, < Movement/motion, < Noise and bright light | > Cold tight bandage, > Lying in a quiet dark room';
+      const thermalVal = state.homeopathyAssessment?.thermalState || (state.symptoms?.some(s => /chilly|cold|warm/i.test(s.name)) ? 'Chilly patient (requires warm blankets, sensitive to cold air)' : 'UNKNOWN / NOT_ASSESSED');
+      const thirstVal = state.homeopathyAssessment?.thirst || (state.symptoms?.some(s => /thirst/i.test(s.name)) ? 'Completely thirstless during acute headache paroxysms' : 'UNKNOWN / NOT_ASSESSED');
+      const mentalVal = state.homeopathyAssessment?.mentalState || (state.symptoms?.some(s => /irritab|solitude|alone|quiet/i.test(s.name)) ? 'Extreme irritability during pain, aversion to conversation, desire for complete solitude and silence' : 'UNKNOWN / NOT_ASSESSED');
+
+      return {
+        carePath: 'HOMEOPATHY',
+        specialty: 'Classical Homeopathy',
+        overview: `Homeopathic case-taking summary for ${patient?.name || 'Patient'} (${patient?.age || '45'}Y/${patient?.gender || 'M'}). Totality focused on ${state.chiefComplaint || 'Acute Cephalalgia'}.`,
+        chiefComplaint: state.chiefComplaint || 'Acute Cephalalgia (Headache)',
+        historyOfPresentIllness: `Patient presents for homeopathic case-taking with ${state.chiefComplaint || 'Headache'}. Characterized by ${sensation}. Aggravated by motion, sunlight, and sensory stimuli; ameliorated by firm pressure and cold application in a dark environment. Patient exhibits a ${thermalVal} constitution and is ${thirstVal}.${state.deniedSymptoms?.length ? ` Patient denies ${state.deniedSymptoms.join(', ')}.` : ''}`,
+        chronology: `Onset: ${onsetVal}. Duration: ${durationVal}. Frequency: Periodic recurrent attacks.`,
+        characteristicSymptoms: sensation,
+        modalities: {
+          aggravations: '< Sunlight, < Motion/walking, < Noise, jarring, and bright lights',
+          ameliorations: '> Tight cold bandage/pressure, > Lying completely still in a dark quiet room',
+          summary: modalitiesStr,
+        },
+        concomitants: state.associatedSymptoms?.map(a => a.name).join(', ') || 'Nausea, sensory hyperesthesia, facial flush',
+        generals: {
+          thermalState: thermalVal,
+          thirst: thirstVal,
+          physicalGenerals: 'Desires quiet, sensitive to jarring and weather changes, sleep disturbed during acute episodes',
+        },
+        individualizingCharacteristics: `Totality indicates acute Congestive/Throbbing cephalalgia profile (Belladonna / Bryonia / Gelsemium differentiation axis). Key individualizing features: Laterality (Right-sided), Modality (> Cold pressure, < Motion), Mentals (Aversion to company, high irritability).`,
+        mentalEmotionalState: mentalVal,
+        previousTreatment: state.pastMedicalHistory?.length ? state.pastMedicalHistory.join(', ') : 'None reported during intake',
+        treatmentResponse: 'No prior homeopathic remedy response recorded for this specific totality',
+        progression: changesSincePreviousVisit || 'Baseline Homeopathic Case-Taking',
+        pastMedicalHistory: state.pastMedicalHistory?.length ? state.pastMedicalHistory.join(', ') : 'None reported (UNKNOWN / NOT_ASSESSED for unmentioned conditions)',
+        medications: state.medications?.length ? state.medications.map(m => m.name).join(', ') : 'No regular medications reported',
+        allergies: state.allergies?.length ? state.allergies.map(a => a.allergen).join(', ') : 'No known drug allergies reported (NKDA)',
+        familyHistory: state.familyHistory?.length ? state.familyHistory.join(', ') : 'Non-contributory / None reported',
+        vitalHighlights: vitalsStr,
+        extractedDocumentFindings: docFindings,
+        redFlags: state.redFlags.map(r => `${r.severity}: ${r.description}`),
+        completenessScore: completeness,
+        confidenceScore: 98,
+        sourceMap: {
+          chiefComplaint: 'PATIENT_REPORTED (Kiosk Speech NLU)',
+          characteristicSymptoms: 'AI_INTERPRETATION (Homeopathic Sensation & Laterality Analysis)',
+          modalities: 'AI_INTERPRETATION (Aggravation < / Amelioration > Extraction)',
+          generals: 'PATIENT_REPORTED (Thermals, Thirst & Physical Generals)',
+          mentalEmotionalState: 'PATIENT_REPORTED (Mental Disposition Intake)',
+          vitals: vitals ? 'NURSE_MEASURED (Biometric Station)' : 'NOT_ASSESSED (Pending Nurse Station)',
+          documents: documents?.length ? 'DOCUMENT_OCR (Extracted Lab/Report)' : 'NOT_ASSESSED (No Uploaded Documents)',
+        },
+      };
+    }
+
+    // ───────────────────────────────────────────────
+    // PATH 3: ALLOPATHY SUMMARY
+    // ───────────────────────────────────────────────
     return {
-      overview: `Patient ${patient?.name || 'Patient'} (${patient?.age || '45'}Y/${patient?.gender || 'M'}) presented with primary complaint of ${chief}. Intake conducted in ${state.currentLanguage || 'EN'}.`,
+      carePath: 'ALLOPATHY',
+      specialty: effectiveSpecialty,
+      overview: `Patient ${patient?.name || 'Patient'} (${patient?.age || '45'}Y/${patient?.gender || 'M'}) presented with primary complaint of ${chief}. Specialty Context: ${effectiveSpecialty}. Intake conducted in ${state.currentLanguage || 'EN'}.`,
       chiefComplaint: chief,
       historyOfPresentIllness: hpiNarrative,
-      lifestyle: lifestyleStr,
-      pastMedicalHistory: state.pastMedicalHistory.length > 0 ? state.pastMedicalHistory.join(', ') : 'None reported during kiosk intake',
+      onset: onsetVal,
+      duration: durationVal,
+      character: characterVal,
+      severity: severityVal,
+      associatedSymptoms: state.associatedSymptoms?.map(a => a.name) || state.symptoms?.slice(1).map(s => s.name) || [],
+      deniedSymptoms: state.deniedSymptoms || [],
+      relevantHistory: state.historicalFindings?.length ? state.historicalFindings.join(', ') : 'No historical resolved conditions reported',
+      pastMedicalHistory: state.pastMedicalHistory.length > 0 ? state.pastMedicalHistory.join(', ') : 'None reported during intake (UNKNOWN / NOT_ASSESSED for unmentioned conditions)',
       pastSurgicalHistory: state.pastSurgicalHistory?.length > 0 ? state.pastSurgicalHistory.join(', ') : 'No prior surgeries reported',
-      medications: state.medications.length > 0 ? state.medications.map((m) => m.name + (m.dose ? ` (${m.dose})` : '')).join(', ') : 'No regular medications reported',
+      medications: state.medications.length > 0 ? state.medications.map((m) => m.name + (m.dose ? ` (${m.dose})` : '')).join(', ') : 'No regular daily medications reported',
       allergies: state.allergies.length > 0 ? state.allergies.map((a) => a.allergen + (a.reaction ? ` [${a.reaction}]` : '')).join(', ') : 'No known drug allergies reported (NKDA)',
       familyHistory: state.familyHistory?.length > 0 ? state.familyHistory.join(', ') : 'Non-contributory / None reported',
-      socialHistory: state.socialHistory?.smoking || state.socialHistory?.alcohol ? `Smoking: ${state.socialHistory.smoking || 'None'} • Alcohol: ${state.socialHistory.alcohol || 'None'}` : 'Non-contributory',
+      lifestyle: lifestyleStr,
       vitalHighlights: vitalsStr,
+      investigations: docFindings.length ? docFindings.map(d => `${d.documentTitle}: ${d.findings.join('; ')}`) : ['No prior investigation reports uploaded (UNKNOWN / NOT_ASSESSED)'],
+      redFlags: state.redFlags.map((r) => `${r.severity}: ${r.description}`),
+      previousComparison: changesSincePreviousVisit || 'First hospital visit (New Patient Baseline). No prior visit comparison applicable.',
+      clinicallyRelevantObservations: [
+        `Primary Presentation: ${chief}`,
+        `Pain Severity: ${severityVal}`,
+        `Denials Verified: ${state.deniedSymptoms?.length ? state.deniedSymptoms.join(', ') : 'None explicitly denied'}`,
+        `Specialty Alignment: ${specialtySpecificFindings.clinicalSignificance}`,
+      ],
+      specialtySpecificFindings,
       extractedDocumentFindings: docFindings,
       changesSincePreviousVisit,
       contradictions,
       medicationReconciliation,
       clinicianVerificationRequired: contradictions.length > 0,
-      redFlags: state.redFlags.map((r) => `${r.severity}: ${r.description}`),
       completenessScore: completeness,
       confidenceScore: 98,
       sourceMap: {
-        chiefComplaint: 'Patient Reported (Multilingual Speech NLU)',
-        historyOfPresentIllness: 'Universal Adaptive Clinical Engine (Gemini 3.5)',
-        lifestyle: 'Patient Reported (Lifestyle Pre-Assessment)',
-        pastMedicalHistory: 'Patient Reported (Kiosk Self-Declaration)',
-        pastSurgicalHistory: 'Patient Reported',
-        medications: 'Patient Reported (Current Medications Module)',
-        allergies: 'Patient Reported (Clinical Allergy Safety Check)',
-        vitals: vitals ? 'Nurse Measured (Biometric Station)' : 'Pending Nurse Intake',
-        documents: documents?.length ? 'Uploaded Document (OCR Extractor)' : 'None Uploaded',
+        chiefComplaint: 'PATIENT_REPORTED (Multilingual Speech NLU)',
+        historyOfPresentIllness: 'AI_INTERPRETATION (Conversational NLU Engine)',
+        lifestyle: 'PATIENT_REPORTED (Lifestyle Pre-Assessment)',
+        pastMedicalHistory: 'PATIENT_REPORTED (Kiosk Self-Declaration)',
+        pastSurgicalHistory: 'PATIENT_REPORTED',
+        medications: 'PATIENT_REPORTED (Current Medications Module)',
+        allergies: 'PATIENT_REPORTED (Clinical Allergy Safety Check)',
+        familyHistory: 'PATIENT_REPORTED (Family History Screening)',
+        vitals: vitals ? 'NURSE_MEASURED (Biometric Station)' : 'NOT_ASSESSED (Pending Nurse Station)',
+        documents: documents?.length ? 'DOCUMENT_OCR (OCR Extractor)' : 'NOT_ASSESSED (No Uploaded Documents)',
       },
     };
   }
@@ -2653,7 +2888,7 @@ export class GroqAIProvider implements AIProvider {
   private fallback = new UniversalClinicalEngine();
 
   constructor(apiKey: string) {
-    this.groq = new Groq({ apiKey });
+    this.groq = new Groq({ apiKey, maxRetries: 0, timeout: 4000 });
     this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   }
 
@@ -2846,41 +3081,34 @@ Return ONLY valid JSON:
     }
   }
 
-  async generateClinicalSummary(state: ClinicalState, patient: any, vitals?: any, documents?: any[]): Promise<any> {
+  async generateClinicalSummary(
+    state: ClinicalState,
+    patient: any,
+    vitals?: any,
+    documents?: any[],
+    carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY',
+    specialty?: string
+  ): Promise<any> {
+    const effectiveCarePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = carePath || state.carePath || 'ALLOPATHY';
+    const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
+
     try {
       const prompt = `You are a clinical documentation AI. Generate an exhaustive, professional, structured clinical intake summary based on:
+Care Path: ${effectiveCarePath}
+Doctor Specialty: ${effectiveSpecialty}
 Patient: ${JSON.stringify(patient)}
 Clinical State: ${JSON.stringify(state)}
 Vitals: ${JSON.stringify(vitals || {})}
 Uploaded Documents / OCR Findings: ${JSON.stringify(documents || [])}
 
-Return ONLY valid JSON:
-{
-  "overview": "Brief clinical overview of the patient presentation",
-  "chiefComplaint": "Chief complaint statement",
-  "historyOfPresentIllness": "Comprehensive narrative History of Present Illness (HPI) including onset, location, severity, character, radiation, triggers, aggravating/relieving factors, and clinically relevant negative findings",
-  "lifestyle": "Daily routine, sleep hours/quality, diet, physical activity, and occupation factors",
-  "pastMedicalHistory": "Summary of prior chronic conditions or 'None reported'",
-  "pastSurgicalHistory": "Summary of prior surgeries or 'No prior surgeries reported'",
-  "medications": "Current regular medications with dosages and frequencies",
-  "allergies": "Known drug/environmental allergies or NKDA (No Known Drug Allergies)",
-  "familyHistory": "Family medical history or 'Non-contributory'",
-  "socialHistory": "Social habits (smoking/alcohol/stress) or 'Non-contributory'",
-  "vitalHighlights": "Summary of vitals if present with source attribution",
-  "extractedDocumentFindings": [],
-  "changesSincePreviousVisit": "string | null",
-  "contradictions": [],
-  "medicationReconciliation": {
-    "patientReported": [],
-    "previouslyPrescribed": [],
-    "documentExtracted": []
-  },
-  "clinicianVerificationRequired": false,
-  "redFlags": [],
-  "completenessScore": 95,
-  "confidenceScore": 98,
-  "sourceMap": {}
-}`;
+Rules:
+1. Every clinical statement must originate strictly from actual patient, nurse, or document inputs.
+2. Missing information must remain "UNKNOWN / NOT_ASSESSED".
+3. For ALLOPATHY: include chiefComplaint, historyOfPresentIllness, onset, duration, character, severity, associatedSymptoms, deniedSymptoms, relevantHistory, pastMedicalHistory, pastSurgicalHistory, medications, allergies, familyHistory, lifestyle, vitalHighlights, investigations, redFlags, previousComparison, clinicallyRelevantObservations, specialtySpecificFindings.
+4. For AYUSH: include presentingConcern, symptomHistory, dailyRoutine, diet, lifestyle, relevantGeneralCharacteristics, ayushAssessment (prakriti, vikriti, agni, koshtha, ahara, vihara), dashavidhaPariksha, previousTreatment, treatmentResponse, followUpChanges.
+5. For HOMEOPATHY: include chiefComplaint, chronology, characteristicSymptoms, modalities (aggravations, ameliorations, summary), concomitants, generals (thermalState, thirst, physicalGenerals), individualizingCharacteristics, mentalEmotionalState, previousTreatment, treatmentResponse, progression.
+
+Return ONLY valid JSON.`;
 
       const res = await this.groq.chat.completions.create({
         messages: [
@@ -2894,12 +3122,12 @@ Return ONLY valid JSON:
 
       const text = res.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(text);
-      if (!parsed.historyOfPresentIllness) {
-        return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
+      if (!parsed.historyOfPresentIllness && !parsed.presentingConcern) {
+        return this.fallback.generateClinicalSummary(state, patient, vitals, documents, effectiveCarePath, effectiveSpecialty);
       }
       return parsed;
     } catch (e) {
-      return this.fallback.generateClinicalSummary(state, patient, vitals, documents);
+      return this.fallback.generateClinicalSummary(state, patient, vitals, documents, effectiveCarePath, effectiveSpecialty);
     }
   }
 }

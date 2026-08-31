@@ -166,7 +166,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
   const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
-  const specialty = visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+  const specialty = req.body.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
 
   const initialState = createInitialClinicalState(initialLang, respType, carePath, specialty);
   initialState.isNewPatient = isNewPatient;
@@ -541,11 +541,19 @@ router.post('/:sessionId/complete', async (req: AuthRequest, res: Response): Pro
   const visit = session.visit;
   const patient = visit.patient;
 
+  const deptName = visit.department?.name || '';
+  const isHomeo = deptName.toLowerCase().includes('homeopath') || state.carePath === 'HOMEOPATHY';
+  const isAyu = deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved') || state.carePath === 'AYUSH';
+  const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : (state.carePath || 'ALLOPATHY'));
+  const specialty = state.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+
   const summaryDraft = await aiProvider.generateClinicalSummary(
     state,
     visit.patient,
     visit.vitals?.[0],
-    visit.documents
+    visit.documents,
+    carePath,
+    specialty
   );
 
   const clinicalHistory = await prisma.clinicalHistory.upsert({
