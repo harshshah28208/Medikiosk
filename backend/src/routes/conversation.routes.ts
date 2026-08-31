@@ -162,7 +162,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
           }
 
           // Determine final care path (prefer session over summary)
-          const finalCarePath = vCarePath !== 'ALLOPATHY' ? vCarePath :
+          let finalCarePath = vCarePath !== 'ALLOPATHY' ? vCarePath :
                                vSummaryCarePath !== 'ALLOPATHY' ? vSummaryCarePath : 'ALLOPATHY';
 
           // Adjust for department specialty
@@ -190,10 +190,10 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
           let complaintScore = 0;
           if (currentComplaintQuery && vComp) {
             // Simple word overlap scoring
-            const currentWords = new Set(currentComplaintQuery.split(/\s+/));
-            const visitWords = new Set(vComp.split(/\s+/));
-            const intersection = [...currentWords].filter(word => visitWords.has(word));
-            const union = new Set([...currentWords, ...visitWords]);
+            const currentWords = new Set<string>(currentComplaintQuery.split(/\s+/));
+            const visitWords = new Set<string>(vComp.split(/\s+/));
+            const intersection = [...currentWords].filter((word: string) => visitWords.has(word));
+            const union = new Set<string>([...currentWords, ...visitWords]);
             complaintScore = union.size > 0 ? (intersection.length / union.size) * 20 : 0;
           }
           score += complaintScore;

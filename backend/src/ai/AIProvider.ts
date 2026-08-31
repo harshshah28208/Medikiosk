@@ -1354,7 +1354,7 @@ export class UniversalClinicalEngine implements AIProvider {
       const homeo = state.homeopathyAssessment;
       if (homeo &&
           (homeo.miasm || homeo.thermalState || homeo.thirst ||
-           (homeo.modalities && (homeo.modalities.aggravating?.length > 0 || homeo.modalities.ameliorating?.length > 0)) ||
+           (homeo.modalities && ((homeo.modalities.aggravating?.length ?? 0) > 0 || (homeo.modalities.relieving?.length ?? 0) > 0)) ||
            homeo.mentalState || (homeo.concomitants && homeo.concomitants.length > 0) ||
            (homeo.timeModalities && homeo.timeModalities.length > 0) ||
            (homeo.sensations && homeo.sensations.length > 0) ||
@@ -1372,17 +1372,18 @@ export class UniversalClinicalEngine implements AIProvider {
     }
 
     // Follow-up Progression (for returning patients)
-    if (!state.isNewPatient && state.followUpProgression) {
-      const followUp = state.followUpProgression;
-      if (followUp &&
-          (followUp.conditionEvolution || followUp.medicationAdherence ||
-           followUp.residualOrNewSymptoms || followUp.priorTreatmentResponse)) {
+    if (!state.isNewPatient && state.domainCompleteness?.followUpProgression) {
+      const followUp = state.domainCompleteness.followUpProgression;
+      const sub = followUp.subDomains;
+      if (followUp.status === 'SUFFICIENT' || followUp.status === 'IN_PROGRESS' ||
+          (sub && (sub.conditionEvolution === 'SUFFICIENT' || sub.medicationAdherence === 'SUFFICIENT' ||
+                   sub.residualOrNewSymptoms === 'SUFFICIENT' || sub.priorTreatmentResponse === 'SUFFICIENT'))) {
         answeredDimensions.add('FOLLOW_UP');
       }
     }
 
     // Safety Screening / Red Flags
-    if (state.redFlagsEvaluated !== undefined && state.redFlagsEvaluated !== null) {
+    if (state.domainCompleteness?.safetyScreening?.redFlagsEvaluated || (state.redFlags && state.redFlags.length > 0)) {
       answeredDimensions.add('SAFETY_SCREENING');
     }
 
