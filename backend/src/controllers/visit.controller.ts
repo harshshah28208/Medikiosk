@@ -78,6 +78,25 @@ export async function getVisit(req: AuthRequest, res: Response): Promise<void> {
     return;
   }
 
+  // IDOR Protection: If authenticated as PATIENT, enforce ownership
+  if (req.user?.role === 'PATIENT') {
+    const userPatient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id },
+          { id: req.user.id },
+          { phone: req.user.email },
+        ],
+      },
+    });
+
+    const isOwner = visit.patientId === req.user.id || (userPatient && visit.patientId === userPatient.id);
+    if (!isOwner) {
+      res.status(403).json({ error: 'Access denied. You can only view your own visits.' });
+      return;
+    }
+  }
+
   res.json({ visit });
 }
 
@@ -141,6 +160,20 @@ export async function listVisits(req: AuthRequest, res: Response): Promise<void>
     const endOfDay = new Date(date as string);
     endOfDay.setHours(23, 59, 59, 999);
     where.createdAt = { gte: startOfDay, lte: endOfDay };
+  }
+
+  // IDOR Protection: If authenticated as PATIENT, restrict list to own visits only
+  if (req.user?.role === 'PATIENT') {
+    const userPatient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id },
+          { id: req.user.id },
+          { phone: req.user.email },
+        ],
+      },
+    });
+    where.patientId = userPatient?.id || req.user.id;
   }
 
   const visits = await prisma.visit.findMany({

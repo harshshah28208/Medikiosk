@@ -246,9 +246,29 @@ router.post('/upload', upload.single('file'), async (req: AuthRequest, res: Resp
 /**
  * GET /api/documents/:patientId
  * Get all medical documents and OCR results for a patient.
+ * Requires Authentication + IDOR validation if called by PATIENT.
  */
-router.get('/:patientId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/:patientId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
+
+  // IDOR Protection: If requester is a PATIENT, verify they only access their own patientId
+  if (req.user?.role === 'PATIENT') {
+    const userPatient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id },
+          { id: req.user.id },
+          { phone: req.user.email },
+        ],
+      },
+    });
+
+    const isOwner = patientId === req.user.id || (userPatient && patientId === userPatient.id);
+    if (!isOwner) {
+      res.status(403).json({ error: 'Access denied. You can only view your own documents.' });
+      return;
+    }
+  }
 
   const documents = await prisma.document.findMany({
     where: { patientId },
@@ -262,11 +282,31 @@ router.get('/:patientId', async (req: AuthRequest, res: Response): Promise<void>
 });
 
 /**
- * GET /api/timeline/:patientId
+ * GET /api/documents/timeline/:patientId
  * Real-time computed longitudinal medical timeline combining visits, documents, vitals, and prescriptions.
+ * Requires Authentication + IDOR validation if called by PATIENT.
  */
-router.get('/timeline/:patientId', async (req: AuthRequest, res: Response): Promise<void> => {
+router.get('/timeline/:patientId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
   const patientId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
+
+  // IDOR Protection: If requester is a PATIENT, verify they only access their own patientId
+  if (req.user?.role === 'PATIENT') {
+    const userPatient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id },
+          { id: req.user.id },
+          { phone: req.user.email },
+        ],
+      },
+    });
+
+    const isOwner = patientId === req.user.id || (userPatient && patientId === userPatient.id);
+    if (!isOwner) {
+      res.status(403).json({ error: 'Access denied. You can only view your own longitudinal history.' });
+      return;
+    }
+  }
 
   const [patient, visits, documents, prescriptions, vitals] = await Promise.all([
     prisma.patient.findUnique({ where: { id: patientId } }),
