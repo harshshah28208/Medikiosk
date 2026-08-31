@@ -500,28 +500,72 @@ export const api = {
         body: JSON.stringify({ targetLanguage, messages }),
       }).catch(() => {
         const langLower = (targetLanguage || 'en').toLowerCase();
-        let latestQuestion = 'Welcome to MediKiosk. What main symptom or health concern brought you in today?';
-        let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+        const targetLangUpper = (targetLanguage || 'EN').toUpperCase() as 'EN' | 'HI' | 'GU';
 
-        if (langLower === 'hi') {
-          latestQuestion = 'मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?';
-          touchOptions = ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
-        } else if (langLower === 'gu') {
-          latestQuestion = 'મેડીકિયોસ્ક માં આપનું સ્વાગત છે। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?';
-          touchOptions = ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
+        // Find the most recent AI message to preserve the current question
+        const lastAiMsg = messages.slice().reverse().find((m: any) => m.role === 'AI');
+        const rawContent = lastAiMsg?.content || 'Welcome to MediKiosk. What main symptom or health concern brought you in today?';
+        const rawOptions = lastAiMsg?.options || ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+
+        // Quick translation dictionary for common options
+        const optionMap: Record<string, Record<string, string>> = {
+          'fever / body ache': { en: 'Fever / Body Ache', hi: 'बुखार / शरीर दर्द', gu: 'તાવ / શરીરનો દુખાવો' },
+          'chest pain / pressure': { en: 'Chest Pain / Pressure', hi: 'सीने में दर्द / दबाव', gu: 'છાતીમાં દુખાવો / દબાણ' },
+          'severe abdominal pain': { en: 'Severe Abdominal Pain', hi: 'पेट में तेज़ दर्द', gu: 'પેટમાં તીવ્ર દુખાવો' },
+          'cough / breathlessness': { en: 'Cough / Breathlessness', hi: 'खांसी / सांस में तकलीफ', gu: 'ખાંસી / શ્વાસ લેવામાં તકલીફ' },
+          'headache / dizziness': { en: 'Headache / Dizziness', hi: 'सिरदर्द / चक्कर आना', gu: 'માથાનો દુખાવો / ચક્કર' },
+          'proceed to appointment': { en: 'Proceed to Appointment', hi: 'अपॉइंटमेंट के लिए आगे बढ़ें', gu: 'કન્સલ્ટેશન માટે આગળ વધો' },
+          'review summary': { en: 'Review Summary', hi: 'सारांश देखें', gu: 'વિગતો જુઓ' },
+          'add one more detail': { en: 'Add One More Detail', hi: 'एक और जानकारी जोड़ें', gu: 'વધુ એક વિગત ઉમેરો' },
+        };
+
+        const translatedOpts = rawOptions.map((opt: string) => {
+          const key = opt.trim().toLowerCase();
+          if (optionMap[key] && optionMap[key][langLower]) {
+            return optionMap[key][langLower];
+          }
+          return opt;
+        });
+
+        let translatedQ = rawContent;
+        if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા/i.test(rawContent)) {
+          translatedQ = langLower === 'hi'
+            ? 'आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक सक्रियता, खान-पान का समय और तनाव का स्तर?'
+            : langLower === 'gu'
+            ? 'આપની દિનચર્યા કેવી છે—જેમ કે ઊંઘના કલાકો, શારીરિક પ્રવૃત્તિ, આહાર અને તણાવનું પ્રમાણ?'
+            : 'How is your daily routine—such as sleep hours, physical activity, diet, and stress level?';
+        } else if (/medical conditions|allergy|chronic|दवा|બીમારી/i.test(rawContent)) {
+          translatedQ = langLower === 'hi'
+            ? 'क्या आप नियमित कोई दवाई लेते हैं, या कोई पुरानी बीमारी (बीपी, शुगर, थायराइड) या दवा से एलर्जी है?'
+            : langLower === 'gu'
+            ? 'શું આપ નિયમિત કોઈ દવા લો છો, અથવા કોઈ જૂની બીમારી (બીપી, સુગર, થાઈરોઈડ) કે દવાની એલર્જી છે?'
+            : 'Do you take any regular medications, or have any chronic conditions (BP, Diabetes, Thyroid) or allergies?';
+        } else if (/clinical questioning.*complete|क्लिनिकल पूछताछ पूरी/i.test(rawContent)) {
+          translatedQ = langLower === 'hi'
+            ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
+            : langLower === 'gu'
+            ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
+            : 'Thank you. Your clinical questioning is now complete. Your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
+        } else if (/welcome|symptom|health concern|समस्या|તકલીફ/i.test(rawContent)) {
+          translatedQ = langLower === 'hi'
+            ? 'मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?'
+            : langLower === 'gu'
+            ? 'મેડીકિયોસ્ક માં આપનું સ્વાગત છે। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?'
+            : 'Welcome to MediKiosk. What main symptom or health concern brought you in today?';
         }
 
         const translatedMessages = messages.map((m: any, idx: number) => {
           if (m.role === 'AI' && idx === messages.length - 1) {
-            return { ...m, content: latestQuestion };
+            return { ...m, content: translatedQ, options: translatedOpts };
           }
           return m;
         });
 
         return {
           language: targetLanguage,
-          latestQuestion,
-          touchOptions,
+          activeQuestion: translatedQ,
+          latestQuestion: translatedQ,
+          touchOptions: translatedOpts,
           translatedMessages,
         };
       }),

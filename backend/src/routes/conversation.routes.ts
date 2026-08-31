@@ -597,7 +597,7 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
   const session = await prisma.conversationSession.findUnique({
     where: { id: sessionId },
     include: {
-      messages: { orderBy: { timestamp: 'desc' }, take: 2 },
+      messages: { orderBy: { timestamp: 'desc' }, take: 15 },
     },
   });
 
@@ -622,9 +622,21 @@ router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Respons
   let translatedOptions: string[] = [];
 
   if (lastAiMessage) {
-    const rawOptions = lastAiMessage.metadata ? JSON.parse(lastAiMessage.metadata)?.options || [] : [];
+    let rawOptions: string[] = [];
+    if (lastAiMessage.metadata) {
+      try {
+        const meta = JSON.parse(lastAiMessage.metadata);
+        if (Array.isArray(meta?.options)) {
+          rawOptions = meta.options;
+        }
+      } catch {}
+    }
+
     translatedQuestion = await aiProvider.translateText(lastAiMessage.content, newLang);
-    translatedOptions = await Promise.all(rawOptions.map((opt: string) => aiProvider.translateText(opt, newLang)));
+
+    if (rawOptions.length > 0) {
+      translatedOptions = await Promise.all(rawOptions.map((opt: string) => aiProvider.translateText(opt, newLang)));
+    }
 
     // Update message record
     await prisma.conversationMessage.update({

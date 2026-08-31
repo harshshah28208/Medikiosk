@@ -343,7 +343,12 @@ export function IntakePage() {
       try {
         const res = await api.conversation.switchLanguage(session.id, newLang.toUpperCase(), messages);
         const latestQ = res?.activeQuestion || res?.latestQuestion;
-        const opts = (res?.touchOptions && res.touchOptions.length > 0) ? res.touchOptions : fallbackOptions[newLang];
+        
+        // Preserve active question's specific options rather than resetting
+        const lastAiMsg = messages.slice().reverse().find(m => m.role === 'AI');
+        const activeOpts = (res?.touchOptions && res.touchOptions.length > 0)
+          ? res.touchOptions
+          : (lastAiMsg?.options && lastAiMsg.options.length > 0 ? lastAiMsg.options : fallbackOptions[newLang]);
 
         if (res?.translatedMessages && res.translatedMessages.length > 0) {
           setMessages(res.translatedMessages);
@@ -356,14 +361,14 @@ export function IntakePage() {
               updated[lastAiIdx] = {
                 ...updated[lastAiIdx],
                 content: latestQ,
-                options: opts,
+                options: activeOpts,
               };
             }
             return updated;
           });
         }
 
-        setTouchOptions(opts);
+        setTouchOptions(activeOpts);
 
         if (latestQ && audioEnabled) {
           speechProvider.speak(latestQ, newLang);
