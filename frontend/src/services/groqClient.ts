@@ -93,49 +93,69 @@ Return ONLY valid JSON (no markdown):
   "clinicalRationale": "Diagnostic reasoning for this step"
 }`;
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'You are MediKiosk Autonomous Clinical AI Intake Doctor. Return ONLY valid JSON.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
-    });
+  const candidateModels = [
+    GROQ_MODEL,
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.6-27b',
+    'qwen/qwen3.8-27b',
+    'allam-2-7b',
+    'openai/gpt-oss-120b',
+  ];
+  const uniqueModels = [...new Set(candidateModels.filter(Boolean))];
 
-    if (!response.ok) {
-      throw new Error(`Groq API error HTTP ${response.status}`);
+  for (const m of uniqueModels) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: m,
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content: 'You are MediKiosk Autonomous Clinical AI Intake Doctor. Return ONLY valid JSON.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const parsedText = data.choices?.[0]?.message?.content || '{}';
+      const parsed = JSON.parse(parsedText);
+
+      if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
+        parsed.touchOptions = language === 'HI'
+          ? ['हाँ, ठीक है', 'नहीं, कोई बदलाव नहीं', 'एक और जानकारी जोड़ें']
+          : language === 'GU'
+          ? ['હા, બરાબર છે', 'ના, કોઈ ફેરફાર નથી', 'વધુ એક વિગત ઉમેરો']
+          : ['Yes, that is correct', 'No changes', 'Add more details'];
+      }
+
+      return {
+        question: parsed.question || 'Please describe your main symptom in detail.',
+        questionLanguage: language,
+        questionCategory: parsed.questionCategory || 'ONSET',
+        touchOptions: parsed.touchOptions,
+        isRedFlag: Boolean(parsed.isRedFlag),
+        redFlagReason: parsed.redFlagReason || null,
+        isComplete: Boolean(parsed.isComplete),
+        clinicalRationale: parsed.clinicalRationale,
+      };
+    } catch {
+      // Continue to next model
     }
-
-    const data = await response.json();
-    const parsedText = data.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(parsedText);
-
-    if (!Array.isArray(parsed.touchOptions) || parsed.touchOptions.length < 2) {
-      parsed.touchOptions = language === 'HI'
-        ? ['हाँ, ठीक है', 'नहीं, कोई बदलाव नहीं', 'एक और जानकारी जोड़ें']
-        : language === 'GU'
-        ? ['હા, બરાબર છે', 'ના, કોઈ ફેરફાર નથી', 'વધુ એક વિગત ઉમેરો']
-        : ['Yes, that is correct', 'No changes', 'Add more details'];
-    }
-
-    return parsed;
-  } catch (err) {
-    console.warn('Groq client fallback:', err);
-    throw err;
   }
+
+  throw new Error('All client Groq candidate models exhausted');
 }

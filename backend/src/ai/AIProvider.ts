@@ -844,7 +844,10 @@ function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): str
   if (/fever|temperature|shiver|chills|बुखार|તાવ/i.test(c)) {
     return lang === 'HI' ? 'बुखार और शारीरिक कमजोरी' : lang === 'GU' ? 'તાવ અને શારીરિક નબળાઈ' : 'fever and body weakness';
   }
-  if (/injury|wound|trauma|fall|चोट|घाव|ઈજા/i.test(c)) {
+  if (/hair|scalp|dandruff|बाल|डैंड्रफ|વાળ|ખોડો/i.test(c)) {
+    return lang === 'HI' ? 'बाल और डैंड्रफ की समस्या' : lang === 'GU' ? 'વાળ અને ખોડાની તકલીફ' : 'hair fall and dandruff condition';
+  }
+  if (/\b(injury|wound|trauma|fracture|fell down|physical injury)\b|चोट|घाव|ઈજા/i.test(c) && !/hair fall/i.test(c)) {
     return lang === 'HI' ? 'चोट और घाव' : lang === 'GU' ? 'ઈજા અને સોજો' : 'injury and swelling';
   }
 
@@ -1106,6 +1109,16 @@ export class UniversalClinicalEngine implements AIProvider {
         EN: "Welcome to MediKiosk. What main symptom or health concern brought you in today?",
         HI: "मेडीकियोस्क में आपका स्वागत है। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?",
         GU: "મેડીકિયોસ્ક માં આપનું સ્વાગત છે। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?",
+      };
+      return q[targetLanguage];
+    }
+
+    // Check Onset & Duration Question
+    if (tLower.includes('how long') || tLower.includes('begin suddenly') || tLower.includes('कितने समय') || tLower.includes('अचानक या धीरे') || tLower.includes('કેટલા સમય') || tLower.includes('અચાનક કે ધીમે')) {
+      const q = {
+        EN: "How long have you been experiencing this symptom, and did it begin suddenly or gradually?",
+        HI: "आप यह तकलीफ कितने समय से महसूस कर रहे हैं, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?",
+        GU: "આપ આ તકલીફ કેટલા સમયથી અનુભવી રહ્યા છો, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?",
       };
       return q[targetLanguage];
     }
@@ -3370,12 +3383,19 @@ export class GroqAIProvider implements AIProvider {
   private fallback = new UniversalClinicalEngine();
 
   constructor(apiKey: string) {
-    this.groq = new Groq({ apiKey, maxRetries: 0, timeout: 6000 });
-    this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+    this.groq = new Groq({ apiKey, maxRetries: 0, timeout: 4000 });
+    this.model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
   }
 
   private async createChatCompletion(messages: any[], isJson = true): Promise<string> {
-    const candidateModels = [this.model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+    const candidateModels = [
+      this.model,
+      'openai/gpt-oss-20b',
+      'qwen/qwen3.6-27b',
+      'qwen/qwen3.8-27b',
+      'allam-2-7b',
+      'openai/gpt-oss-120b',
+    ];
     const uniqueModels = [...new Set(candidateModels.filter(Boolean))];
 
     for (const m of uniqueModels) {
@@ -3389,7 +3409,7 @@ export class GroqAIProvider implements AIProvider {
         const content = res.choices[0]?.message?.content?.trim();
         if (content && content.length > 0) return content;
       } catch (e: any) {
-        // Continue to next candidate model
+        console.error(`[Groq Model Error] ${m}:`, e?.message || e);
       }
     }
     throw new Error('All Groq candidate models exhausted');
@@ -3505,7 +3525,13 @@ Carefully analyze the patient input in ${language} and extract all clinical fact
         return directOpt;
       }
 
-      // 2. Use Groq AI to translate the exact text faithfully without altering the question
+      // 2. Check structured clinical stage translations
+      const directClinical = this.fallback.translateText(text, targetLanguage);
+      if (directClinical && directClinical !== text) {
+        return directClinical;
+      }
+
+      // 3. Use Groq AI to translate the exact text faithfully without altering the question
       const langName = targetLanguage === 'HI' ? 'Hindi (in Devanagari script: हिन्दी)' : targetLanguage === 'GU' ? 'Gujarati (in Gujarati script: ગુજરાતી)' : 'clear, professional English';
       const prompt = `You are a certified clinical medical translator.
 Translate the following medical phrase/question/option directly and faithfully into pure, natural, fluent ${langName}.
