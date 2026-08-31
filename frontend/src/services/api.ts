@@ -447,62 +447,101 @@ export const api = {
         } catch {
           const tLow = text.toLowerCase();
           const isExplicitClosing = /proceed|covers all symptoms|no further questions|आगे बढ़ें|આગળ વધો/i.test(tLow);
-          const isMedHistoryAnswer = /bp|diabetes|sugar|thyroid|asthma|allergy|medication|medicine|chronic|पुरानी बीमारी|एलर्जी|दवा|બીપી|સુગર|એલર્જી|દવા/i.test(tLow);
+          const isMedicationAnswer = /prescription|penicillin|sulfa|regular|tablet|capsule|nkda|पेनिसिलिन|दवा|ગોળી|પેનિસિલિન/i.test(tLow);
+          const isMedicalHistoryAnswer = /bp|diabetes|sugar|thyroid|asthma|chronic|surgery|hospital|पुरानी बीमारी|शुगर|बीपी|બીપી|સુગર|જૂની બીમારી/i.test(tLow);
           const isLifestyleAnswer = /sleep|diet|stress|routine|hours|exercise|खाना|नींद|तनाव|ઊંઘ|ખોરાક|તણાવ/i.test(tLow);
-          const isOnsetAnswer = /days|weeks|months|today|yesterday|started|ago|दिन|हफ्ते|महीने|आज|કાલે|દિવસ|અઠવાડિયા/i.test(tLow);
+          const isTriggersAnswer = /worse|better|spicy|movement|heat|cold|rest|धूप|आराम|ગરમી|આરામ|ખોરાક/i.test(tLow);
+          const isAssociatedAnswer = /fever|nausea|dizzy|vomit|headache|swelling|बुखार|उल्टी|चक्कर|તાવ|ઉલટી|ચક્કર/i.test(tLow);
+          const isSeverityAnswer = /pain|severe|burning|throbbing|mild|moderate|1|2|3|4|5|6|7|8|9|10|तीव्र|दर्द|जलन|દુખાવો|બળતરા/i.test(tLow);
 
           let aiMessageContent = '';
           let touchOptions: string[] = [];
           let isComplete = false;
 
-          if (isExplicitClosing || isMedHistoryAnswer) {
-            // Stage 5: Closing Turn
+          if (isExplicitClosing || isMedicationAnswer) {
+            // Stage 8: Closing Turn
             isComplete = true;
             if (langUpper === 'HI') {
-              aiMessageContent = 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। क्या आप अब डॉक्टर परामर्श के लिए आगे बढ़ना चाहते हैं?';
+              aiMessageContent = 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।';
               touchOptions = ['अपॉइंटमेंट के लिए आगे बढ़ें', 'सारांश देखें', 'एक और जानकारी जोड़ें'];
             } else if (langUpper === 'GU') {
-              aiMessageContent = 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. શું આપ હવે ડૉક્ટર કન્સલ્ટેશન માટે આગળ વધવા માંગો છો?';
+              aiMessageContent = 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.';
               touchOptions = ['કન્સલ્ટેશન માટે આગળ વધો', 'વિગતો જુઓ', 'વધુ એક વિગત ઉમેરો'];
             } else {
-              aiMessageContent = 'Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?';
+              aiMessageContent = 'Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
               touchOptions = ['Proceed to Appointment', 'Review Summary', 'Add One More Detail'];
             }
-          } else if (isLifestyleAnswer) {
-            // Stage 4: Medical History, Medications & Allergies
+          } else if (isMedicalHistoryAnswer) {
+            // Stage 7: Prescription Medications & Drug Allergies
             if (langUpper === 'HI') {
-              aiMessageContent = 'क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा), कोई नियमित दवा या किसी दवा से एलर्जी है?';
-              touchOptions = ['कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं', 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'थायराइड / अस्थमा की तकलीफ है', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है'];
+              aiMessageContent = 'आप रोज कौन सी नियमित दवाइयां लेते हैं, और क्या आपको किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या दर्द की दवा) है?';
+              touchOptions = ['रोज बीपी / शुगर / थायराइड की दवा लेते हैं', 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा / पेनकिलर दवाओं से एलर्जी है', 'कभी-कभार गैस या दर्द की सामान्य दवा लेते हैं'];
             } else if (langUpper === 'GU') {
-              aiMessageContent = 'શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?';
-              touchOptions = ['કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી', 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'થાયરોઇડ / અસ્થમાની તકલીફ છે', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)'];
+              aiMessageContent = 'આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?';
+              touchOptions = ['રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા / પેઈનકિલર દવાની એલર્જી છે', 'ક્યારેક ગેસ કે દુખાવાની સામાન્ય દવા લઈએ છીએ'];
             } else {
-              aiMessageContent = 'Do you have any ongoing medical conditions (BP, Diabetes, Thyroid, Asthma), regular medications, or drug allergies?';
-              touchOptions = ['No chronic conditions & No known drug allergies (NKDA)', 'Taking regular BP / Diabetes medicines', 'Have Thyroid / Asthma / Breathing trouble', 'Known drug allergy to Penicillin / Sulfa drugs'];
+              aiMessageContent = 'What regular prescription medicines do you take daily, and do you have any known drug allergies (such as Penicillin, Sulfa, or pain medicines)?';
+              touchOptions = ['Taking daily BP / Diabetes / Thyroid tablets', 'No regular medicines & No known drug allergies (NKDA)', 'Known drug allergy to Penicillin / Sulfa / Pain relievers', 'Taking occasional OTC pain / antacid medicines'];
             }
-          } else if (isOnsetAnswer) {
-            // Stage 3: Targeted Lifestyle & Routine
+          } else if (isLifestyleAnswer) {
+            // Stage 6: Past Medical History & Family Health Background
             if (langUpper === 'HI') {
-              aiMessageContent = 'आपकी दिनचर्या, रात की नींद (कितने घंटे), खान-पान की आदतें और तनाव का स्तर कैसा रहता है?';
-              touchOptions = ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'नींद में रुकावट (<5 घंटे) व अधिक तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'बैठे रहने की दिनचर्या व शारीरिक थकान'];
+              aiMessageContent = 'क्या आपको या आपके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, दिल की बीमारी) या कोई सर्जरी का इतिहास है?';
+              touchOptions = ['कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', 'हाई बीपी / डायबिटीज (शुगर) की समस्या', 'थायराइड / अस्थमा / सांस की पुरानी तकलीफ', 'परिवार में भी किसी को ऐसी ही समस्या रही है'];
             } else if (langUpper === 'GU') {
-              aiMessageContent = 'આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક), ખાનપાનની આદતો અને તણાવ કેવો રહે છે?';
-              touchOptions = ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ (<૫ કલાક) અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'];
+              aiMessageContent = 'શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?';
+              touchOptions = ['કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ', 'હાઈ બીપી / ડાયાબિટીસ (સુગર) ની તકલીફ', 'થાયરોઇડ / અસ્થમા / શ્વાસની જૂની તકલીફ', 'પરિવારમાં પણ કોઈને આવી જ સમસ્યા રહી છે'];
             } else {
-              aiMessageContent = 'How is your daily routine, sleep quality (hours per night), dietary habits, and stress level?';
-              touchOptions = ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high work stress', 'Oily / fast food & irregular meals', 'Sedentary desk routine & physical fatigue'];
+              aiMessageContent = 'Do you or your close family have a history of chronic health conditions (BP, Diabetes, Thyroid, Asthma, Heart disease), or prior surgeries?';
+              touchOptions = ['No chronic conditions & no prior surgeries', 'Hypertension (High BP) / Diabetes (Sugar)', 'Thyroid disorder / Asthma / Breathing trouble', 'Family history of similar health condition'];
+            }
+          } else if (isTriggersAnswer) {
+            // Stage 5: Lifestyle, Sleep & Routine
+            if (langUpper === 'HI') {
+              aiMessageContent = 'आपकी दिनचर्या कैसी है—रात में कितने घंटे गहरी नींद आती है, खान-पान की आदतें और तनाव का स्तर कैसा है?';
+              touchOptions = ['सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', 'नींद में रुकावट (<5 घंटे) और काम का भारी तनाव', 'तला-भुना/बाहर का खाना, अधिक चाय और अनियमित समय', 'बैठकर काम करने की दिनचर्या और शारीरिक थकान'];
+            } else if (langUpper === 'GU') {
+              aiMessageContent = 'આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?';
+              touchOptions = ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ (<૫ કલાક) અને ભારે માનસિક તણાવ', 'તળેલું/બહારનું ભોજન, વધુ ચા અને અનિયમિત સમય', 'બેઠાડુ કામકાજ અને શારીરિક થાક'];
+            } else {
+              aiMessageContent = 'How is your daily routine—including exact hours of sleep per night, sleep quality, dietary habits, and daily stress level?';
+              touchOptions = ['Normal 7-8 hrs sleep & balanced home-cooked food', 'Disturbed sleep (<5 hrs) & high mental/work stress', 'Oily / fast food, frequent tea/coffee & irregular meals', 'Sedentary desk routine & physical fatigue'];
+            }
+          } else if (isAssociatedAnswer) {
+            // Stage 4: Modalities & Aggravating Triggers
+            if (langUpper === 'HI') {
+              aiMessageContent = 'किस कारण से आपकी तकलीफ बढ़ती है (जैसे खान-पान, हिलने-डुलने, मौसम, तनाव या खास समय पर) और किस चीज से आराम मिलता है?';
+              touchOptions = ['काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', 'तला/मसालेदार खाने से बढ़ता है; गर्म पानी से आराम', 'गर्मी/धूप/एसी की ठंड से बढ़ता है; सामान्य मौसम में आराम', 'लगातार एक जैसा रहता है, कोई खास ट्रिगर नहीं'];
+            } else if (langUpper === 'GU') {
+              aiMessageContent = 'કયા કારણોથી આપની તકલીફ વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?';
+              touchOptions = ['શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે', 'તીખા/તળેલા ખોરાકથી વધે છે; ગરમ પીણાંથી રાહત', 'ગરમી/તડકો/એસીથી વધે છે; સામાન્ય વાતાવરણમાં રાહત', 'સતત એકસરખો રહે છે, કોઈ ચોક્કસ કારણ નથી'];
+            } else {
+              aiMessageContent = 'What specific factors make your condition worse (such as food, movement, weather, posture, stress, or time of day), and does anything bring relief?';
+              touchOptions = ['Worse with movement / physical exertion; better with rest', 'Worse with spicy/oily food; better after warm liquids', 'Worse in heat / sun / AC cold drafts; better in normal temperature', 'Constant intensity with no identifiable triggers'];
+            }
+          } else if (isSeverityAnswer) {
+            // Stage 3: Associated Symptoms
+            if (langUpper === 'HI') {
+              aiMessageContent = 'क्या आपको बुखार, जी मिचलाना, चक्कर आना, सांस फूलना, सिरदर्द या कोई सूजन/स्राव जैसे अन्य लक्षण भी महसूस हो रहे हैं?';
+              touchOptions = ['बुखार / कंपकंपी और बदन दर्द', 'जी मिचलाना, उल्टी या पेट में तकलीफ', 'चक्कर आना, कमजोरी या भारीपन', 'कोई अन्य संबंधित लक्षण नहीं है'];
+            } else if (langUpper === 'GU') {
+              aiMessageContent = 'શું આપને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ જણાય છે?';
+              touchOptions = ['તાવ / ધ્રુજારી અને કળતર', 'ઉબકા, ઉલટી કે પેટમાં તકલીફ', 'ચક્કર આવવા, અશક્તિ કે થાક', 'કોઈ અન્ય સંબંધિત લક્ષણો નથી'];
+            } else {
+              aiMessageContent = 'Do you have any associated symptoms such as fever, nausea, dizziness, breathing trouble, headache, or unusual swelling/discharge?';
+              touchOptions = ['Fever / Chills & Body aches', 'Nausea, vomiting or stomach discomfort', 'Dizziness, lightheadedness or fatigue', 'No other associated symptoms noticed'];
             }
           } else {
-            // Stage 2: Onset, Duration & Timing
+            // Stage 2: Sensation, Character & Severity (1-10)
             if (langUpper === 'HI') {
-              aiMessageContent = 'आप यह तकलीफ कितने समय से महसूस कर रहे हैं, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?';
-              touchOptions = ['आज से / पिछले कुछ घंटों से', '2 से 3 दिनों से', '1 से 2 सप्ताह से', 'एक महीने से अधिक समय से'];
+              aiMessageContent = 'आपकी तकलीफ की गंभीरता और प्रकार कैसा है (जैसे जलन, चुभन, भारीपन, टीस), और 1 से 10 के पैमाने पर दर्द कितना तीव्र है?';
+              touchOptions = ['हल्की तकलीफ (1-3/10) / सामान्य दिनचर्या', 'मध्यम दर्द (4-6/10) / काम में रुकावट', 'तेज असहनीय दर्द (7-10/10) / नींद में बाधा', 'रुक-रुक कर होने वाली चुभन व भारीपन'];
             } else if (langUpper === 'GU') {
-              aiMessageContent = 'આપ આ તકલીફ કેટલા સમયથી અનુભવી રહ્યા છો, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?';
-              touchOptions = ['આજથી / છેલ્લા થોડા કલાકોથી', '૨ થી ૩ દિવસથી', '૧ થી ૨ અઠવાડિયાથી', 'એક મહિના કરતાં વધુ સમયથી'];
+              aiMessageContent = 'આપની તકલીફની તીવ્રતા અને પ્રકાર કેવો છે (જેમ કે બળતરા, સોય ભોંકાય તેવો, ભારેપણું, ધબકારા), અને ૧ થી ૧૦ ના સ્કેલ પર દુખાવો કેટલો છે?';
+              touchOptions = ['હળવી તકલીફ (૧-૩/૧૦) / સામાન્ય દિનચર્યા', 'મધ્યમ દુખાવો (૪-૬/૧૦) / કામમાં મુશ્કેલી', 'તીવ્ર અસહ્ય દુખાવો (૭-૧૦/૧૦) / ઊંઘમાં ખલેલ', 'અવારનવાર થતો ખૂંચતો દુખાવો'];
             } else {
-              aiMessageContent = 'How long have you been experiencing this symptom, and did it begin suddenly or gradually?';
-              touchOptions = ['Since today / past few hours', '2 to 3 days', '1 to 2 weeks', 'More than a month (chronic)'];
+              aiMessageContent = 'How would you describe the sensation and severity of your condition (e.g. burning, sharp, throbbing, dull ache), and on a scale of 1 to 10 how intense is it?';
+              touchOptions = ['Mild discomfort (1-3/10) / Manageable routine', 'Moderate pain (4-6/10) / Restricting work', 'Severe intense pain (7-10/10) / Disturbing sleep', 'Intermittent sharp flares with aching'];
             }
           }
 

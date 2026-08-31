@@ -1196,27 +1196,21 @@ export class UniversalClinicalEngine implements AIProvider {
       : (carePath === true || state.carePath === 'AYUSH' ? 'AYUSH' : (state.carePath === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY'));
     const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
 
-    // Track answered clinical dimensions from turns, state, and conversation transcript to guarantee smooth stage progression
+    // Track answered clinical dimensions across turns to guarantee exhaustive, in-depth clinical consultation
     const answeredDimensions = new Set<string>();
     const turns = state.turnsCompleted || 0;
-    const historyText = (conversationHistory || []).map(m => m.content).join(' ').toLowerCase() + ' ' + (state.questionsAsked || []).join(' ').toLowerCase();
 
-    if (turns >= 2 || historyText.includes('how long') || historyText.includes('कब से') || historyText.includes('કેટલા સમયથી') || (state.symptoms || []).some(s => s.onset)) {
-      answeredDimensions.add('ONSET');
-    }
-    if (turns >= 3 || historyText.includes('aggravated') || historyText.includes('bulge') || historyText.includes('urinary stream') || historyText.includes('severity') || historyText.includes('how many times') || historyText.includes('times have you') || historyText.includes('गंभीरता') || historyText.includes('તીવ્રતા') || (state.symptoms || []).some(s => s.severity || s.character)) {
-      answeredDimensions.add('CHARACTER');
-    }
-    if (turns >= 4 || historyText.includes('lifestyle') || historyText.includes('sleep') || historyText.includes('routine') || historyText.includes('diet') || historyText.includes('दिनचर्या') || historyText.includes('દિનચર્યા') || (state.lifestyle?.sleep && state.lifestyle.sleep.length > 2)) {
-      answeredDimensions.add('LIFESTYLE');
-    }
-    if (turns >= 5 || historyText.includes('medical conditions') || historyText.includes('ongoing') || historyText.includes('regular medicines') || historyText.includes('allergies') || historyText.includes('पुरानी बीमारी') || historyText.includes('જૂની બીમારી') || ((state.pastMedicalHistory || []).length > 0 && state.pastMedicalHistory[0] !== 'None reported')) {
-      answeredDimensions.add('PAST_HISTORY');
-    }
+    if (turns >= 1 && state.chiefComplaint) answeredDimensions.add('CHIEF_COMPLAINT');
+    if (turns >= 2) answeredDimensions.add('ONSET');
+    if (turns >= 3) answeredDimensions.add('CHARACTER');
+    if (turns >= 4) answeredDimensions.add('ASSOCIATED');
+    if (turns >= 5) answeredDimensions.add('TRIGGERS');
+    if (turns >= 6) answeredDimensions.add('LIFESTYLE');
+    if (turns >= 7) answeredDimensions.add('PAST_HISTORY');
+    if (turns >= 8) answeredDimensions.add('MEDICATIONS_ALLERGIES');
+
     if ((state.symptoms || []).some(s => s.progression)) answeredDimensions.add('PROGRESSION');
     if ((state.symptoms || []).some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
-    if ((state.medications || []).length > 0) answeredDimensions.add('MEDICATIONS');
-    if ((state.allergies || []).length > 0) answeredDimensions.add('ALLERGIES');
 
     // ==========================================
     // WORKFLOW A: RETURNING PATIENT 100% DYNAMIC ANSWER-DRIVEN INTAKE
@@ -2644,23 +2638,83 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 4: Lifestyle & Daily Routine (Sleep, Diet, Physical Activity, Stress)
+    // Step 4: Associated Symptoms & Systemic Manifestations
+    if (!answeredDimensions.has('ASSOCIATED')) {
+      const qText = {
+        EN: isCaregiver
+          ? `Does the patient have any associated symptoms such as fever, nausea, dizziness, breathing trouble, headache, or unusual swelling/discharge?`
+          : `Do you have any associated symptoms such as fever, nausea, dizziness, breathing trouble, headache, or unusual swelling/discharge?`,
+        HI: isCaregiver
+          ? `क्या मरीज को बुखार, जी मिचलाना, चक्कर आना, सांस फूलना, सिरदर्द या कोई सूजन/स्राव जैसे अन्य लक्षण भी हैं?`
+          : `क्या आपको बुखार, जी मिचलाना, चक्कर आना, सांस फूलना, सिरदर्द या कोई सूजन/स्राव जैसे अन्य लक्षण भी महसूस हो रहे हैं?`,
+        GU: isCaregiver
+          ? `શું દર્દીને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ છે?`
+          : `શું આપને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ જણાય છે?`,
+      };
+      const touchOpts = {
+        EN: ['Fever / Chills & Body aches', 'Nausea, vomiting or stomach discomfort', 'Dizziness, lightheadedness or fatigue', 'No other associated symptoms noticed'],
+        HI: ['बुखार / कंपकंपी और बदन दर्द', 'जी मिचलाना, उल्टी या पेट में तकलीफ', 'चक्कर आना, कमजोरी या भारीपन', 'कोई अन्य संबंधित लक्षण नहीं है'],
+        GU: ['તાવ / ધ્રુજારી અને કળતર', 'ઉબકા, ઉલટી કે પેટમાં તકલીફ', 'ચક્કર આવવા, અશક્તિ કે થાક', 'કોઈ અન્ય સંબંધિત લક્ષણો નથી'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'CHARACTER',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Screening for secondary systemic manifestations, autonomic clues, and red flags',
+      };
+    }
+
+    // Step 5: Modalities — Aggravating Triggers & Relieving Factors
+    if (!answeredDimensions.has('TRIGGERS')) {
+      const qText = {
+        EN: isCaregiver
+          ? `What specific factors make the patient's ${localizedLabel} worse (such as food, movement, weather, posture, stress, or time of day), and does anything bring relief?`
+          : `What specific factors make your ${localizedLabel} worse (such as food, movement, weather, posture, stress, or time of day), and does anything bring relief?`,
+        HI: isCaregiver
+          ? `किस कारण से मरीज की ${localizedLabel} बढ़ती है (जैसे खान-पान, हिलने-डुलने, मौसम, तनाव या खास समय पर) और किस चीज से आराम मिलता है?`
+          : `किस कारण से आपकी ${localizedLabel} बढ़ती है (जैसे खान-पान, हिलने-डुलने, मौसम, तनाव या खास समय पर) और किस चीज से आराम मिलता है?`,
+        GU: isCaregiver
+          ? `કયા કારણોથી દર્દીની ${localizedLabel} વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?`
+          : `કયા કારણોથી આપની ${localizedLabel} વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?`,
+      };
+      const touchOpts = {
+        EN: ['Worse with movement / physical exertion; better with rest', 'Worse with spicy/oily food; better after warm liquids', 'Worse in heat / sun / AC cold drafts; better in normal temperature', 'Constant intensity with no identifiable triggers'],
+        HI: ['काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', 'तला/मसालेदार खाने से बढ़ता है; गर्म पानी से आराम', 'गर्मी/धूप/एसी की ठंड से बढ़ता है; सामान्य मौसम में आराम', 'लगातार एक जैसा रहता है, कोई खास ट्रिगर नहीं'],
+        GU: ['શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે', 'તીખા/તળેલા ખોરાકથી વધે છે; ગરમ પીણાંથી રાહત', 'ગરમી/તડકો/એસીથી વધે છે; સામાન્ય વાતાવરણમાં રાહત', 'સતત એકસરખો રહે છે, કોઈ ચોક્કસ કારણ નથી'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'LIFESTYLE',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Assessing aggravating triggers, postural variations, and relieving factors',
+      };
+    }
+
+    // Step 6: Lifestyle, Sleep Hygiene, Diet & Daily Routine
     if (!answeredDimensions.has('LIFESTYLE')) {
       const qText = {
         EN: isCaregiver
-          ? `How is the patient's daily routine, sleep pattern (hours/night), and dietary habits?`
-          : `How is your daily routine, sleep quality (hours per night), and dietary habits?`,
+          ? `How is the patient's daily routine, sleep pattern (exact hours/night), dietary habits, and stress level?`
+          : `How is your daily routine—including exact hours of sleep per night, sleep quality, dietary habits, and daily stress level?`,
         HI: isCaregiver
-          ? `मरीज की दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी रहती हैं?`
-          : `आपकी दिनचर्या, रात की नींद (कितने घंटे) और खान-पान की आदतें कैसी हैं?`,
+          ? `मरीज की दिनचर्या, रात की नींद (सटीक कितने घंटे), खान-पान की आदतें और तनाव का स्तर कैसा रहता है?`
+          : `आपकी दिनचर्या कैसी है—रात में कितने घंटे गहरी नींद आती है, खान-पान की आदतें और तनाव का स्तर कैसा है?`,
         GU: isCaregiver
-          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખોરાકની આદતો કેવી રહે છે?`
-          : `આપની દિનચર્યા, રાત્રિની ઊંઘ (કેટલા કલાક) અને ખાનપાનની આદતો કેવી રહે છે?`,
+          ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (ચોક્કસ કેટલા કલાક), ખોરાકની આદતો અને તણાવનું પ્રમાણ કેવું રહે છે?`
+          : `આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?`,
       };
       const touchOpts = {
-        EN: ['Normal 7-8 hrs sleep & balanced home food', 'Disturbed sleep (<5 hrs) & high work stress', 'Oily / fast food & irregular meals', 'Sedentary desk routine & physical fatigue'],
-        HI: ['सामान्य 7-8 घंटे नींद और घर का सादा खाना', 'नींद में रुकावट व अधिक काम का तनाव', 'तला-भुना/बाहर का खाना व अनियमित समय', 'शारीरिक निष्क्रियता व थकान'],
-        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ અને વધુ માનસિક તણાવ', 'તેલી/બહારનો ખોરાક અને અનિયમિત ભોજન', 'બેઠાડુ જીવન અને થાક'],
+        EN: ['Normal 7-8 hrs sleep & balanced home-cooked food', 'Disturbed sleep (<5 hrs) & high mental/work stress', 'Oily / fast food, frequent tea/coffee & irregular meals', 'Sedentary desk routine & physical fatigue'],
+        HI: ['सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', 'नींद में रुकावट (<5 घंटे) और काम का भारी तनाव', 'तला-भुना/बाहर का खाना, अधिक चाय और अनियमित समय', 'बैठकर काम करने की दिनचर्या और शारीरिक थकान'],
+        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ (<૫ કલાક) અને ભારે માનસિક તણાવ', 'તળેલું/બહારનું ભોજન, વધુ ચા અને અનિયમિત સમય', 'બેઠાડુ કામકાજ અને શારીરિક થાક'],
       };
       return {
         question: qText[lang],
@@ -2674,23 +2728,23 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 5: Medical Background, Ongoing Medications & Drug Allergies
-    if (!answeredDimensions.has('PAST_HISTORY') || (!answeredDimensions.has('MEDICATIONS') && !answeredDimensions.has('ALLERGIES'))) {
+    // Step 7: Past Medical History & Family Health Background
+    if (!answeredDimensions.has('PAST_HISTORY')) {
       const qText = {
         EN: isCaregiver
-          ? `Does the patient have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medicines, or drug allergies?`
-          : `Do you have any ongoing medical conditions (BP, Diabetes, Thyroid), regular medications, or drug allergies?`,
+          ? `Does the patient or their immediate family have a history of chronic conditions (BP, Diabetes, Thyroid, Asthma, Heart conditions), or prior hospitalizations?`
+          : `Do you or your close family have a history of chronic health conditions (BP, Diabetes, Thyroid, Asthma, Heart disease), or prior surgeries?`,
         HI: isCaregiver
-          ? `क्या मरीज को कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`
-          : `क्या आपको कोई पुरानी बीमारी (बीपी, शुगर, थायराइड), कोई नियमित दवा या किसी दवा से एलर्जी है?`,
+          ? `क्या मरीज या उनके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, हृदय रोग) या कोई पुराना ऑपरेशन हुआ है?`
+          : `क्या आपको या आपके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, दिल की बीमारी) या कोई सर्जरी का इतिहास है?`,
         GU: isCaregiver
-          ? `શું દર્દીને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`
-          : `શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ), નિયમિત દવા કે કોઈ દવાની એલર્જી છે?`,
+          ? `શું દર્દી કે તેમના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે કોઈ સર્જરી થયેલી છે?`
+          : `શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?`,
       };
       const touchOpts = {
-        EN: ['No chronic conditions & No known drug allergies (NKDA)', 'Taking regular BP / Diabetes medicines', 'Have Thyroid / Asthma / Breathing trouble', 'Known drug allergy to Penicillin / Sulfa drugs'],
-        HI: ['कोई पुरानी बीमारी नहीं व कोई एलर्जी नहीं (NKDA)', 'नियमित बीपी / शुगर की दवाइयां ले रहे हैं', 'थायराइड / अस्थमा / सांस की तकलीफ है', 'दवाओं (पेनिसिलिन आदि) से एलर्जी है'],
-        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ એલર્જી નથી (NKDA)', 'નિયમિત બીપી / ડાયાબિટીસ દવા લઈએ છીએ', 'થાયરોઇડ / અસ્થમા / શ્વાસની તકલીફ છે', 'દવાની એલર્જી છે (પેનિસિલિન વગેરે)'],
+        EN: ['No chronic conditions & no prior surgeries', 'Hypertension (High BP) / Diabetes (Sugar)', 'Thyroid disorder / Asthma / Breathing trouble', 'Family history of similar health condition'],
+        HI: ['कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', 'हाई बीपी / डायबिटीज (शुगर) की समस्या', 'थायराइड / अस्थमा / सांस की पुरानी तकलीफ', 'परिवार में भी किसी को ऐसी ही समस्या रही है'],
+        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ', 'હાઈ બીપી / ડાયાબિટીસ (સુગર) ની તકલીફ', 'થાયરોઇડ / અસ્થમા / શ્વાસની જૂની તકલીફ', 'પરિવારમાં પણ કોઈને આવી જ સમસ્યા રહી છે'],
       };
       return {
         question: qText[lang],
@@ -2700,11 +2754,41 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Screening chronic disease background, regular medications, and drug allergy safety profile',
+        clinicalRationale: 'Assessing longitudinal chronic disease background, surgical history, and familial predisposition',
       };
     }
 
-    // Step 6: Phase B Intake Completion & Handoff (All dimensions covered)
+    // Step 8: Prescription Medications & Drug Allergies Safety Profile
+    if (!answeredDimensions.has('MEDICATIONS_ALLERGIES')) {
+      const qText = {
+        EN: isCaregiver
+          ? `What regular prescription medicines is the patient taking, and do they have any known drug allergies (such as Penicillin, Sulfa, or pain relievers)?`
+          : `What regular prescription medicines do you take daily, and do you have any known drug allergies (such as Penicillin, Sulfa, or pain medicines)?`,
+        HI: isCaregiver
+          ? `मरीज कौन सी नियमित दवाइयां ले रहे हैं, और क्या उन्हें किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या पेनकिलर) है?`
+          : `आप रोज कौन सी नियमित दवाइयां लेते हैं, और क्या आपको किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या दर्द की दवा) है?`,
+        GU: isCaregiver
+          ? `દર્દી કઈ નિયમિત દવાઓ લઈ રહ્યા છે, અને શું તેમને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?`
+          : `આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?`,
+      };
+      const touchOpts = {
+        EN: ['Taking daily BP / Diabetes / Thyroid tablets', 'No regular medicines & No known drug allergies (NKDA)', 'Known drug allergy to Penicillin / Sulfa / Pain relievers', 'Taking occasional OTC pain / antacid medicines'],
+        HI: ['रोज बीपी / शुगर / थायराइड की दवा लेते हैं', 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा / पेनकिलर दवाओं से एलर्जी है', 'कभी-कभार गैस या दर्द की सामान्य दवा लेते हैं'],
+        GU: ['રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા / પેઈનકિલર દવાની એલર્જી છે', 'ક્યારેક ગેસ કે દુખાવાની સામાન્ય દવા લઈએ છીએ'],
+      };
+      return {
+        question: qText[lang],
+        questionLanguage: lang,
+        questionCategory: 'MEDICATIONS',
+        touchOptions: touchOpts[lang],
+        isRedFlag: false,
+        redFlagReason: null,
+        isComplete: false,
+        clinicalRationale: 'Screening ongoing prescription medications, self-medication, and drug allergy safety profile',
+      };
+    }
+
+    // Step 9: Phase B Intake Completion & Handoff (All clinical dimensions comprehensively covered)
     const qFinal = {
       EN: `Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.`,
       HI: `धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।`,
@@ -3614,17 +3698,21 @@ CLINICAL INTERVIEW GUIDELINES:
 
 2. ENCOUNTER PHASES & STRICT 2-PHASE CLOSING PROTOCOL:
    - Phase A (Active Clinical Exploration: "isComplete": false):
-     * You MUST thoroughly explore ALL clinical dimensions with complete, exhaustive questions:
-       1. Chief Complaint & Specialty Specifics
-       2. Onset, Duration & Timing (exact onset, days/weeks, sudden vs gradual)
-       3. Severity (1-10 rating), Character, Sensation & Radiation
-       4. Targeted Lifestyle, Sleep Hygiene (exact hours), Diet, Work Ergonomics & Stress Triggers
-       5. Past Medical History, Ongoing Prescription Medications & Drug Allergies
+     * You MUST thoroughly explore ALL clinical dimensions across separate, complete, exhaustive questions:
+       1. Chief Complaint & Specialty Specifics (exact body part, presenting problem)
+       2. Onset, Duration & Timing (exact onset, days/weeks, sudden vs gradual, continuous vs intermittent)
+       3. Severity (1-10 rating), Character, Sensation & Radiation (exact feeling: burning, sharp, throbbing, dull, tightness, itching)
+       4. Associated Symptoms & Systemic Manifestations (fever, nausea, dizziness, vomiting, weakness, swelling, cough, etc.)
+       5. Modalities — Aggravating Triggers & Relieving Factors (what worsens: food, movement, weather, posture, stress; what relieves: rest, meds, hydration)
+       6. Targeted Lifestyle, Sleep Hygiene (exact hours/night), Dietary Habits, Work Ergonomics & Stress
+       7. Past Medical History, Surgical History & Family Health Background (BP, Diabetes, Thyroid, Asthma, Heart conditions)
+       8. Ongoing Prescription Medications (with dosage/frequency) & Drug Allergies (Penicillin, Sulfa, NSAIDs, etc.)
      * DO NOT set "isComplete": true if any of the above dimensions have not yet been explored in the transcript.
+     * NEVER bundle multiple complex domains into a single superficial question. Take note of each detail step by step.
      * If the patient provided a vague answer (e.g. "normal" without hours or specific names), actively ask a detailed follow-up question.
      * "touchOptions" MUST contain ONLY 3-4 medical symptom/parameter choices answering the clinical question. NEVER include handoff actions during Phase A.
    - Phase B (Intake Completion & Handoff: "isComplete": true):
-     * ONLY when all 5 clinical dimensions are thoroughly answered in full detail, conclude the intake.
+     * ONLY when all 8 clinical dimensions are thoroughly answered in full detail across the conversation, conclude the intake.
      * "questionCategory" MUST be "CLOSING".
      * "question" MUST be exclusively the polite closing statement:
        - If language is EN: "Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room."
