@@ -529,6 +529,55 @@ export const api = {
           { en: 'Chronic acidity & gastric reflux', hi: 'पुरानी एसिडिटी और सीने में जलन', gu: 'જૂની એસિડિટી અને ગેસ્ટ્રિક રિફ્લક્સ' },
           { en: 'Joint pain (< First motion)', hi: 'जोड़ों का दर्द (चलना शुरू करने पर ज्यादा)', gu: 'સાંધાનો દુખાવો (હલનચલન શરૂ કરતા વધે)' },
           { en: 'Cough / asthma flare (< Cold drafts)', hi: 'खांसी / दमा का दौरा (ठंडी हवा से बढ़ता)', gu: 'ખાંસી / દમનો હુમલો (ઠંડી હવાથી વધે)' },
+
+          // Dermatology Options
+          { en: 'Red itchy rash or eczema patches', hi: 'लाल खुजली वाले दाने या एग्जिमा के चकत्ते', gu: 'લાલ ખંજવાળવાળા ચકામા કે ખરજવું' },
+          { en: 'Pimples, facial acne & dark spots', hi: 'मुँहासे, फुंसी और चेहरे पर दाग', gu: 'ખીલ, ફોડલીઓ અને ચહેરા પર ડાઘ' },
+          { en: 'Fungal infection / Ringworm itching', hi: 'दाद / फंगल इन्फेक्शन की तेज खुजली', gu: 'દાદર / ફંગલ ઇન્ફેક્શનની તીવ્ર ખંજવાળ' },
+          { en: 'Hair fall & scalp dandruff', hi: 'बाल झड़ना और डैंड्रफ की समस्या', gu: 'વાળ ખરવા અને ખોડો થવો' },
+          { en: 'Skin allergy / Hives flare', hi: 'त्वचा में एलर्जी / पित्ती (Hives) उछलना', gu: 'ચામડીની એલર્જી / શીત પિત્તના ઢીમચા' },
+
+          // Cardiology Options
+          { en: 'Chest pain, pressure or tightness', hi: 'सीने में दर्द, भारीपन या दबाव', gu: 'છાતીમાં દુખાવો, ભારેપણું કે દબાણ' },
+          { en: 'Rapid heartbeat / Palpitations', hi: 'दिल की तेज धड़कन / घबराहट', gu: 'હૃદયના ઝડપી ધબકારા / ગભરામણ' },
+          { en: 'Shortness of breath on walking/climbing', hi: 'चलने या सीढ़ी चढ़ने पर सांस फूलना', gu: 'ચાલતી વખતે શ્વાસ ચડવો' },
+          { en: 'Dizziness or lightheaded spells', hi: 'चक्कर आना या आँखों के आगे अंधेरा', gu: 'ચક્કર આવવા કે અંધારા આવવા' },
+          { en: 'Swelling in both feet / ankles', hi: 'दोनों पैरों या टखनों में सूजन', gu: 'બંને પગ કે ઘૂંટીમાં સોજો' },
+
+          // Orthopedics Options
+          { en: 'Knee joint pain & swelling', hi: 'घुटने के जोड़ में दर्द और सूजन', gu: 'ઘૂંટણનો દુખાવો અને સોજો' },
+          { en: 'Lower back pain & lumbar stiffness', hi: 'कमर के निचले हिस्से में दर्द व जकड़न', gu: 'કમરનો દુખાવો અને જકડન' },
+          { en: 'Shoulder or neck pain / frozen shoulder', hi: 'कंधे या गर्दन में दर्द (फ्रोजन शोल्डर)', gu: 'ખભા કે ગરદનનો દુખાવો' },
+          { en: 'Ankle sprain or foot pain', hi: 'पैर या टखने में मोच / दर्द', gu: 'પગ કે ઘૂંટીમાં મચકોડ / દુખાવો' },
+          { en: 'Sciatica pain radiating down leg', hi: 'सायटिका दर्द जो पैर में नीचे तक जाता है', gu: 'સાયટીકાનો દુખાવો જે પગમાં નીચે ઉતરે છે' },
+
+          // ENT Options
+          { en: 'Severe sore throat & painful swallowing', hi: 'गले में तेज दर्द और निगलने में तकलीफ', gu: 'ગળામાં તીવ્ર દુખાવો અને ગળવામાં તકલીફ' },
+          { en: 'Ear pain, discharge or reduced hearing', hi: 'कान में दर्द, मवाद आना या कम सुनाई देना', gu: 'કાનમાં દુખાવો, પરુ કે ઓછું સંભળાવું' },
+          { en: 'Nasal blockage, sinus pressure & cold', hi: 'नाक बंद, साइनस का भारीपन व जुकाम', gu: 'નાક બંધ, સાઇનસનું ભારેપણું અને શરદી' },
+          { en: 'Hoarseness of voice or persistent throat clearing', hi: 'आवाज बैठना या गले में खराश', gu: 'અવાજ બેસી જવો કે ગળામાં ખારાશ' },
+          { en: 'Dizziness / Ear ringing (Tinnitus)', hi: 'चक्कर आना या कान में सीटी की आवाज', gu: 'ચક્કર આવવા કે કાનમાં અવાજ આવવો' },
+
+          // Pediatrics Options
+          { en: 'High fever with chills & body warmth', hi: 'तेज बुखार, कंपकंपी और गर्म शरीर', gu: 'તીવ્ર તાવ, ધ્રુજારી અને ગરમ શરીર' },
+          { en: 'Persistent cough & fast breathing', hi: 'लगातार खांसी और तेज सांस चलना', gu: 'સતત ખાંસી અને ઝડપી શ્વાસ' },
+          { en: 'Vomiting & loose motions / diarrhea', hi: 'उल्टी और दस्त (Loose motions)', gu: 'ઉલટી અને ઝાડા (ડાયેરિયા)' },
+          { en: 'Skin rash, measles-like spots or itching', hi: 'त्वचा पर दाने, चकत्ते या खुजली', gu: 'ચામડી પર દાણા, ચકામા કે ખંજવાળ' },
+          { en: 'Poor feeding, irritability & low energy', hi: 'दूध/खाना न पीना, चिड़चिड़ापन और सुस्ती', gu: 'ખોરાક/દૂધ ન લેવું, ચીડિયાપણું અને સુસ્તી' },
+
+          // Gastroenterology Options
+          { en: 'Severe stomach pain & cramping', hi: 'पेट में तेज दर्द और मरोड़', gu: 'પેટમાં તીવ્ર દુખાવો અને ચૂંક' },
+          { en: 'Chronic acidity, heartburn & sour burps', hi: 'पुरानी एसिडिटी, सीने में जलन और खट्टी डकारें', gu: 'જૂની એસિડિટી, છાતીમાં બળતરા અને ખાટા ઓડકાર' },
+          { en: 'Frequent vomiting & nausea', hi: 'बार-बार उल्टी और जी मिचलाना', gu: 'વારંવાર ઉલટી અને ઉબકા' },
+          { en: 'Constipation / Difficulty in bowel movement', hi: 'कब्ज / पेट साफ न होना', gu: 'કબજિયાત / પેટ સાફ ન આવવું' },
+          { en: 'Loose motions / Diarrhea with cramps', hi: 'दस्त / मरोड़ के साथ पतले दस्त', gu: 'ઝાડા / ચૂંક સાથે પાતળા ઝાડા' },
+
+          // Pulmonology Options
+          { en: 'Persistent dry or productive cough', hi: 'लगातार सूखी या बलगम वाली खांसी', gu: 'સતત સૂકી કે કફવાળી ખાંસી' },
+          { en: 'Shortness of breath / Wheezing sound', hi: 'सांस फूलना / सीने से सीटी जैसी आवाज', gu: 'શ્વાસ ચડવો / છાતીમાંથી સીટી જેવો અવાજ' },
+          { en: 'Chest tightness with cold drafts', hi: 'ठंडी हवा से सीने में जकड़न', gu: 'ઠંડી હવાથી છાતીમાં જકડન' },
+          { en: 'Night-time cough awakening sleep', hi: 'रात में नींद से जगाने वाली खांसी', gu: 'રાત્રે ઊંઘમાંથી જગાડતી ખાંસી' },
+          { en: 'Coughing up discolored phlegm / mucus', hi: 'पीला या गाढ़ा बलगम आना', gu: 'પીળો કે ઘટ્ટ કફ નીકળવો' },
         ];
 
         const translatedOpts = rawOptions.map((opt: string) => {

@@ -45,6 +45,8 @@ ${historyFormatted || 'Turn 0 - Intake Just Started'}
 
 PATIENT CONTEXT:
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
+Doctor Specialty: ${clinicalState.specialty || clinicalState.department || 'General Medicine'}
+Care Path: ${clinicalState.carePath || 'ALLOPATHY'}
 ${!isNew && prevInfo ? `Prior Chief Complaint to Follow-up: "${prevInfo.lastComplaint || 'Previous health condition'}"
 Prior Department: ${prevInfo.lastDepartment || 'General Medicine'}
 Prior Meds: ${prevInfo.pastPrescriptions?.join(', ') || 'None'}` : ''}
@@ -53,8 +55,17 @@ Latest Answer: "${clinicalState.latestAnswer || ''}"
 Language: ${language} (EN = English, HI = Hindi, GU = Gujarati)
 
 STAGE PROTOCOL FOR NEW PATIENT:
-1. Chief Complaint & Onset (Turn 0-1) -> Explore primary symptoms, duration, severity (1-10), aggravating/relieving factors, and pain character.
-2. Symptom-Tailored Lifestyle & Diagnostic Inquiry (Turn 1-3) -> AS AN EXPERIENCED PHYSICIAN, YOU DECIDE IN REAL-TIME WHICH SPECIFIC LIFESTYLE, HABIT, OR ROUTINE DIMENSION PROVIDES THE HIGHEST DIAGNOSTIC VALUE BASED ON THE PATIENT'S RECENT ANSWERS:
+1. Initial Opening & Chief Complaint (Turn 0) -> Open the clinical intake dynamically tailored to the assigned Doctor Specialty (${clinicalState.specialty || 'General Medicine'}) and Care Path (${clinicalState.carePath || 'ALLOPATHY'}). For example:
+   - Dermatology -> Inquire dynamically into skin rashes, lesions, itching, acne/pimples, eczema, or fungal patches.
+   - Cardiology -> Inquire dynamically into chest pain/tightness, palpitations, exertional breathlessness, or ankle swelling.
+   - Orthopedics -> Inquire dynamically into bone, knee/joint, lumbar spine, or neck stiffness.
+   - ENT -> Inquire dynamically into ear pain/discharge, hearing, sore throat, or sinus blockage.
+   - Pediatrics -> Inquire dynamically into child symptoms, fever, cough, activity, and feeding.
+   - AYUSH / Ayurveda -> Inquire dynamically into Vata/Pitta/Kapha doshas, Agni digestive fire, and Ahara-Vihara.
+   - Homeopathy -> Inquire dynamically into characteristic sensations and modality aggravations/ameliorations.
+   - General Medicine -> Inquire dynamically into common presenting symptoms.
+2. Symptom Exploration & Onset (Turn 1) -> Inquire into exact timing, duration, 1-10 severity rating, and pain character.
+3. Symptom-Tailored Lifestyle & Diagnostic Inquiry (Turn 2-3) -> AS AN EXPERIENCED PHYSICIAN, YOU DECIDE IN REAL-TIME WHICH SPECIFIC LIFESTYLE, HABIT, OR ROUTINE DIMENSION PROVIDES THE HIGHEST DIAGNOSTIC VALUE BASED ON THE PATIENT'S RECENT ANSWERS:
    - Back / Neck / Joint Pain -> Inquire about sitting hours, desk ergonomics, heavy lifting, or physical activity.
    - Headache / Migraine / Dizziness -> Inquire about sleep hours/quality, screen time, work stress, and caffeine/tea intake.
    - Acidity / Indigestion / Abdominal Pain -> Inquire about meal regularity, spicy/fried food, hydration, and late dinners.
@@ -62,8 +73,8 @@ STAGE PROTOCOL FOR NEW PATIENT:
    - Chest Pain / Hypertension / Palpitations -> Inquire about exertion triggers, dietary salt, sleep apnea, and mental stress.
    - Skin Rash / Itching / Allergic Reactions -> Inquire about new soaps, detergents, cosmetics, pets, or dietary allergens.
    - Fatigue / Weakness / Body Ache -> Inquire about sleep duration, dietary nutrition, and daily routine.
-3. Medical Background, Chronic Conditions & Medications (Turn 3-4) -> Check for regular medications, chronic conditions (BP, Diabetes, Thyroid, Asthma), and known drug allergies.
-4. Closing Turn (Turn 4+) -> When symptoms, targeted lifestyle factors, and medical background are addressed in the transcript, set "isComplete": true and formulate the final closing question:
+4. Medical Background, Chronic Conditions & Medications (Turn 3-4) -> Check for regular medications, chronic conditions (BP, Diabetes, Thyroid, Asthma), and known drug allergies.
+5. Closing Turn (Turn 4+) -> When symptoms, targeted lifestyle factors, and medical background are addressed in the transcript, set "isComplete": true and formulate the final closing question:
    "Thank you. Your clinical intake details and lifestyle history are complete. Would you like to proceed with your appointment now?"
    with touchOptions: ["Proceed with Appointment", "Add One More Detail"].
 

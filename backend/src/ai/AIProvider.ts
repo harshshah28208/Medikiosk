@@ -572,6 +572,195 @@ const OPTION_TRANSLATIONS: Array<{ EN: string; HI: string; GU: string }> = [
     HI: 'खांसी / दमा का दौरा (ठंडी हवा से बढ़ता)',
     GU: 'ખાંસી / દમનો હુમલો (ઠંડી હવાથી વધે)',
   },
+
+  // Dermatology Options
+  {
+    EN: 'Red itchy rash or eczema patches',
+    HI: 'लाल खुजली वाले दाने या एग्जिमा के चकत्ते',
+    GU: 'લાલ ખંજવાળવાળા ચકામા કે ખરજવું',
+  },
+  {
+    EN: 'Pimples, facial acne & dark spots',
+    HI: 'मुँहासे, फुंसी और चेहरे पर दाग',
+    GU: 'ખીલ, ફોડલીઓ અને ચહેરા પર ડાઘ',
+  },
+  {
+    EN: 'Fungal infection / Ringworm itching',
+    HI: 'दाद / फंगल इन्फेक्शन की तेज खुजली',
+    GU: 'દાદર / ફંગલ ઇન્ફેક્શનની તીવ્ર ખંજવાળ',
+  },
+  {
+    EN: 'Hair fall & scalp dandruff',
+    HI: 'बाल झड़ना और डैंड्रफ की समस्या',
+    GU: 'વાળ ખરવા અને ખોડો થવો',
+  },
+  {
+    EN: 'Skin allergy / Hives flare',
+    HI: 'त्वचा में एलर्जी / पित्ती (Hives) उछलना',
+    GU: 'ચામડીની એલર્જી / શીત પિત્તના ઢીમચા',
+  },
+
+  // Cardiology Options
+  {
+    EN: 'Chest pain, pressure or tightness',
+    HI: 'सीने में दर्द, भारीपन या दबाव',
+    GU: 'છાતીમાં દુખાવો, ભારેપણું કે દબાણ',
+  },
+  {
+    EN: 'Rapid heartbeat / Palpitations',
+    HI: 'दिल की तेज धड़कन / घबराहट',
+    GU: 'હૃદયના ઝડપી ધબકારા / ગભરામણ',
+  },
+  {
+    EN: 'Shortness of breath on walking/climbing',
+    HI: 'चलने या सीढ़ी चढ़ने पर सांस फूलना',
+    GU: 'ચાલતી વખતે શ્વાસ ચડવો',
+  },
+  {
+    EN: 'Dizziness or lightheaded spells',
+    HI: 'चक्कर आना या आँखों के आगे अंधेरा',
+    GU: 'ચક્કર આવવા કે અંધારા આવવા',
+  },
+  {
+    EN: 'Swelling in both feet / ankles',
+    HI: 'दोनों पैरों या टखनों में सूजन',
+    GU: 'બંને પગ કે ઘૂંટીમાં સોજો',
+  },
+
+  // Orthopedics Options
+  {
+    EN: 'Knee joint pain & swelling',
+    HI: 'घुटने के जोड़ में दर्द और सूजन',
+    GU: 'ઘૂંટણનો દુખાવો અને સોજો',
+  },
+  {
+    EN: 'Lower back pain & lumbar stiffness',
+    HI: 'कमर के निचले हिस्से में दर्द व जकड़न',
+    GU: 'કમરનો દુખાવો અને જકડન',
+  },
+  {
+    EN: 'Shoulder or neck pain / frozen shoulder',
+    HI: 'कंधे या गर्दन में दर्द (फ्रोजन शोल्डर)',
+    GU: 'ખભા કે ગરદનનો દુખાવો',
+  },
+  {
+    EN: 'Ankle sprain or foot pain',
+    HI: 'पैर या टखने में मोच / दर्द',
+    GU: 'પગ કે ઘૂંટીમાં મચકોડ / દુખાવો',
+  },
+  {
+    EN: 'Sciatica pain radiating down leg',
+    HI: 'सायटिका दर्द जो पैर में नीचे तक जाता है',
+    GU: 'સાયટીકાનો દુખાવો જે પગમાં નીચે ઉતરે છે',
+  },
+
+  // ENT Options
+  {
+    EN: 'Severe sore throat & painful swallowing',
+    HI: 'गले में तेज दर्द और निगलने में तकलीफ',
+    GU: 'ગળામાં તીવ્ર દુખાવો અને ગળવામાં તકલીફ',
+  },
+  {
+    EN: 'Ear pain, discharge or reduced hearing',
+    HI: 'कान में दर्द, मवाद आना या कम सुनाई देना',
+    GU: 'કાનમાં દુખાવો, પરુ કે ઓછું સંભળાવું',
+  },
+  {
+    EN: 'Nasal blockage, sinus pressure & cold',
+    HI: 'नाक बंद, साइनस का भारीपन व जुकाम',
+    GU: 'નાક બંધ, સાઇનસનું ભારેપણું અને શરદી',
+  },
+  {
+    EN: 'Hoarseness of voice or persistent throat clearing',
+    HI: 'आवाज बैठना या गले में खराश',
+    GU: 'અવાજ બેસી જવો કે ગળામાં ખારાશ',
+  },
+  {
+    EN: 'Dizziness / Ear ringing (Tinnitus)',
+    HI: 'चक्कर आना या कान में सीटी की आवाज',
+    GU: 'ચક્કર આવવા કે કાનમાં અવાજ આવવો',
+  },
+
+  // Pediatrics Options
+  {
+    EN: 'High fever with chills & body warmth',
+    HI: 'तेज बुखार, कंपकंपी और गर्म शरीर',
+    GU: 'તીવ્ર તાવ, ધ્રુજારી અને ગરમ શરીર',
+  },
+  {
+    EN: 'Persistent cough & fast breathing',
+    HI: 'लगातार खांसी और तेज सांस चलना',
+    GU: 'સતત ખાંસી અને ઝડપી શ્વાસ',
+  },
+  {
+    EN: 'Vomiting & loose motions / diarrhea',
+    HI: 'उल्टी और दस्त (Loose motions)',
+    GU: 'ઉલટી અને ઝાડા (ડાયેરિયા)',
+  },
+  {
+    EN: 'Skin rash, measles-like spots or itching',
+    HI: 'त्वचा पर दाने, चकत्ते या खुजली',
+    GU: 'ચામડી પર દાણા, ચકામા કે ખંજવાળ',
+  },
+  {
+    EN: 'Poor feeding, irritability & low energy',
+    HI: 'दूध/खाना न पीना, चिड़चिड़ापन और सुस्ती',
+    GU: 'ખોરાક/દૂધ ન લેવું, ચીડિયાપણું અને સુસ્તી',
+  },
+
+  // Gastroenterology Options
+  {
+    EN: 'Severe stomach pain & cramping',
+    HI: 'पेट में तेज दर्द और मरोड़',
+    GU: 'પેટમાં તીવ્ર દુખાવો અને ચૂંક',
+  },
+  {
+    EN: 'Chronic acidity, heartburn & sour burps',
+    HI: 'पुरानी एसिडिटी, सीने में जलन और खट्टी डकारें',
+    GU: 'જૂની એસિડિટી, છાતીમાં બળતરા અને ખાટા ઓડકાર',
+  },
+  {
+    EN: 'Frequent vomiting & nausea',
+    HI: 'बार-बार उल्टी और जी मिचलाना',
+    GU: 'વારંવાર ઉલટી અને ઉબકા',
+  },
+  {
+    EN: 'Constipation / Difficulty in bowel movement',
+    HI: 'कब्ज / पेट साफ न होना',
+    GU: 'કબજિયાત / પેટ સાફ ન આવવું',
+  },
+  {
+    EN: 'Loose motions / Diarrhea with cramps',
+    HI: 'दस्त / मरोड़ के साथ पतले दस्त',
+    GU: 'ઝાડા / ચૂંક સાથે પાતળા ઝાડા',
+  },
+
+  // Pulmonology Options
+  {
+    EN: 'Persistent dry or productive cough',
+    HI: 'लगातार सूखी या बलगम वाली खांसी',
+    GU: 'સતત સૂકી કે કફવાળી ખાંસી',
+  },
+  {
+    EN: 'Shortness of breath / Wheezing sound',
+    HI: 'सांस फूलना / सीने से सीटी जैसी आवाज',
+    GU: 'શ્વાસ ચડવો / છાતીમાંથી સીટી જેવો અવાજ',
+  },
+  {
+    EN: 'Chest tightness with cold drafts',
+    HI: 'ठंडी हवा से सीने में जकड़न',
+    GU: 'ઠંડી હવાથી છાતીમાં જકડન',
+  },
+  {
+    EN: 'Night-time cough awakening sleep',
+    HI: 'रात में नींद से जगाने वाली खांसी',
+    GU: 'રાત્રે ઊંઘમાંથી જગાડતી ખાંસી',
+  },
+  {
+    EN: 'Coughing up discolored phlegm / mucus',
+    HI: 'पीला या गाढ़ा बलगम आना',
+    GU: 'પીળો કે ઘટ્ટ કફ નીકળવો',
+  },
 ];
 
 function translateOptionDirectly(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): string | null {
@@ -1424,7 +1613,214 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // 1C. Allopathy General / Specialty Initial Opening
+      // 1C. Specialty-Specific Initial Openings (Dermatology, Cardiology, Orthopedics, ENT, Pediatrics, GI, Pulmonology)
+      const specLower = effectiveSpecialty.toLowerCase();
+
+      // Dermatology
+      if (/dermatolog|skin|त्वचा|ચામડી/i.test(specLower)) {
+        const qDerma = {
+          EN: isCaregiver
+            ? `Welcome to the Dermatology & Skin Care Clinic. What skin, hair, or nail condition is the patient experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`
+            : `Welcome to the Dermatology & Skin Care Clinic. What skin, hair, or nail condition are you experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`,
+          HI: isCaregiver
+            ? `त्वचा रोग एवं डर्मेटोलॉजी विभाग में स्वागत है। मरीज को त्वचा, बाल या नाखूनों से संबंधित क्या समस्या हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`
+            : `त्वचा रोग एवं डर्मेटोलॉजी विभाग में आपका स्वागत है। आज आपको त्वचा, बाल या नाखूनों से संबंधित क्या समस्या महसूस हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`,
+          GU: isCaregiver
+            ? `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગમાં આપનું સ્વાગત છે. દર્દીને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`
+            : `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગમાં આપનું સ્વાગત છે. આજે આપને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`,
+        };
+        const optDerma = {
+          EN: ['Red itchy rash or eczema patches', 'Pimples, facial acne & dark spots', 'Fungal infection / Ringworm itching', 'Hair fall & scalp dandruff', 'Skin allergy / Hives flare'],
+          HI: ['लाल खुजली वाले दाने या एग्जिमा के चकत्ते', 'मुँहासे, फुंसी और चेहरे पर दाग', 'दाद / फंगल इन्फेक्शन की तेज खुजली', 'बाल झड़ना और डैंड्रफ की समस्या', 'त्वचा में एलर्जी / पित्ती (Hives) उछलना'],
+          GU: ['લાલ ખંજવાળવાળા ચકામા કે ખરજવું', 'ખીલ, ફોડલીઓ અને ચહેરા પર ડાઘ', 'દાદર / ફંગલ ઇન્ફેક્શનની તીવ્ર ખંજવાળ', 'વાળ ખરવા અને ખોડો થવો', 'ચામડીની એલર્જી / શીત પિત્તના ઢીમચા'],
+        };
+        return {
+          question: qDerma[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optDerma[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Dermatology Intake: Evaluating lesion morphology, pruritus, distribution, and skin history',
+        };
+      }
+
+      // Cardiology
+      if (/cardio|heart|हृदय|હૃદય/i.test(specLower)) {
+        const qCardio = {
+          EN: isCaregiver
+            ? `Welcome to the Cardiology & Heart Care Clinic. What heart or cardiovascular symptoms is the patient experiencing (such as chest pain, palpitations, shortness of breath, or foot swelling)?`
+            : `Welcome to the Cardiology & Heart Care Clinic. What heart or cardiovascular symptoms brought you in today (such as chest pain, palpitations, shortness of breath, or foot swelling)?`,
+          HI: isCaregiver
+            ? `हृदय रोग (कार्डियोलॉजी) विभाग में स्वागत है। मरीज को सीने में दर्द, धड़कन तेज होना, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण हैं?`
+            : `हृदय रोग (कार्डियोलॉजी) विभाग में आपका स्वागत है। आज आपको सीने में दर्द, घबराहट/तेज धड़कन, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण महसूस हो रहे हैं?`,
+          GU: isCaregiver
+            ? `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગમાં આપનું સ્વાગત છે. દર્દીને છાતીમાં દુખાવો, ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`
+            : `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગમાં આપનું સ્વાગત છે. આજે આપને છાતીમાં દુખાવો, ગભરામણ/ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`,
+        };
+        const optCardio = {
+          EN: ['Chest pain, pressure or tightness', 'Rapid heartbeat / Palpitations', 'Shortness of breath on walking/climbing', 'Dizziness or lightheaded spells', 'Swelling in both feet / ankles'],
+          HI: ['सीने में दर्द, भारीपन या दबाव', 'दिल की तेज धड़कन / घबराहट', 'चलने या सीढ़ी चढ़ने पर सांस फूलना', 'चक्कर आना या आँखों के आगे अंधेरा', 'दोनों पैरों या टखनों में सूजन'],
+          GU: ['છાતીમાં દુખાવો, ભારેપણું કે દબાણ', 'હૃદયના ઝડપી ધબકારા / ગભરામણ', 'ચાલતી વખતે શ્વાસ ચડવો', 'ચક્કર આવવા કે અંધારા આવવા', 'બંને પગ કે ઘૂંટીમાં સોજો'],
+        };
+        return {
+          question: qCardio[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optCardio[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Cardiology Intake: Evaluating chest pain, palpitations, exertional dyspnea, and hemodynamics',
+        };
+      }
+
+      // Orthopedics
+      if (/ortho|bone|joint|हड्डी|સાંધા/i.test(specLower)) {
+        const qOrtho = {
+          EN: isCaregiver
+            ? `Welcome to the Orthopedics & Bone/Joint Care Clinic. Which bone, joint, or spine pain is the patient experiencing, and does it restrict their movement?`
+            : `Welcome to the Orthopedics & Bone/Joint Care Clinic. Which bone, joint, or spine pain are you experiencing today, and does it restrict your movement?`,
+          HI: isCaregiver
+            ? `अस्थि रोग (ऑर्थोपेडिक्स) विभाग में स्वागत है। मरीज को किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या चलने-फिरने में रुकावट हो रही है?`
+            : `अस्थि रोग (ऑर्थोपेडिक्स) विभाग में आपका स्वागत है। आज आपको किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या उठने-बैठने या चलने में परेशानी हो रही है?`,
+          GU: isCaregiver
+            ? `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગમાં આપનું સ્વાગત છે. દર્દીને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`
+            : `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગમાં આપનું સ્વાગત છે. આજે આપને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`,
+        };
+        const optOrtho = {
+          EN: ['Knee joint pain & swelling', 'Lower back pain & lumbar stiffness', 'Shoulder or neck pain / frozen shoulder', 'Ankle sprain or foot pain', 'Sciatica pain radiating down leg'],
+          HI: ['घुटने के जोड़ में दर्द और सूजन', 'कमर के निचले हिस्से में दर्द व जकड़न', 'कंधे या गर्दन में दर्द (फ्रोजन शोल्डर)', 'पैर या टखने में मोच / दर्द', 'सायटिका दर्द जो पैर में नीचे तक जाता है'],
+          GU: ['ઘૂંટણનો દુખાવો અને સોજો', 'કમરનો દુખાવો અને જકડન', 'ખભા કે ગરદનનો દુખાવો', 'પગ કે ઘૂંટીમાં મચકોડ / દુખાવો', 'સાયટીકાનો દુખાવો જે પગમાં નીચે ઉતરે છે'],
+        };
+        return {
+          question: qOrtho[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optOrtho[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Orthopedics Intake: Assessing joint distribution, stiffness, radiating pain, and weight-bearing restriction',
+        };
+      }
+
+      // ENT (Ear, Nose & Throat)
+      if (/ent|ear|throat|nose|ईएनटी|કાન/i.test(specLower)) {
+        const qEnt = {
+          EN: isCaregiver
+            ? `Welcome to the ENT (Ear, Nose & Throat) Clinic. What ear, nose, or throat symptoms is the patient experiencing today?`
+            : `Welcome to the ENT (Ear, Nose & Throat) Clinic. What ear, nose, or throat symptoms are you experiencing today?`,
+          HI: isCaregiver
+            ? `कान, नाक एवं गला (ENT) विभाग में स्वागत है। मरीज को कान, नाक या गले में क्या परेशानी महसूस हो रही है?`
+            : `कान, नाक एवं गला (ENT) विभाग में आपका स्वागत है। आज आपको कान, नाक या गले में क्या परेशानी महसूस हो रही है?`,
+          GU: isCaregiver
+            ? `કાન, નાક અને ગળા (ENT) વિભાગમાં આપનું સ્વાગત છે. દર્દીને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`
+            : `કાન, નાક અને ગળા (ENT) વિભાગમાં આપનું સ્વાગત છે. આજે આપને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`,
+        };
+        const optEnt = {
+          EN: ['Severe sore throat & painful swallowing', 'Ear pain, discharge or reduced hearing', 'Nasal blockage, sinus pressure & cold', 'Hoarseness of voice or persistent throat clearing', 'Dizziness / Ear ringing (Tinnitus)'],
+          HI: ['गले में तेज दर्द और निगलने में तकलीफ', 'कान में दर्द, मवाद आना या कम सुनाई देना', 'नाक बंद, साइनस का भारीपन व जुकाम', 'आवाज बैठना या गले में खराश', 'चक्कर आना या कान में सीटी की आवाज'],
+          GU: ['ગળામાં તીવ્ર દુખાવો અને ગળવામાં તકલીફ', 'કાનમાં દુખાવો, પરુ કે ઓછું સંભળાવું', 'નાક બંધ, સાઇનસનું ભારેપણું અને શરદી', 'અવાજ બેસી જવો કે ગળામાં ખારાશ', 'ચક્કર આવવા કે કાનમાં અવાજ આવવો'],
+        };
+        return {
+          question: qEnt[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optEnt[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized ENT Intake: Evaluating otorhinolaryngological manifestations',
+        };
+      }
+
+      // Pediatrics
+      if (/pediatric|child|बाल/i.test(specLower)) {
+        const qPed = {
+          EN: `Welcome to the Pediatrics & Child Health Clinic. What symptoms or illness is your child experiencing today?`,
+          HI: `बाल रोग (पीडियाट्रिक्स) विभाग में स्वागत है। बच्चे को आज क्या बीमारी या तकलीफ हो रही है?`,
+          GU: `બાળ રોગ (પીડિયાટ્રિક્સ) વિભાગમાં આપનું સ્વાગત છે. બાળકને આજે કઈ બીમારી કે તકલીફ થઈ રહી છે?`,
+        };
+        const optPed = {
+          EN: ['High fever with chills & body warmth', 'Persistent cough & fast breathing', 'Vomiting & loose motions / diarrhea', 'Skin rash, measles-like spots or itching', 'Poor feeding, irritability & low energy'],
+          HI: ['तेज बुखार, कंपकंपी और गर्म शरीर', 'लगातार खांसी और तेज सांस चलना', 'उल्टी और दस्त (Loose motions)', 'त्वचा पर दाने, चकत्ते या खुजली', 'दूध/खाना न पीना, चिड़चिड़ापन और सुस्ती'],
+          GU: ['તીવ્ર તાવ, ધ્રુજારી અને ગરમ શરીર', 'સતત ખાંસી અને ઝડપી શ્વાસ', 'ઉલટી અને ઝાડા (ડાયેરિયા)', 'ચામડી પર દાણા, ચકામા કે ખંજવાળ', 'ખોરાક/દૂધ ન લેવું, ચીડિયાપણું અને સુસ્તી'],
+        };
+        return {
+          question: qPed[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optPed[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Pediatrics Intake: Pediatric-specific symptom and activity triage',
+        };
+      }
+
+      // Gastroenterology
+      if (/gastro|digest|पेट/i.test(specLower)) {
+        const qGastro = {
+          EN: isCaregiver
+            ? `Welcome to the Gastroenterology & Digestive Health Clinic. What stomach or digestive complaints is the patient experiencing today?`
+            : `Welcome to the Gastroenterology & Digestive Health Clinic. What stomach or digestive complaints are you experiencing today?`,
+          HI: isCaregiver
+            ? `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग में स्वागत है। मरीज को पेट या पाचन से संबंधित क्या तकलीफ हो रही है?`
+            : `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग में आपका स्वागत है। आज आपको पेट या पाचन से संबंधित क्या परेशानी महसूस हो रही है?`,
+          GU: isCaregiver
+            ? `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગમાં આપનું સ્વાગત છે. દર્દીને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`
+            : `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગમાં આપનું સ્વાગત છે. આજે આપને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`,
+        };
+        const optGastro = {
+          EN: ['Severe stomach pain & cramping', 'Chronic acidity, heartburn & sour burps', 'Frequent vomiting & nausea', 'Constipation / Difficulty in bowel movement', 'Loose motions / Diarrhea with cramps'],
+          HI: ['पेट में तेज दर्द और मरोड़', 'पुरानी एसिडिटी, सीने में जलन और खट्टी डकारें', 'बार-बार उल्टी और जी मिचलाना', 'कब्ज / पेट साफ न होना', 'दस्त / मरोड़ के साथ पतले दस्त'],
+          GU: ['પેટમાં તીવ્ર દુખાવો અને ચૂંક', 'જૂની એસિડિટી, છાતીમાં બળતરા અને ખાટા ઓડકાર', 'વારંવાર ઉલટી અને ઉબકા', 'કબજિયાત / પેટ સાફ ન આવવું', 'ઝાડા / ચૂંક સાથે પાતળા ઝાડા'],
+        };
+        return {
+          question: qGastro[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optGastro[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Gastroenterology Intake: Evaluating abdominal pain, dyspepsia, bowel changes, and biliary signs',
+        };
+      }
+
+      // Pulmonology
+      if (/pulmono|respiratory|chest|फेफड़े/i.test(specLower)) {
+        const qPulmo = {
+          EN: isCaregiver
+            ? `Welcome to the Pulmonology & Respiratory Care Clinic. What breathing or lung symptoms is the patient experiencing today?`
+            : `Welcome to the Pulmonology & Respiratory Care Clinic. What breathing or lung symptoms are you experiencing today?`,
+          HI: isCaregiver
+            ? `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग में स्वागत है। मरीज को सांस या फेफड़ों से संबंधित क्या तकलीफ महसूस हो रही है?`
+            : `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग में आपका स्वागत है। आज आपको सांस या फेफड़ों से संबंधित क्या परेशानी महसूस हो रही है?`,
+          GU: isCaregiver
+            ? `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગમાં આપનું સ્વાગત છે. દર્દીને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`
+            : `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગમાં આપનું સ્વાગત છે. આજે આપને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`,
+        };
+        const optPulmo = {
+          EN: ['Persistent dry or productive cough', 'Shortness of breath / Wheezing sound', 'Chest tightness with cold drafts', 'Night-time cough awakening sleep', 'Coughing up discolored phlegm / mucus'],
+          HI: ['लगातार सूखी या बलगम वाली खांसी', 'सांस फूलना / सीने से सीटी जैसी आवाज', 'ठंडी हवा से सीने में जकड़न', 'रात में नींद से जगाने वाली खांसी', 'पीला या गाढ़ा बलगम आना'],
+          GU: ['સતત સૂકી કે કફવાળી ખાંસી', 'શ્વાસ ચડવો / છાતીમાંથી સીટી જેવો અવાજ', 'ઠંડી હવાથી છાતીમાં જકડન', 'રાત્રે ઊંઘમાંથી જગાડતી ખાંસી', 'પીળો કે ઘટ્ટ કફ નીકળવો'],
+        };
+        return {
+          question: qPulmo[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optPulmo[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Pulmonology Intake: Evaluating dyspnea, wheezing, cough duration, and sputum character',
+        };
+      }
+
+      // Default General OPD Opening
       const qText = {
         EN: isCaregiver
           ? `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns the patient is experiencing today?`
@@ -1437,9 +1833,9 @@ export class UniversalClinicalEngine implements AIProvider {
           : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
       };
       const touchOpts = {
-        EN: ['Vomiting, nausea & stomach upset', 'Throbbing headache & eye strain', 'Fever, body ache & chills', 'Joint or back pain with stiffness', 'Chest discomfort or breathlessness', 'Skin rash, pimples or itching'],
-        HI: ['उल्टी, जी मिचलाना व पेट दर्द', 'तेज सिरदर्द और आँखों में तनाव', 'बुखार, बदन दर्द और कंपकंपी', 'जोड़ों या कमर में दर्द व जकड़न', 'सीने में भारीपन या सांस की तकलीफ', 'त्वचा पर दाने, खुजली या मुँहासे'],
-        GU: ['ઉલટી, ઉબકા અને પેટમાં દુખાવો', 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ', 'તાવ, કળતર અને ધ્રુજારી', 'સાંધા કે કમરમાં દુખાવો અને જકડન', 'છાતીમાં ભારેપણું કે શ્વાસની તકલીફ', 'ચામડી પર દાણા, ખંજવાળ કે ખીલ'],
+        EN: ['Fever, body ache & chills', 'Vomiting, nausea & stomach upset', 'Throbbing headache & eye strain', 'Chest discomfort or breathlessness', 'Joint or back pain with stiffness', 'Skin rash, pimples or itching'],
+        HI: ['बुखार, बदन दर्द और कंपकंपी', 'उल्टी, जी मिचलाना व पेट दर्द', 'तेज सिरदर्द और आँखों में तनाव', 'सीने में भारीपन या सांस की तकलीफ', 'जोड़ों या कमर में दर्द व जकड़न', 'त्वचा पर दाने, खुजली या मुँहासे'],
+        GU: ['તાવ, કળતર અને ધ્રુજારી', 'ઉલટી, ઉબકા અને પેટમાં દુખાવો', 'તીવ્ર માથાનો દુખાવો અને આંખોમાં તાણ', 'છાતીમાં ભારેપણું કે શ્વાસની તકલીફ', 'સાંધા કે કમરમાં દુખાવો અને જકડન', 'ચામડી પર દાણા, ખંજવાળ કે ખીલ'],
       };
       return {
         question: qText[lang],
@@ -1449,7 +1845,7 @@ export class UniversalClinicalEngine implements AIProvider {
         isRedFlag: false,
         redFlagReason: null,
         isComplete: false,
-        clinicalRationale: 'Establishing active chief complaint on initial new patient intake turn',
+        clinicalRationale: 'Establishing active chief complaint on initial general medicine intake turn',
       };
     }
 
