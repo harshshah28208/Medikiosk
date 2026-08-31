@@ -85,10 +85,12 @@ export function IntakePage() {
         }
 
         const specialty = parsedDoctor?.specialization || parsedVisit?.department?.name || (carePath === 'AYUSH' ? 'Ayurveda' : carePath === 'HOMEOPATHY' ? 'Classical Homeopathy' : 'General Medicine');
+        const doctorName = parsedDoctor?.name || parsedDoctor?.user?.name || undefined;
 
         const res = await api.conversation.start(vId, currentLang.toUpperCase(), carePath === 'AYUSH', respondentType, {
           carePath,
           specialty,
+          doctorName,
           targetComplaint: storedTargetComplaint || parsedVisit?.reasonForVisit,
           isNewCase,
           isReturningPatient: isReturning,

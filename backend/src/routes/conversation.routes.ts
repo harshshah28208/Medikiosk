@@ -72,7 +72,11 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
 
   const visit = await prisma.visit.findUnique({
     where: { id: visitId },
-    include: { patient: true, department: true },
+    include: {
+      patient: true,
+      department: true,
+      doctor: { include: { user: true } },
+    },
   });
 
   if (!visit) {
@@ -89,6 +93,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
   const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
   const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
+  const doctorName = req.body.doctorName || (visit as any).doctor?.user?.name || (visit as any).doctor?.name || null;
   const specialty = req.body.specialty || (visit as any).doctor?.specialization || visit.department?.name || 'General Medicine';
 
   // Check if patient explicitly requested a NEW CASE or is not a follow-up
@@ -216,7 +221,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     }
   }
 
-  const initialState = createInitialClinicalState(initialLang, respType, carePath, specialty);
+  const initialState = createInitialClinicalState(initialLang, respType, carePath, specialty, doctorName);
   initialState.isNewPatient = isNewPatient;
   initialState.previousVisitInfo = previousVisitInfo;
   if (recentChanges) {

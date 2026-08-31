@@ -133,6 +133,7 @@ export interface ClinicalState {
   // Care Path & Specialty Context
   carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY';
   specialty?: string; // e.g. 'General Medicine', 'Neurology', 'ENT', 'Cardiology', 'Ayurveda', 'Classical Homeopathy'
+  doctorName?: string | null;
 
   // Confirmed vs Denied Symptoms
   deniedSymptoms: string[]; // Explicitly negated symptoms (e.g., "no vomiting", "no fever")
@@ -303,11 +304,13 @@ export function createInitialClinicalState(
   language: 'EN' | 'HI' | 'GU' = 'EN',
   respondentType: 'PATIENT' | 'CAREGIVER' | 'STAFF_ASSISTED' = 'PATIENT',
   carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = 'ALLOPATHY',
-  specialty: string = 'General Medicine'
+  specialty: string = 'General Medicine',
+  doctorName?: string | null
 ): ClinicalState {
   return {
     carePath,
     specialty,
+    doctorName: doctorName || null,
     chiefComplaint: null,
     chiefComplaintOriginal: null,
     symptoms: [],

@@ -1520,21 +1520,25 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
-      // 1C. Specialty-Specific Initial Openings (Dermatology, Cardiology, Orthopedics, ENT, Pediatrics, GI, Pulmonology)
+      // 1C. Specialty-Specific & Doctor-Specific Initial Openings
       const specLower = effectiveSpecialty.toLowerCase();
+      const docName = (state as any).doctorName || null;
+      const docPrefixEN = docName ? ` (Dr. ${docName})` : '';
+      const docPrefixHI = docName ? ` (डॉ. ${docName})` : '';
+      const docPrefixGU = docName ? ` (ડૉ. ${docName})` : '';
 
       // Dermatology
       if (/dermatolog|skin|त्वचा|ચામડી/i.test(specLower)) {
         const qDerma = {
           EN: isCaregiver
-            ? `Welcome to the Dermatology & Skin Care Clinic. What skin, hair, or nail condition is the patient experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`
-            : `Welcome to the Dermatology & Skin Care Clinic. What skin, hair, or nail condition are you experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`,
+            ? `Welcome to the Dermatology & Skin Care Clinic${docPrefixEN}. What skin, hair, or nail condition is the patient experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`
+            : `Welcome to the Dermatology & Skin Care Clinic${docPrefixEN}. What skin, hair, or nail condition are you experiencing today (such as itching, rashes, acne/pimples, eczema, or fungal patches)?`,
           HI: isCaregiver
-            ? `त्वचा रोग एवं डर्मेटोलॉजी विभाग में स्वागत है। मरीज को त्वचा, बाल या नाखूनों से संबंधित क्या समस्या हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`
-            : `त्वचा रोग एवं डर्मेटोलॉजी विभाग में आपका स्वागत है। आज आपको त्वचा, बाल या नाखूनों से संबंधित क्या समस्या महसूस हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`,
+            ? `त्वचा रोग एवं डर्मेटोलॉजी विभाग${docPrefixHI} में स्वागत है। मरीज को त्वचा, बाल या नाखूनों से संबंधित क्या समस्या हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`
+            : `त्वचा रोग एवं डर्मेटोलॉजी विभाग${docPrefixHI} में आपका स्वागत है। आज आपको त्वचा, बाल या नाखूनों से संबंधित क्या समस्या महसूस हो रही है (जैसे खुजली, लाल दाने, मुँहासे, एग्जिमा या फंगल इन्फेक्शन)?`,
           GU: isCaregiver
-            ? `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગમાં આપનું સ્વાગત છે. દર્દીને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`
-            : `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગમાં આપનું સ્વાગત છે. આજે આપને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`,
+            ? `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`
+            : `ડર્મેટોલોજી અને ચામડીના રોગ વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને ચામડી, વાળ કે નખ સંબંધિત કઈ તકલીફ જણાય છે (જેમ કે ખંજવાળ, લાલ ચકામા, ખીલ, ખરજવું કે ફંગલ ઇન્ફેક્શન)?`,
         };
         const optDerma = {
           EN: ['Red itchy rash or eczema patches', 'Pimples, facial acne & dark spots', 'Fungal infection / Ringworm itching', 'Hair fall & scalp dandruff', 'Skin allergy / Hives flare'],
@@ -1557,14 +1561,14 @@ export class UniversalClinicalEngine implements AIProvider {
       if (/cardio|heart|हृदय|હૃદય/i.test(specLower)) {
         const qCardio = {
           EN: isCaregiver
-            ? `Welcome to the Cardiology & Heart Care Clinic. What heart or cardiovascular symptoms is the patient experiencing (such as chest pain, palpitations, shortness of breath, or foot swelling)?`
-            : `Welcome to the Cardiology & Heart Care Clinic. What heart or cardiovascular symptoms brought you in today (such as chest pain, palpitations, shortness of breath, or foot swelling)?`,
+            ? `Welcome to the Cardiology & Heart Care Clinic${docPrefixEN}. What heart or cardiovascular symptoms is the patient experiencing (such as chest pain, palpitations, shortness of breath, or foot swelling)?`
+            : `Welcome to the Cardiology & Heart Care Clinic${docPrefixEN}. What heart or cardiovascular symptoms brought you in today (such as chest pain, palpitations, shortness of breath, or foot swelling)?`,
           HI: isCaregiver
-            ? `हृदय रोग (कार्डियोलॉजी) विभाग में स्वागत है। मरीज को सीने में दर्द, धड़कन तेज होना, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण हैं?`
-            : `हृदय रोग (कार्डियोलॉजी) विभाग में आपका स्वागत है। आज आपको सीने में दर्द, घबराहट/तेज धड़कन, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण महसूस हो रहे हैं?`,
+            ? `हृदय रोग (कार्डियोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को सीने में दर्द, धड़कन तेज होना, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण हैं?`
+            : `हृदय रोग (कार्डियोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको सीने में दर्द, घबराहट/तेज धड़कन, सांस फूलना या पैरों में सूजन जैसे क्या लक्षण महसूस हो रहे हैं?`,
           GU: isCaregiver
-            ? `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગમાં આપનું સ્વાગત છે. દર્દીને છાતીમાં દુખાવો, ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`
-            : `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગમાં આપનું સ્વાગત છે. આજે આપને છાતીમાં દુખાવો, ગભરામણ/ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`,
+            ? `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને છાતીમાં દુખાવો, ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`
+            : `કાર્ડિયોલોજી (હૃદય રોગ) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને છાતીમાં દુખાવો, ગભરામણ/ધબકારા વધવા, શ્વાસ ચડવો કે પગમાં સોજો જેવા કયા લક્ષણો છે?`,
         };
         const optCardio = {
           EN: ['Chest pain, pressure or tightness', 'Rapid heartbeat / Palpitations', 'Shortness of breath on walking/climbing', 'Dizziness or lightheaded spells', 'Swelling in both feet / ankles'],
@@ -1587,14 +1591,14 @@ export class UniversalClinicalEngine implements AIProvider {
       if (/ortho|bone|joint|हड्डी|સાંધા/i.test(specLower)) {
         const qOrtho = {
           EN: isCaregiver
-            ? `Welcome to the Orthopedics & Bone/Joint Care Clinic. Which bone, joint, or spine pain is the patient experiencing, and does it restrict their movement?`
-            : `Welcome to the Orthopedics & Bone/Joint Care Clinic. Which bone, joint, or spine pain are you experiencing today, and does it restrict your movement?`,
+            ? `Welcome to the Orthopedics & Bone/Joint Care Clinic${docPrefixEN}. Which bone, joint, or spine pain is the patient experiencing, and does it restrict their movement?`
+            : `Welcome to the Orthopedics & Bone/Joint Care Clinic${docPrefixEN}. Which bone, joint, or spine pain are you experiencing today, and does it restrict your movement?`,
           HI: isCaregiver
-            ? `अस्थि रोग (ऑर्थोपेडिक्स) विभाग में स्वागत है। मरीज को किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या चलने-फिरने में रुकावट हो रही है?`
-            : `अस्थि रोग (ऑर्थोपेडिक्स) विभाग में आपका स्वागत है। आज आपको किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या उठने-बैठने या चलने में परेशानी हो रही है?`,
+            ? `अस्थि रोग (ऑर्थोपेडिक्स) विभाग${docPrefixHI} में स्वागत है। मरीज को किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या चलने-फिरने में रुकावट हो रही है?`
+            : `अस्थि रोग (ऑर्थोपेडिक्स) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको किस हड्डी, जोड़ या कमर/गर्दन में दर्द है, और क्या उठने-बैठने या चलने में परेशानी हो रही है?`,
           GU: isCaregiver
-            ? `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગમાં આપનું સ્વાગત છે. દર્દીને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`
-            : `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગમાં આપનું સ્વાગત છે. આજે આપને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`,
+            ? `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`
+            : `ઓર્થોપેડિક્સ (હાડકા અને સાંધા) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને કયા હાડકા, સાંધા કે કમર/ગરદનમાં દુખાવો છે, અને શું હલનચલનમાં મુશ્કેલી પડે છે?`,
         };
         const optOrtho = {
           EN: ['Knee joint pain & swelling', 'Lower back pain & lumbar stiffness', 'Shoulder or neck pain / frozen shoulder', 'Ankle sprain or foot pain', 'Sciatica pain radiating down leg'],
@@ -1617,14 +1621,14 @@ export class UniversalClinicalEngine implements AIProvider {
       if (/ent|ear|throat|nose|ईएनटी|કાન/i.test(specLower)) {
         const qEnt = {
           EN: isCaregiver
-            ? `Welcome to the ENT (Ear, Nose & Throat) Clinic. What ear, nose, or throat symptoms is the patient experiencing today?`
-            : `Welcome to the ENT (Ear, Nose & Throat) Clinic. What ear, nose, or throat symptoms are you experiencing today?`,
+            ? `Welcome to the ENT (Ear, Nose & Throat) Clinic${docPrefixEN}. What ear, nose, or throat symptoms is the patient experiencing today?`
+            : `Welcome to the ENT (Ear, Nose & Throat) Clinic${docPrefixEN}. What ear, nose, or throat symptoms are you experiencing today?`,
           HI: isCaregiver
-            ? `कान, नाक एवं गला (ENT) विभाग में स्वागत है। मरीज को कान, नाक या गले में क्या परेशानी महसूस हो रही है?`
-            : `कान, नाक एवं गला (ENT) विभाग में आपका स्वागत है। आज आपको कान, नाक या गले में क्या परेशानी महसूस हो रही है?`,
+            ? `कान, नाक एवं गला (ENT) विभाग${docPrefixHI} में स्वागत है। मरीज को कान, नाक या गले में क्या परेशानी महसूस हो रही है?`
+            : `कान, नाक एवं गला (ENT) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको कान, नाक या गले में क्या परेशानी महसूस हो रही है?`,
           GU: isCaregiver
-            ? `કાન, નાક અને ગળા (ENT) વિભાગમાં આપનું સ્વાગત છે. દર્દીને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`
-            : `કાન, નાક અને ગળા (ENT) વિભાગમાં આપનું સ્વાગત છે. આજે આપને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`,
+            ? `કાન, નાક અને ગળા (ENT) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`
+            : `કાન, નાક અને ગળા (ENT) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને કાન, નાક કે ગળામાં કઈ તકલીફ થઈ રહી છે?`,
         };
         const optEnt = {
           EN: ['Severe sore throat & painful swallowing', 'Ear pain, discharge or reduced hearing', 'Nasal blockage, sinus pressure & cold', 'Hoarseness of voice or persistent throat clearing', 'Dizziness / Ear ringing (Tinnitus)'],
@@ -1646,9 +1650,9 @@ export class UniversalClinicalEngine implements AIProvider {
       // Pediatrics
       if (/pediatric|child|बाल/i.test(specLower)) {
         const qPed = {
-          EN: `Welcome to the Pediatrics & Child Health Clinic. What symptoms or illness is your child experiencing today?`,
-          HI: `बाल रोग (पीडियाट्रिक्स) विभाग में स्वागत है। बच्चे को आज क्या बीमारी या तकलीफ हो रही है?`,
-          GU: `બાળ રોગ (પીડિયાટ્રિક્સ) વિભાગમાં આપનું સ્વાગત છે. બાળકને આજે કઈ બીમારી કે તકલીફ થઈ રહી છે?`,
+          EN: `Welcome to the Pediatrics & Child Health Clinic${docPrefixEN}. What symptoms or illness is your child experiencing today?`,
+          HI: `बाल रोग (पीडियाट्रिक्स) विभाग${docPrefixHI} में स्वागत है। बच्चे को आज क्या बीमारी या तकलीफ हो रही है?`,
+          GU: `બાળ રોગ (પીડિયાટ્રિક્સ) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. બાળકને આજે કઈ બીમારી કે તકલીફ થઈ રહી છે?`,
         };
         const optPed = {
           EN: ['High fever with chills & body warmth', 'Persistent cough & fast breathing', 'Vomiting & loose motions / diarrhea', 'Skin rash, measles-like spots or itching', 'Poor feeding, irritability & low energy'],
@@ -1671,14 +1675,14 @@ export class UniversalClinicalEngine implements AIProvider {
       if (/gastro|digest|पेट/i.test(specLower)) {
         const qGastro = {
           EN: isCaregiver
-            ? `Welcome to the Gastroenterology & Digestive Health Clinic. What stomach or digestive complaints is the patient experiencing today?`
-            : `Welcome to the Gastroenterology & Digestive Health Clinic. What stomach or digestive complaints are you experiencing today?`,
+            ? `Welcome to the Gastroenterology & Digestive Health Clinic${docPrefixEN}. What stomach or digestive complaints is the patient experiencing today?`
+            : `Welcome to the Gastroenterology & Digestive Health Clinic${docPrefixEN}. What stomach or digestive complaints are you experiencing today?`,
           HI: isCaregiver
-            ? `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग में स्वागत है। मरीज को पेट या पाचन से संबंधित क्या तकलीफ हो रही है?`
-            : `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग में आपका स्वागत है। आज आपको पेट या पाचन से संबंधित क्या परेशानी महसूस हो रही है?`,
+            ? `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को पेट या पाचन से संबंधित क्या तकलीफ हो रही है?`
+            : `पेट एवं पाचन रोग (गैस्ट्रोएंटरोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको पेट या पाचन से संबंधित क्या परेशानी महसूस हो रही है?`,
           GU: isCaregiver
-            ? `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગમાં આપનું સ્વાગત છે. દર્દીને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`
-            : `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગમાં આપનું સ્વાગત છે. આજે આપને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`,
+            ? `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`
+            : `ગેસ્ટ્રોએન્ટેરોલોજી (પાચન અને પેટના રોગો) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને પેટ કે પાચન સંબંધિત કઈ તકલીફ જણાય છે?`,
         };
         const optGastro = {
           EN: ['Severe stomach pain & cramping', 'Chronic acidity, heartburn & sour burps', 'Frequent vomiting & nausea', 'Constipation / Difficulty in bowel movement', 'Loose motions / Diarrhea with cramps'],
@@ -1701,14 +1705,14 @@ export class UniversalClinicalEngine implements AIProvider {
       if (/pulmono|respiratory|chest|फेफड़े/i.test(specLower)) {
         const qPulmo = {
           EN: isCaregiver
-            ? `Welcome to the Pulmonology & Respiratory Care Clinic. What breathing or lung symptoms is the patient experiencing today?`
-            : `Welcome to the Pulmonology & Respiratory Care Clinic. What breathing or lung symptoms are you experiencing today?`,
+            ? `Welcome to the Pulmonology & Respiratory Care Clinic${docPrefixEN}. What breathing or lung symptoms is the patient experiencing today?`
+            : `Welcome to the Pulmonology & Respiratory Care Clinic${docPrefixEN}. What breathing or lung symptoms are you experiencing today?`,
           HI: isCaregiver
-            ? `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग में स्वागत है। मरीज को सांस या फेफड़ों से संबंधित क्या तकलीफ महसूस हो रही है?`
-            : `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग में आपका स्वागत है। आज आपको सांस या फेफड़ों से संबंधित क्या परेशानी महसूस हो रही है?`,
+            ? `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को सांस या फेफड़ों से संबंधित क्या तकलीफ महसूस हो रही है?`
+            : `श्वसन रोग एवं फेफड़ा (पल्मोनोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको सांस या फेफड़ों से संबंधित क्या परेशानी महसूस हो रही है?`,
           GU: isCaregiver
-            ? `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગમાં આપનું સ્વાગત છે. દર્દીને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`
-            : `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગમાં આપનું સ્વાગત છે. આજે આપને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`,
+            ? `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`
+            : `પલ્મોનોલોજી અને શ્વાસના રોગો વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને શ્વાસ કે ફેફસાં સંબંધિત કઈ તકલીફ જણાય છે?`,
         };
         const optPulmo = {
           EN: ['Persistent dry or productive cough', 'Shortness of breath / Wheezing sound', 'Chest tightness with cold drafts', 'Night-time cough awakening sleep', 'Coughing up discolored phlegm / mucus'],
@@ -1727,17 +1731,171 @@ export class UniversalClinicalEngine implements AIProvider {
         };
       }
 
+      // Neurology
+      if (/neuro|brain|नसों|મગજ/i.test(specLower)) {
+        const qNeuro = {
+          EN: isCaregiver
+            ? `Welcome to the Neurology Clinic${docPrefixEN}. What neurological symptoms is the patient experiencing today (such as severe headaches, dizziness, numbness, seizures, or weakness)?`
+            : `Welcome to the Neurology Clinic${docPrefixEN}. What neurological symptoms brought you in today (such as severe headaches, dizziness, numbness/tingling, seizures, or muscle weakness)?`,
+          HI: isCaregiver
+            ? `न्यूरोलॉजी (तंत्रिका एवं मस्तिष्क रोग) विभाग${docPrefixHI} में स्वागत है। मरीज को तेज सिरदर्द, चक्कर, सुन्नपन या कमजोरी जैसी क्या समस्या है?`
+            : `न्यूरोलॉजी (तंत्रिका एवं मस्तिष्क रोग) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको तेज सिरदर्द/माइग्रेन, चक्कर आना, हाथ-पैर में सुन्नपन या कमजोरी जैसे क्या लक्षण महसूस हो रहे हैं?`,
+          GU: isCaregiver
+            ? `ન્યુરોલોજી (મગજ અને ચેતાતંત્ર) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને માથાનો દુખાવો, ચક્કર કે ખાલી ચડવા જેવા કયા લક્ષણો છે?`
+            : `ન્યુરોલોજી (મગજ અને ચેતાતંત્ર) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને તીવ્ર માથાનો દુખાવો/માઇગ્રેન, ચક્કર આવવા કે હાથ-પગમાં ખાલી ચડવા જેવા કયા લક્ષણો છે?`,
+        };
+        const optNeuro = {
+          EN: ['Severe throbbing headache / Migraine', 'Dizziness, vertigo & loss of balance', 'Numbness / Tingling in hands or feet', 'Fainting spells / Seizure episode', 'Muscle weakness or tremors'],
+          HI: ['तेज टीस वाला सिरदर्द / माइग्रेन', 'चक्कर आना, संतुलन बिगड़ना व भारीपन', 'हाथों या पैरों में सुन्नपन / झुनझुनी', 'बेहोशी आना / दौरे पड़ना', 'मांसपेशियों में कमजोरी या कंपन'],
+          GU: ['તીવ્ર ધબકારા સાથે માથાનો દુખાવો', 'ચક્કર આવવા અને સંતુલન ગુમાવવું', 'હાથ કે પગમાં ખાલી ચડવી / ઝણઝણાટી', 'બેભાન થવું / આંચકી આવવી', 'સ્નાયુઓની નબળાઈ કે ધ્રુજારી'],
+        };
+        return {
+          question: qNeuro[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optNeuro[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Neurology Intake: Assessing headache character, neurological deficits, and vertigo',
+        };
+      }
+
+      // Ophthalmology / Eye Care
+      if (/ophthal|eye|vision|नेत्र|આંખ/i.test(specLower)) {
+        const qEye = {
+          EN: isCaregiver
+            ? `Welcome to the Ophthalmology & Eye Care Clinic${docPrefixEN}. What eye or vision complaints is the patient experiencing today?`
+            : `Welcome to the Ophthalmology & Eye Care Clinic${docPrefixEN}. What eye or vision symptoms brought you in today (such as blurry vision, eye pain, redness, or discharge)?`,
+          HI: isCaregiver
+            ? `नेत्र रोग (ऑप्थल्मोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को आँखों या दृष्टि से संबंधित क्या तकलीफ हो रही है?`
+            : `नेत्र रोग (ऑप्थल्मोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको आँखों में धुंधलापन, दर्द, लाली या पानी आने जैसी क्या परेशानी है?`,
+          GU: isCaregiver
+            ? `આંખના રોગો (ઓપ્થેલ્મોલોજી) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને આંખ કે દ્રષ્ટિ સંબંધિત કઈ તકલીફ જણાય છે?`
+            : `આંખના રોગો (ઓપ્થેલ્મોલોજી) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને આંખમાં ઝાંખપ, દુખાવો, લાલાશ કે પાણી પડવા જેવી કઈ તકલીફ છે?`,
+        };
+        const optEye = {
+          EN: ['Blurry or deteriorating vision', 'Eye pain, burning & redness', 'Watery eye discharge & crusting', 'Foreign body / Gritty sensation in eye', 'Severe light sensitivity (Photophobia)'],
+          HI: ['धुंधला दिखाई देना या रोशनी कम होना', 'आँखों में दर्द, जलन और लाली', 'आँखों से लगातार पानी या चिपचिपा स्राव', 'आँख में कुछ चुभने या कचरा होने का अहसास', 'तेज रोशनी बर्दाश्त न होना'],
+          GU: ['ઝાંખું દેખાવું કે દ્રષ્ટિ ઓછી થવી', 'આંખમાં દુખાવો, બળતરા અને લાલાશ', 'આંખમાંથી પાણી કે ચીકણો સ્ત્રાવ નીકળવો', 'આંખમાં કચરો પડ્યો હોય તેવી ખૂંચણી', 'તીવ્ર પ્રકાશ સહન ન થવો'],
+        };
+        return {
+          question: qEye[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optEye[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Ophthalmology Intake: Assessing visual acuity, ocular pain, and photophobia',
+        };
+      }
+
+      // Gynecology & Obstetrics
+      if (/gynec|obgyn|women|महिला|સ્ત્રી/i.test(specLower)) {
+        const qGyn = {
+          EN: isCaregiver
+            ? `Welcome to the Obstetrics & Gynecology Clinic${docPrefixEN}. What health or pregnancy concerns is the patient experiencing today?`
+            : `Welcome to the Obstetrics & Gynecology Clinic${docPrefixEN}. What gynecological or health concerns brought you in today?`,
+          HI: isCaregiver
+            ? `स्त्री एवं प्रसूति रोग (गाइनेकोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को क्या मुख्य समस्या महसूस हो रही है?`
+            : `स्त्री एवं प्रसूति रोग (गाइनेकोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको माहवारी, पेट दर्द या स्वास्थ्य से संबंधित क्या समस्या है?`,
+          GU: isCaregiver
+            ? `સ્ત્રી અને પ્રસૂતિ રોગ (ગાયનેકોલોજી) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને કઈ મુખ્ય તકલીફ જણાય છે?`
+            : `સ્ત્રી અને પ્રસૂતિ રોગ (ગાયનેકોલોજી) વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને માસિક, પેડુનો દુખાવો કે સ્વાસ્થ્ય સંબંધિત કઈ તકલીફ છે?`,
+        };
+        const optGyn = {
+          EN: ['Severe menstrual cramps / Irregular periods', 'Lower abdominal / Pelvic pain', 'Abnormal vaginal discharge or itching', 'Pregnancy routine checkup & nausea', 'Excessive or prolonged menstrual bleeding'],
+          HI: ['माहवारी में तेज दर्द / अनियमित मासिक धर्म', 'पेड़ू (निचले पेट) में लगातार दर्द', 'असामान्य सफेद पानी या खुजली की समस्या', 'गर्भावस्था चेकअप व उल्टी/कमजोरी', 'अधिक या लंबे समय तक रक्तस्राव'],
+          GU: ['માસિકમાં તીવ્ર દુખાવો / અનિયમિત માસિક', 'પેડુના ભાગમાં સતત દુખાવો', 'અસામાન્ય સફેદ સ્ત્રાવ કે ખંજવાળ', 'ગર્ભાવસ્થા તપાસ અને ઉબકા/નબળાઈ', 'વધુ પડતો કે લાંબો સમય રક્તસ્ત્રાવ'],
+        };
+        return {
+          question: qGyn[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optGyn[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Gynecology Intake: Evaluating menstrual cycle, pelvic pain, and obstetrics',
+        };
+      }
+
+      // General Surgery
+      if (/surg|सर्जरी|સર્જરી/i.test(specLower)) {
+        const qSurg = {
+          EN: isCaregiver
+            ? `Welcome to the General Surgery Clinic${docPrefixEN}. What surgical condition or acute concern is the patient experiencing today?`
+            : `Welcome to the General Surgery Clinic${docPrefixEN}. What surgical condition or concern brought you in today (such as a painful lump, hernia, or acute pain)?`,
+          HI: isCaregiver
+            ? `सामान्य शल्य चिकित्सा (जनरल सर्जरी) विभाग${docPrefixHI} में स्वागत है। मरीज को गांठ, हर्निया या घाव से संबंधित क्या समस्या है?`
+            : `सामान्य शल्य चिकित्सा (जनरल सर्जरी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको किसी गांठ, हर्निया, घाव या अचानक तेज दर्द जैसी क्या समस्या है?`,
+          GU: isCaregiver
+            ? `જનરલ સર્જરી વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને ગાંઠ, હર્નિયા કે ઘા સંબંધિત કઈ તકલીફ છે?`
+            : `જનરલ સર્જરી વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને કોઈ ગાંઠ, હર્નિયા, ઘા કે અચાનક દુખાવા જેવી કઈ તકલીફ છે?`,
+        };
+        const optSurg = {
+          EN: ['Painful swelling / Hernia in groin or abdomen', 'Acute severe abdominal pain & tenderness', 'Non-healing wound, boil or abscess', 'Post-operative surgical checkup', 'Painful piles / Fissure / Rectal bleeding'],
+          HI: ['पेट या जांघ में दर्दनाक सूजन / हर्निया', 'पेट में अचानक तेज असहनीय दर्द', 'न भरने वाला घाव, फोड़ा या मवाद', 'ऑपरेशन के बाद की जांच / पट्टी', 'बवासीर / भगंदर / शौच में खून'],
+          GU: ['પેટ કે સાથળમાં સોજો / હર્નિયાની તકલીફ', 'પેટમાં અચાનક તીવ્ર દુખાવો', 'ન રુઝાતો ઘા, ગુમડું કે પરુ', 'ઓપરેશન પછીની તપાસ / ટાંકા ચેક', 'હરસ / મસા / શૌચમાં લોહી પડવું'],
+        };
+        return {
+          question: qSurg[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optSurg[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized General Surgery Intake: Screening hernia, masses, acute abdomen, and anorectal conditions',
+        };
+      }
+
+      // Urology / Nephrology
+      if (/uro|nephro|kidney|मूत्र|કિડની/i.test(specLower)) {
+        const qUro = {
+          EN: isCaregiver
+            ? `Welcome to the Urology & Kidney Care Clinic${docPrefixEN}. What urinary or kidney symptoms is the patient experiencing today?`
+            : `Welcome to the Urology & Kidney Care Clinic${docPrefixEN}. What urinary or kidney symptoms brought you in today?`,
+          HI: isCaregiver
+            ? `मूत्र एवं गुर्दा रोग (यूरोलॉजी) विभाग${docPrefixHI} में स्वागत है। मरीज को पेशाब या गुर्दे से संबंधित क्या परेशानी है?`
+            : `मूत्र एवं गुर्दा रोग (यूरोलॉजी) विभाग${docPrefixHI} में आपका स्वागत है। आज आपको पेशाब में जलन, कमर दर्द या पेशाब में रुकावट जैसी क्या समस्या है?`,
+          GU: isCaregiver
+            ? `યુરોલોજી અને કિડની રોગ વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. દર્દીને પેશાબ કે કિડની સંબંધિત કઈ તકલીફ છે?`
+            : `યુરોલોજી અને કિડની રોગ વિભાગ${docPrefixGU}માં આપનું સ્વાગત છે. આજે આપને પેશાબમાં બળતરા, કમરનો દુખાવો કે પેશાબ રોકાવા જેવી કઈ તકલીફ છે?`,
+        };
+        const optUro = {
+          EN: ['Burning pain during urination (Dysuria)', 'Severe flank / Kidney area back pain', 'Frequent urination / Weak urine stream', 'Blood in urine (Hematuria)', 'Difficulty passing urine / Urinary retention'],
+          HI: ['पेशाब करते समय तेज जलन और दर्द', 'कमर के पिछले हिस्से (किडनी) में तेज दर्द', 'बार-बार पेशाब आना या धार कमजोर होना', 'पेशाब में खून या लाल रंग का पेशाब', 'पेशाब रुक-रुक कर आना या बंद होना'],
+          GU: ['પેશાબ કરતી વખતે તીવ્ર બળતરા અને દુખાવો', 'કમરના પાછળના ભાગમાં (કિડની) દુખાવો', 'વારંવાર પેશાબ જવું કે પ્રવાહ ધીમો થવો', 'પેશાબમાં લોહી આવવું', 'પેશાબમાં અટકાવ કે મુશ્કેલી થવી'],
+        };
+        return {
+          question: qUro[lang],
+          questionLanguage: lang,
+          questionCategory: 'ONSET',
+          touchOptions: optUro[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Specialized Urology Intake: Evaluating dysuria, renal colic, stream changes, and hematuria',
+        };
+      }
+
       // Default General OPD Opening
+      const clinicPrefixEN = docName ? `Dr. ${docName}'s General Medicine OPD` : 'MediKiosk';
+      const clinicPrefixHI = docName ? `डॉ. ${docName} के सामान्य चिकित्सा (General Medicine) ओपीडी` : 'मेडीकियोस्क';
+      const clinicPrefixGU = docName ? `ડૉ. ${docName} ના જનરલ મેડિસિન ઓપીડી` : 'મેડીકિયોસ્ક';
+
       const qText = {
         EN: isCaregiver
-          ? `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns the patient is experiencing today?`
-          : `Welcome to MediKiosk. Please tell me what specific symptoms or health concerns brought you to the hospital today?`,
+          ? `Welcome to ${clinicPrefixEN}. Please tell me what specific symptoms or health concerns the patient is experiencing today?`
+          : `Welcome to ${clinicPrefixEN}. Please tell me what specific symptoms or health concerns brought you to the hospital today?`,
         HI: isCaregiver
-          ? `मेडीकियोस्क में स्वागत है। कृपया बताएं कि मरीज को आज क्या मुख्य तकलीफ या लक्षण महसूस हो रहे हैं?`
-          : `मेडीकियोस्क में आपका स्वागत है। कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?`,
+          ? `${clinicPrefixHI} में स्वागत है। कृपया बताएं कि मरीज को आज क्या मुख्य तकलीफ या लक्षण महसूस हो रहे हैं?`
+          : `${clinicPrefixHI} में आपका स्वागत है। कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?`,
         GU: isCaregiver
-          ? `મેડીકિયોસ્ક માં સ્વાગત છે. કૃપા કરીને જણાવો કે દર્દીને આજે કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`
-          : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
+          ? `${clinicPrefixGU} માં સ્વાગત છે. કૃપા કરીને જણાવો કે દર્દીને આજે કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`
+          : `${clinicPrefixGU} માં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો થઈ રહ્યા છે?`,
       };
       const touchOpts = {
         EN: ['Fever, body ache & chills', 'Vomiting, nausea & stomach upset', 'Throbbing headache & eye strain', 'Chest discomfort or breathlessness', 'Joint or back pain with stiffness', 'Skin rash, pimples or itching'],
@@ -3664,8 +3822,9 @@ Source Text: "${text}"`;
         ? 'STRICT REQUIREMENT: All questions, touch options, and responses MUST be written in pure, grammatically fluent GUJARATI (Gujarati script: ગુજરાતી).'
         : 'STRICT REQUIREMENT: All questions, touch options, and responses MUST be written in professional, clear ENGLISH.';
 
-      const prompt = `You are MediKiosk Autonomous Clinical AI Intake Doctor.
-Your goal is to conduct a THOROUGH, IN-DEPTH, PROFESSIONAL medical intake interview with the patient (or caregiver).
+      const docChosen = (state as any).doctorName || null;
+      const prompt = `You are MediKiosk Autonomous Clinical AI Intake Doctor conducting the pre-consultation clinical intake for ${docChosen ? `Dr. ${docChosen} (${effectiveSpecialty})` : `${effectiveSpecialty} Department`}.
+Your goal is to conduct a THOROUGH, IN-DEPTH, PROFESSIONAL medical intake interview tailored specifically to ${docChosen ? `Dr. ${docChosen}'s ${effectiveSpecialty}` : effectiveSpecialty} with the patient (or caregiver).
 Do NOT ask half-cooked, brief, or superficial questions. Conduct a comprehensive clinical consultation.
 
 ${langDirective}
@@ -3676,6 +3835,7 @@ ${historyFormatted}
 ACTIVE CLINICAL CONTEXT:
 Care Path: ${effectiveCarePath}
 Doctor Specialty: ${effectiveSpecialty}
+${docChosen ? `Attending Doctor: Dr. ${docChosen}` : ''}
 Patient Type: ${isNew ? 'NEW PATIENT (First hospital visit)' : 'EXISTING / RETURNING PATIENT (Follow-up visit)'}
 ${!isNew && prevInfo ? `Previous Visit Record:
 - Diagnosed Complaint/Disease to Follow Up: "${prevInfo.lastComplaint}" (GROUND TRUTH: FOCUS ON THIS COMPLAINT)

@@ -313,6 +313,7 @@ export const api = {
         previousPatientInfo?: any;
         carePath?: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY';
         specialty?: string;
+        doctorName?: string;
         targetComplaint?: string;
         isNewCase?: boolean;
         followUpVisitId?: string;
@@ -327,6 +328,7 @@ export const api = {
           respondentType,
           carePath: options?.carePath,
           specialty: options?.specialty,
+          doctorName: options?.doctorName,
           targetComplaint: options?.targetComplaint,
           isNewCase: options?.isNewCase,
           followUpVisitId: options?.followUpVisitId,
