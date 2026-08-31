@@ -85,13 +85,22 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const isCaregiver = respType === 'CAREGIVER' || respType === 'STAFF_ASSISTED';
 
   // Check if patient is returning (has prior visit records or flagged as returning)
-  const priorVisits = await prisma.visit.findMany({
+  const deptName = visit.department?.name || '';
+  const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
+  const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
+  const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
+  const specialty = req.body.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+
+  // Check if patient explicitly requested a NEW CASE (or brand new complaint)
+  const isExplicitNewCase = req.body.isNewCase === true || req.body.visitType === 'NEW_CASE';
+
+  // Fetch ALL prior completed visits for this patient to find the matching case
+  const allPriorVisits = await prisma.visit.findMany({
     where: {
       patientId: visit.patientId,
       id: { not: visit.id },
     },
     orderBy: { createdAt: 'desc' },
-    take: 1,
     include: {
       summary: true,
       clinicalHistory: true,
@@ -106,67 +115,102 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     },
   });
 
-  const isExistingPatient = Boolean(isReturningPatient || priorVisits.length > 0 || previousPatientInfo?.visits?.length > 0 || recentChanges);
-  const isNewPatient = !isExistingPatient;
-
   let previousVisitInfo: any = undefined;
-  if (priorVisits.length > 0 && priorVisits[0]) {
-    const pv = priorVisits[0];
-    const prevDocName = pv.doctor?.user?.name ? `Dr. ${pv.doctor.user.name}` : undefined;
+  let matchingPriorSessionId: string | null = null;
+  let isNewPatient = true;
 
-    // Search all clinical layers for the true clinical complaint
-    let extractedComplaint = pv.clinicalHistory?.chiefComplaint || pv.consultation?.diagnosis;
-    if (!extractedComplaint && pv.sessions?.[0]?.clinicalState) {
-      try {
-        const parsedState = JSON.parse(pv.sessions[0].clinicalState);
-        extractedComplaint = parsedState.chiefComplaint || parsedState.symptoms?.[0]?.name;
-      } catch (e) {}
+  if (!isExplicitNewCase && allPriorVisits.length > 0) {
+    // Determine the most relevant prior encounter for this care path and complaint
+    let matchedVisit: any = null;
+
+    // 1. If explicit followUpVisitId is provided
+    if (req.body.followUpVisitId) {
+      matchedVisit = allPriorVisits.find(v => v.id === req.body.followUpVisitId);
     }
-    if (!extractedComplaint && pv.summary?.summaryJson) {
-      try {
-        const parsedSum = JSON.parse(pv.summary.summaryJson);
-        extractedComplaint = parsedSum.chiefComplaint || parsedSum.overview;
-      } catch (e) {}
-    }
-    if (!extractedComplaint || /follow-?up|consultation|routine|checkup|general/i.test(extractedComplaint)) {
-      if (pv.reasonForVisit && !/follow-?up|consultation|routine/i.test(pv.reasonForVisit)) {
-        extractedComplaint = pv.reasonForVisit;
-      } else if (pv.clinicalHistory?.hpiNarrative) {
-        extractedComplaint = pv.clinicalHistory.hpiNarrative;
-      } else if (pv.consultation?.impression || pv.consultation?.clinicalNotes) {
-        extractedComplaint = pv.consultation.impression || pv.consultation.clinicalNotes;
-      } else {
-        extractedComplaint = 'Previous health complaint';
+
+    // 2. Otherwise, find prior visits within the SAME Care Path
+    if (!matchedVisit) {
+      const sameCarePathVisits = allPriorVisits.filter(v => {
+        let vCarePath = 'ALLOPATHY';
+        if (v.sessions?.[0]?.clinicalState) {
+          try {
+            const st = JSON.parse(v.sessions[0].clinicalState);
+            if (st.carePath) vCarePath = st.carePath;
+          } catch (e) {}
+        }
+        if (vCarePath === 'ALLOPATHY' && v.summary?.summaryJson) {
+          try {
+            const sum = JSON.parse(v.summary.summaryJson);
+            if (sum.carePath) vCarePath = sum.carePath;
+          } catch (e) {}
+        }
+        if (vCarePath === 'ALLOPATHY') {
+          const vDept = v.department?.name?.toLowerCase() || '';
+          if (vDept.includes('homeopath')) vCarePath = 'HOMEOPATHY';
+          else if (vDept.includes('ayush') || vDept.includes('ayurved')) vCarePath = 'AYUSH';
+        }
+        return vCarePath === carePath;
+      });
+
+      if (sameCarePathVisits.length > 0) {
+        // If current visit mentions a specific target complaint, match the best one
+        const currentComplaintQuery = (req.body.targetComplaint || visit.reasonForVisit || '').toLowerCase();
+        if (currentComplaintQuery && !/follow-?up|consultation|routine|checkup|general|intake/i.test(currentComplaintQuery)) {
+          matchedVisit = sameCarePathVisits.find(v => {
+            const vComp = (v.reasonForVisit || v.clinicalHistory?.chiefComplaint || v.consultation?.diagnosis || '').toLowerCase();
+            return vComp.includes(currentComplaintQuery) || currentComplaintQuery.includes(vComp);
+          }) || sameCarePathVisits[0];
+        } else {
+          matchedVisit = sameCarePathVisits[0];
+        }
       }
     }
 
-    previousVisitInfo = {
-      lastVisitDate: pv.createdAt.toLocaleDateString(),
-      lastComplaint: extractedComplaint,
-      lastDepartment: pv.department?.name || 'General OPD',
-      lastDoctor: prevDocName || 'Dr. Vikram',
-      pastPrescriptions: pv.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || [],
-    };
-  } else if (isExistingPatient) {
-    const lastV = previousPatientInfo?.visits?.[0];
-    let extractedComplaint = lastV?.clinicalHistory?.chiefComplaint || lastV?.reasonForVisit;
-    if (!extractedComplaint || /follow-?up|consultation/i.test(extractedComplaint)) {
-      extractedComplaint = previousPatientInfo?.medicalHistory || 'Previous health complaint';
-    }
-    previousVisitInfo = {
-      lastVisitDate: lastV?.createdAt ? new Date(lastV.createdAt).toLocaleDateString() : 'Recent Visit',
-      lastComplaint: extractedComplaint,
-      lastDepartment: lastV?.department?.name || 'General OPD',
-      lastDoctor: 'Dr. Vikram',
-      pastPrescriptions: lastV?.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || ['Multivitamin & Zinc supplement daily'],
-    };
-  }
+    // If a matching prior visit was found in this care path, construct previousVisitInfo!
+    if (matchedVisit) {
+      isNewPatient = false;
+      matchingPriorSessionId = matchedVisit.sessions?.[0]?.id || null;
+      const prevDocName = matchedVisit.doctor?.user?.name ? `Dr. ${matchedVisit.doctor.user.name}` : undefined;
 
-  const deptName = visit.department?.name || '';
-  const isHomeo = isHomeopathy || requestedCarePath === 'HOMEOPATHY' || deptName.toLowerCase().includes('homeopath');
-  const isAyu = isAyush || requestedCarePath === 'AYUSH' || deptName.toLowerCase().includes('ayush') || deptName.toLowerCase().includes('ayurved');
-  const carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = requestedCarePath || (isHomeo ? 'HOMEOPATHY' : (isAyu ? 'AYUSH' : 'ALLOPATHY'));
-  const specialty = req.body.specialty || visit.doctor?.specialization || visit.department?.name || 'General Medicine';
+      let extractedComplaint = '';
+      if (matchedVisit.reasonForVisit && !/follow-?up|consultation|routine|checkup|general|intake/i.test(matchedVisit.reasonForVisit)) {
+        extractedComplaint = matchedVisit.reasonForVisit;
+      }
+      if (!extractedComplaint && matchedVisit.consultation?.diagnosis) {
+        extractedComplaint = matchedVisit.consultation.diagnosis;
+      }
+      if (!extractedComplaint && matchedVisit.clinicalHistory?.chiefComplaint && !/opd intake|general/i.test(matchedVisit.clinicalHistory.chiefComplaint)) {
+        extractedComplaint = matchedVisit.clinicalHistory.chiefComplaint;
+      }
+      if (!extractedComplaint && matchedVisit.sessions?.[0]?.clinicalState) {
+        try {
+          const parsedState = JSON.parse(matchedVisit.sessions[0].clinicalState);
+          extractedComplaint = parsedState.chiefComplaint || parsedState.symptoms?.[0]?.name;
+        } catch (e) {}
+      }
+      if (!extractedComplaint && matchedVisit.summary?.summaryJson) {
+        try {
+          const parsedSum = JSON.parse(matchedVisit.summary.summaryJson);
+          extractedComplaint = parsedSum.chiefComplaint || parsedSum.presentingConcern || parsedSum.overview;
+        } catch (e) {}
+      }
+      if (!extractedComplaint) {
+        extractedComplaint = matchedVisit.reasonForVisit || `${matchedVisit.department?.name || 'Previous'} health complaint`;
+      }
+
+      previousVisitInfo = {
+        lastVisitDate: matchedVisit.createdAt.toLocaleDateString(),
+        lastComplaint: extractedComplaint,
+        lastDepartment: matchedVisit.department?.name || 'OPD Clinic',
+        lastDoctor: prevDocName || 'Attending Specialist',
+        pastPrescriptions: matchedVisit.prescriptions?.[0]?.items?.map((i: any) => i.medicationName) || [],
+      };
+    } else {
+      // Patient has previous visits, but NONE in this care path -> Fresh NEW CASE in this care path!
+      isNewPatient = true;
+      previousVisitInfo = undefined;
+    }
+  }
 
   const initialState = createInitialClinicalState(initialLang, respType, carePath, specialty);
   initialState.isNewPatient = isNewPatient;
@@ -175,24 +219,37 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     initialState.latestAnswer = `Reported change since last visit: ${recentChanges}`;
   }
 
+  // Seamlessly populate known background allergies and chronic diseases from patient record
+  if (visit.patient) {
+    if (visit.patient.allergies && Array.isArray(visit.patient.allergies)) {
+      initialState.allergies = visit.patient.allergies.map((a: any) => ({
+        allergen: a.allergen || a,
+        reaction: a.reaction || 'Hypersensitivity',
+        severity: a.severity || 'MODERATE',
+      }));
+    }
+    if (visit.patient.medicalHistory && typeof visit.patient.medicalHistory === 'string') {
+      const conditions = visit.patient.medicalHistory.split(/[,;\n]+/).map((c: string) => c.trim()).filter(Boolean);
+      if (conditions.length > 0) {
+        initialState.pastMedicalHistory = conditions;
+      }
+    }
+  }
+
   // Fetch prior visit's conversation messages and consultation history for complete clinical memory
   let priorVisitChatHistory: Array<{ role: string; content: string }> = [];
   try {
-    const priorSession = await prisma.conversationSession.findFirst({
-      where: {
-        visit: {
-          patientId: visit.patientId,
-          id: { not: visit.id },
-        },
-      },
-      orderBy: { startedAt: 'desc' },
-      include: {
-        messages: {
-          orderBy: { timestamp: 'asc' },
-          select: { role: true, content: true },
-        },
-      },
-    });
+    const priorSession = matchingPriorSessionId
+      ? await prisma.conversationSession.findUnique({
+          where: { id: matchingPriorSessionId },
+          include: {
+            messages: {
+              orderBy: { timestamp: 'asc' },
+              select: { role: true, content: true },
+            },
+          },
+        })
+      : null;
     if (priorSession?.messages?.length) {
       priorVisitChatHistory = priorSession.messages.map(m => ({
         role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
