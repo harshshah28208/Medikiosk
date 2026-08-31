@@ -137,41 +137,85 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
       matchedVisit = allPriorVisits.find(v => v.id === req.body.followUpVisitId);
     }
 
-    // 2. Otherwise, find prior visits within the SAME Care Path
+    // 2. Otherwise, find prior visits within the SAME Care Path with scoring
     if (!matchedVisit) {
-      const sameCarePathVisits = allPriorVisits.filter(v => {
-        let vCarePath = 'ALLOPATHY';
-        if (v.sessions?.[0]?.clinicalState) {
-          try {
-            const st = JSON.parse(v.sessions[0].clinicalState);
-            if (st.carePath) vCarePath = st.carePath;
-          } catch (e) {}
-        }
-        if (vCarePath === 'ALLOPATHY' && v.summary?.summaryJson) {
-          try {
-            const sum = JSON.parse(v.summary.summaryJson);
-            if (sum.carePath) vCarePath = sum.carePath;
-          } catch (e) {}
-        }
-        if (vCarePath === 'ALLOPATHY') {
-          const vDept = v.department?.name?.toLowerCase() || '';
-          if (vDept.includes('homeopath')) vCarePath = 'HOMEOPATHY';
-          else if (vDept.includes('ayush') || vDept.includes('ayurved')) vCarePath = 'AYUSH';
-        }
-        return vCarePath === carePath;
-      });
+      const scoredVisits = allPriorVisits
+        .map(v => {
+          let vCarePath = 'ALLOPATHY';
+          let vDeptScore = 0;
+          let vSummaryCarePath = 'ALLOPATHY';
 
-      if (sameCarePathVisits.length > 0) {
-        // If current visit mentions a specific target complaint, match the best one
-        const currentComplaintQuery = (req.body.targetComplaint || visit.reasonForVisit || '').toLowerCase();
-        if (currentComplaintQuery && !/follow-?up|consultation|routine|checkup|general|intake/i.test(currentComplaintQuery)) {
-          matchedVisit = sameCarePathVisits.find(v => {
-            const vComp = (v.reasonForVisit || v.clinicalHistory?.chiefComplaint || v.consultation?.diagnosis || '').toLowerCase();
-            return vComp.includes(currentComplaintQuery) || currentComplaintQuery.includes(vComp);
-          }) || sameCarePathVisits[0];
-        } else {
-          matchedVisit = sameCarePathVisits[0];
-        }
+          // Determine visit care path from session
+          if (v.sessions?.[0]?.clinicalState) {
+            try {
+              const st = JSON.parse(v.sessions[0].clinicalState);
+              if (st.carePath) vCarePath = st.carePath;
+            } catch (e) {}
+          }
+
+          // Determine visit care path from summary
+          if (v.summary?.summaryJson) {
+            try {
+              const sum = JSON.parse(v.summary.summaryJson);
+              if (sum.carePath) vSummaryCarePath = sum.carePath;
+            } catch (e) {}
+          }
+
+          // Determine final care path (prefer session over summary)
+          const finalCarePath = vCarePath !== 'ALLOPATHY' ? vCarePath :
+                               vSummaryCarePath !== 'ALLOPATHY' ? vSummaryCarePath : 'ALLOPATHY';
+
+          // Adjust for department specialty
+          const vDept = v.department?.name?.toLowerCase() || '';
+          if (vDept.includes('homeopath')) {
+            if (finalCarePath === 'ALLOPATHY') finalCarePath = 'HOMEOPATHY';
+          } else if (vDept.includes('ayush') || vDept.includes('ayurved')) {
+            if (finalCarePath === 'ALLOPATHY') finalCarePath = 'AYUSH';
+          }
+
+          // Calculate match score
+          let score = 0;
+
+          // 1. Care path match (40% weight)
+          if (finalCarePath === carePath) score += 40;
+
+          // 2. Temporal proximity (30% weight) - more recent = higher score
+          const daysDiff = Math.abs(Date.now() - v.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+          const temporalScore = Math.max(0, 30 - Math.min(30, daysDiff / 10)); // Decrease over time
+          score += temporalScore;
+
+          // 3. Complaint similarity (20% weight)
+          const currentComplaintQuery = (req.body.targetComplaint || visit.reasonForVisit || '').toLowerCase();
+          const vComp = (v.reasonForVisit || v.clinicalHistory?.chiefComplaint || v.consultation?.diagnosis || '').toLowerCase();
+          let complaintScore = 0;
+          if (currentComplaintQuery && vComp) {
+            // Simple word overlap scoring
+            const currentWords = new Set(currentComplaintQuery.split(/\s+/));
+            const visitWords = new Set(vComp.split(/\s+/));
+            const intersection = [...currentWords].filter(word => visitWords.has(word));
+            const union = new Set([...currentWords, ...visitWords]);
+            complaintScore = union.size > 0 ? (intersection.length / union.size) * 20 : 0;
+          }
+          score += complaintScore;
+
+          // 4. Department consistency (10% weight)
+          const vDeptName = v.department?.name || '';
+          const currDeptName = visit.department?.name || '';
+          if (vDeptName && currDeptName &&
+              (vDeptName.toLowerCase() === currDeptName.toLowerCase() ||
+               vDeptName.toLowerCase().includes(currDeptName.toLowerCase()) ||
+               currDeptName.toLowerCase().includes(vDeptName.toLowerCase()))) {
+            score += 10;
+          }
+
+          return { visit: v, score };
+        })
+        .filter(item => item.score >= 50) // Minimum threshold
+        .sort((a, b) => b.score - a.score); // Descending by score
+
+      if (scoredVisits.length > 0) {
+        // Use the highest scoring visit
+        matchedVisit = scoredVisits[0].visit;
       }
     }
 

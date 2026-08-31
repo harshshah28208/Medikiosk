@@ -2,6 +2,8 @@ export class SpeechProvider {
   private recognition: any = null;
   private isListening = false;
   private currentAudio: HTMLAudioElement | null = null;
+  private voicesCache: SpeechSynthesisVoice[] | null = null;
+  private voicesLoaded = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -11,6 +13,9 @@ export class SpeechProvider {
         this.recognition.continuous = false;
         this.recognition.interimResults = true;
       }
+
+      // Pre-load voices for faster switching
+      this.loadVoices();
     }
   }
 
@@ -20,6 +25,25 @@ export class SpeechProvider {
 
   isSpeechSynthesisSupported(): boolean {
     return true;
+  }
+
+  private loadVoices() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+
+    // Load voices immediately
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      this.voicesCache = voices;
+      this.voicesLoaded = true;
+    } else {
+      // Voices might not be loaded yet, wait for onvoiceschanged
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.voicesCache = window.speechSynthesis.getVoices();
+        this.voicesLoaded = true;
+      };
+    }
   }
 
   startListening(
@@ -114,8 +138,8 @@ export class SpeechProvider {
         utterance.rate = 0.95;
         utterance.pitch = 1.0;
 
-        // Try to match appropriate localized voice
-        const voices = window.speechSynthesis.getVoices();
+        // Try to match appropriate localized voice from cache
+        const voices = this.voicesCache && this.voicesLoaded ? this.voicesCache : window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
           const match = voices.find(v => {
             const vLang = v.lang.replace('_', '-').toLowerCase();

@@ -1244,21 +1244,147 @@ export class UniversalClinicalEngine implements AIProvider {
       : (carePath === true || state.carePath === 'AYUSH' ? 'AYUSH' : (state.carePath === 'HOMEOPATHY' ? 'HOMEOPATHY' : 'ALLOPATHY'));
     const effectiveSpecialty: string = specialty || state.specialty || 'General Medicine';
 
-    // Track answered clinical dimensions across turns to guarantee exhaustive, in-depth clinical consultation
+    // Track answered clinical dimensions based on actual content, not just turn count
     const answeredDimensions = new Set<string>();
-    const turns = state.turnsCompleted || 0;
 
-    if (turns >= 1 && state.chiefComplaint) answeredDimensions.add('CHIEF_COMPLAINT');
-    if (turns >= 2) answeredDimensions.add('ONSET');
-    if (turns >= 3) answeredDimensions.add('CHARACTER');
-    if (turns >= 4) answeredDimensions.add('ASSOCIATED');
-    if (turns >= 5) answeredDimensions.add('TRIGGERS');
-    if (turns >= 6) answeredDimensions.add('LIFESTYLE');
-    if (turns >= 7) answeredDimensions.add('PAST_HISTORY');
-    if (turns >= 8) answeredDimensions.add('MEDICATIONS_ALLERGIES');
+    // Chief Complaint
+    if (state.chiefComplaint && state.chiefComplaint.trim() !== '') {
+      answeredDimensions.add('CHIEF_COMPLAINT');
+    }
 
-    if ((state.symptoms || []).some(s => s.progression)) answeredDimensions.add('PROGRESSION');
-    if ((state.symptoms || []).some(s => (s as any).residualSymptoms)) answeredDimensions.add('RESIDUAL_SYMPTOMS');
+    // Onset
+    if (state.symptoms && state.symptoms.some(s => s.onset && s.onset.trim() !== '')) {
+      answeredDimensions.add('ONSET');
+    }
+
+    // Duration
+    if (state.symptoms && state.symptoms.some(s => s.duration && s.duration.trim() !== '')) {
+      answeredDimensions.add('DURATION');
+    }
+
+    // Severity
+    if (state.symptoms && state.symptoms.some(s => s.severity !== null && s.severity !== undefined)) {
+      answeredDimensions.add('SEVERITY');
+    }
+
+    // Character
+    if (state.symptoms && state.symptoms.some(s => s.character && s.character.trim() !== '')) {
+      answeredDimensions.add('CHARACTER');
+    }
+
+    // Location
+    if (state.symptoms && state.symptoms.some(s => s.location && s.location.trim() !== '')) {
+      answeredDimensions.add('LOCATION');
+    }
+
+    // Radiation
+    if (state.symptoms && state.symptoms.some(s => s.radiation && s.radiation.trim() !== '')) {
+      answeredDimensions.add('RADIATION');
+    }
+
+    // Timing
+    if (state.symptoms && state.symptoms.some(s => s.timing && s.timing.trim() !== '')) {
+      answeredDimensions.add('TIMING');
+    }
+
+    // Progression
+    if (state.symptoms && state.symptoms.some(s => s.progression && s.progression.trim() !== '')) {
+      answeredDimensions.add('PROGRESSION');
+    }
+
+    // Aggravating Factors
+    if (state.symptoms && state.symptoms.some(s => s.aggravatingFactors && s.aggravatingFactors.length > 0)) {
+      answeredDimensions.add('TRIGGERS');
+    }
+
+    // Relieving Factors
+    if (state.symptoms && state.symptoms.some(s => s.relievingFactors && s.relievingFactors.length > 0)) {
+      answeredDimensions.add('TRIGGERS'); // Still under TRIGGERS for now
+    }
+
+    // Associated Symptoms
+    if (state.associatedSymptoms && state.associatedSymptoms.length > 0) {
+      answeredDimensions.add('ASSOCIATED');
+    }
+
+    // Denied Symptoms / Pertinent Negatives
+    if (state.deniedSymptoms && state.deniedSymptoms.length > 0) {
+      answeredDimensions.add('PERTINENT_NEGATIVES');
+    }
+
+    // Lifestyle
+    const lifestyle = state.lifestyle;
+    if (lifestyle &&
+        (lifestyle.sleep || lifestyle.sleepDurationHours !== null ||
+         lifestyle.diet || lifestyle.mealPattern ||
+         lifestyle.activity || lifestyle.occupation ||
+         lifestyle.stress || lifestyle.smoking ||
+         lifestyle.alcohol || (lifestyle.habits && lifestyle.habits.length > 0))) {
+      answeredDimensions.add('LIFESTYLE');
+    }
+
+    // Medical History
+    if (state.pastMedicalHistory && state.pastMedicalHistory.length > 0) {
+      answeredDimensions.add('PAST_HISTORY');
+    }
+    if (state.pastSurgicalHistory && state.pastSurgicalHistory.length > 0) {
+      answeredDimensions.add('PAST_HISTORY');
+    }
+    if (state.medications && state.medications.length > 0) {
+      answeredDimensions.add('MEDICATIONS');
+    }
+    if (state.allergies && state.allergies.length > 0) {
+      answeredDimensions.add('ALLERGIES');
+    }
+    if (state.familyHistory && state.familyHistory.length > 0) {
+      answeredDimensions.add('FAMILY_HISTORY');
+    }
+
+    // Care Path Specific (based on carePath)
+    if (state.carePath === 'AYUSH') {
+      const ayush = state.ayushAssessment;
+      if (ayush &&
+          (ayush.prakriti || ayush.vikriti || ayush.agni || ayush.koshtha ||
+           ayush.ahara || ayush.vihara || ayush.mutra || ayush.mala ||
+           ayush.jihva || ayush.sara || ayush.satmya || ayush.vyayamaShakti ||
+           ayush.aharaShakti || (ayush.dashavidhaFindings && ayush.dashavidhaFindings.length > 0))) {
+        answeredDimensions.add('AYUSH_SPECIFIC');
+      }
+    } else if (state.carePath === 'HOMEOPATHY') {
+      const homeo = state.homeopathyAssessment;
+      if (homeo &&
+          (homeo.miasm || homeo.thermalState || homeo.thirst ||
+           (homeo.modalities && (homeo.modalities.aggravating?.length > 0 || homeo.modalities.ameliorating?.length > 0)) ||
+           homeo.mentalState || (homeo.concomitants && homeo.concomitants.length > 0) ||
+           (homeo.timeModalities && homeo.timeModalities.length > 0) ||
+           (homeo.sensations && homeo.sensations.length > 0) ||
+           homeo.laterality)) {
+        answeredDimensions.add('HOMEOPATHY_SPECIFIC');
+      }
+    } else { // ALLOPATHY
+      // Check for specialty-specific organ systems, anatomical radiation, functional impact
+      // These would be inferred from symptoms and history in a real implementation
+      // For now, we'll mark as addressed if we have substantial symptom history
+      if ((state.symptoms && state.symptoms.length > 0) ||
+          (state.pastMedicalHistory && state.pastMedicalHistory.length > 0)) {
+        answeredDimensions.add('ALLOPATHY_SPECIFIC');
+      }
+    }
+
+    // Follow-up Progression (for returning patients)
+    if (!state.isNewPatient && state.followUpProgression) {
+      const followUp = state.followUpProgression;
+      if (followUp &&
+          (followUp.conditionEvolution || followUp.medicationAdherence ||
+           followUp.residualOrNewSymptoms || followUp.priorTreatmentResponse)) {
+        answeredDimensions.add('FOLLOW_UP');
+      }
+    }
+
+    // Safety Screening / Red Flags
+    if (state.redFlagsEvaluated !== undefined && state.redFlagsEvaluated !== null) {
+      answeredDimensions.add('SAFETY_SCREENING');
+    }
 
     // ==========================================
     // WORKFLOW A: RETURNING PATIENT 100% DYNAMIC ANSWER-DRIVEN INTAKE

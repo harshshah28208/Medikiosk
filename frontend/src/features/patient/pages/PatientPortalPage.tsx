@@ -91,10 +91,18 @@ export function PatientPortalPage() {
     if (!visit) return null;
     const s = visit.summary;
     if (!s) return null;
-    // If summaryJson is present (backend format), parse it
+    // If summaryJson is present (backend format), parse it safely
     if (s.summaryJson) {
-      const parsed = typeof s.summaryJson === 'string' ? JSON.parse(s.summaryJson) : s.summaryJson;
-      return { ...s, ...parsed };
+      try {
+        const parsed = typeof s.summaryJson === 'string'
+          ? JSON.parse(s.summaryJson)
+          : s.summaryJson;
+        return { ...s, ...parsed };
+      } catch (error) {
+        console.warn('Failed to parse summaryJson:', error);
+        // Return the summary as-is if parsing fails
+        return s;
+      }
     }
     return s;
   };
