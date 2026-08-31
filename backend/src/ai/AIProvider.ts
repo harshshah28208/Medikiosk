@@ -2268,22 +2268,16 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
-    // Step 6: Final Wrap-Up Review (All dimensions covered)
+    // Step 6: Phase B Intake Completion & Handoff (All dimensions covered)
     const qFinal = {
-      EN: isCaregiver
-        ? `Thank you. Is there any other symptom or specific detail regarding the patient's condition that you would like the doctor to know?`
-        : `Thank you. Is there any other symptom or specific detail you would like to share with your doctor?`,
-      HI: isCaregiver
-        ? `धन्यवाद। क्या मरीज की स्थिति के बारे में आप डॉक्टर को कोई अन्य जरूरी बात बताना चाहते हैं?`
-        : `धन्यवाद। क्या डॉक्टर से मिलने से पहले आप कोई अन्य लक्षण या जरूरी बात बताना चाहते हैं?`,
-      GU: isCaregiver
-        ? `આભાર. શું દર્દીની તકલીફ અંગે ડૉક્ટરને જણાવવા જેવી કોઈ અન્ય ખાસ વિગત છે?`
-        : `આભાર. ડૉક્ટરને મળતા પહેલાં શું આપ કોઈ અન્ય લક્ષણ કે ખાસ વિગત જણાવવા માંગો છો?`,
+      EN: `Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.`,
+      HI: `धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।`,
+      GU: `ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.`,
     };
     const optFinal = {
-      EN: ['No, that covers all symptoms — complete intake', 'Yes, I want to add one more detail'],
-      HI: ['नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें', 'हाँ, मुझे एक और लक्षण बताना है'],
-      GU: ['ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો', 'હા, મારે બીજું એક લક્ષણ જણાવવું છે'],
+      EN: ['Proceed to Appointment', 'Review Summary', 'Add One More Detail'],
+      HI: ['अपॉइंटमेंट के लिए आगे बढ़ें', 'सारांश देखें', 'एक और जानकारी जोड़ें'],
+      GU: ['કન્સલ્ટેશન માટે આગળ વધો', 'વિગતો જુઓ', 'વધુ એક વિગત ઉમેરો'],
     };
 
     return {
@@ -2294,7 +2288,7 @@ export class UniversalClinicalEngine implements AIProvider {
       isRedFlag: false,
       redFlagReason: null,
       isComplete: true,
-      clinicalRationale: 'All critical clinical dimensions gathered; ready for clinical report generation',
+      clinicalRationale: 'All clinical domains assessed; finalized for doctor consultation handoff',
     };
   }
 
@@ -3204,25 +3198,31 @@ CLINICAL INTERVIEW GUIDELINES:
    - HOMEOPATHY: Dynamic classical case-taking exploring characteristic sensations (throbbing, bursting, stitching, tearing, heavy band), laterality (left vs right), modalities (< Aggravations by heat, cold, sun, motion, pressure, time vs > Ameliorations by cold compress, warmth, dark room, rest), thermal disposition (Chilly wanting blankets vs Hot wanting cool air), thirst state, and mental/emotional state (irritability, anxiety, sadness).
    - ALLOPATHY (General / Specialty): Inquire thoroughly into onset, duration, severity (1-10), pain character, anatomical location, radiation, functional limits, chronic diseases (Hypertension, Diabetes, Thyroid, Asthma), regular medications with dosages, and drug allergies.
 
-2. ENCOUNTER PHASES (CONDUCT A COMPLETE, DEEP INTAKE):
-   - Turn 0 (Initial Opening): If starting fresh, warmly welcome the patient in ${language} to the ${effectiveSpecialty} clinic and inquire about their chief complaint and main concerns with specific symptom options.
-   - Turn 1 (Symptom Exploration & Care-Path Specifics): Inquire into exact onset, sensation, severity, and care-path triggers.
-   - Turn 2 (Systemic, Metabolic & Lifestyle Dimensions): Inquire into digestion, sleep schedule, stress, and lifestyle factors.
-   - Turn 3 (Medical History, Current Medications & Allergies): Inquire about ongoing chronic medical conditions (BP, Diabetes, Thyroid), regular medicines, and drug allergies.
-   - Turn 4+ (Completion & Consultation Hand-off): When clinical dimensions are covered, set "isComplete": true and "questionCategory": "CLOSING" asking if they are ready to proceed with doctor consultation. Touch options MUST include: ["Proceed with Appointment", "Add One More Detail"].
+2. ENCOUNTER PHASES & STRICT 2-PHASE CLOSING PROTOCOL:
+   - Phase A (Active Clinical Exploration: "isComplete": false):
+     * If clinical dimensions (Chief Complaint, Care-Path specifics, Lifestyle sub-domains, Medical History & Allergies) are incomplete, formulate ONE next clinical question exploring the missing sub-domain.
+     * "touchOptions" MUST contain ONLY 3-4 medical symptom/parameter choices answering the clinical question. NEVER include handoff actions or proceed buttons during Phase A.
+   - Phase B (Intake Completion & Handoff: "isComplete": true):
+     * When all relevant domains are sufficiently gathered, DO NOT ASK ANY MORE CLINICAL QUESTIONS.
+     * "questionCategory" MUST be "CLOSING".
+     * "question" MUST be exclusively the polite closing statement:
+       - If language is EN: "Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room."
+       - If language is HI: "धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।"
+       - If language is GU: "ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો."
+     * "touchOptions" during Phase B MUST switch exclusively to handoff actions:
+       - If EN: ["Proceed to Appointment", "Review Summary", "Add One More Detail"]
+       - If HI: ["अपॉइंटमेंट के लिए आगे बढ़ें", "सारांश देखें", "एक और जानकारी जोड़ें"]
+       - If GU: ["કન્સલ્ટેશન માટે આગળ વધો", "વિગતો જુઓ", "વધુ એક વિગત ઉમેરો"]
 
-3. TOUCH OPTIONS:
-   - Provide 3-4 natural, comprehensive, one-tap selectable options in pure ${language} that give meaningful clinical answers to your question.
-
-4. ANTI-REPETITION:
+3. ANTI-REPETITION:
    - NEVER repeat a question or ask about an area already answered in the transcript.
 
 Return ONLY valid JSON (no markdown formatting, no code fences):
 {
-  "question": "thorough clinical question in pure ${language}",
+  "question": "thorough clinical question or closing statement in pure ${language}",
   "questionLanguage": "${language}",
   "questionCategory": "ONSET | DURATION | SEVERITY | CHARACTER | LIFESTYLE | MEDICATIONS | PAST_HISTORY | AYUSH | HOMEOPATHY | CLOSING",
-  "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}", "Option 4 in ${language}"],
+  "touchOptions": ["Option 1 in ${language}", "Option 2 in ${language}", "Option 3 in ${language}"],
   "isRedFlag": boolean,
   "redFlagReason": "string description or null",
   "isComplete": boolean,

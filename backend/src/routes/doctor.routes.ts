@@ -496,6 +496,10 @@ router.get('/timeline/:patientId', requireClinicalRole(), async (req: AuthReques
         miasm: v.ayushAssessment.homeopathyMiasm,
         modalities: v.ayushAssessment.homeopathyModalities,
         repertoryNotes: v.ayushAssessment.homeopathyRepertoryNotes,
+        prakriti: v.ayushAssessment.prakriti,
+        vikriti: v.ayushAssessment.vikriti,
+        agni: v.ayushAssessment.agni,
+        koshtha: v.ayushAssessment.koshtha,
       } : null,
     };
   });

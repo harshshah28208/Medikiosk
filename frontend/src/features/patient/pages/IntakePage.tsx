@@ -135,8 +135,8 @@ export function IntakePage() {
     speechProvider.stopListening();
     setIsListening(false);
 
-    // Immediate navigation if user chooses to proceed with appointment
-    if (/proceed|appointment|consultation|complete intake|अपॉइंटमेंट के लिए आगे बढ़ें|મુલાકાત માટે આગળ વધો|ok go to appointment|go to appointment/i.test(textToSend.trim())) {
+    // Phase B Handoff Navigation
+    if (/proceed|appointment|consultation|review summary|अपॉइंटमेंट के लिए आगे बढ़ें|सारांश देखें|કન્સલ્ટેશન માટે આગળ વધો|વિગતો જુઓ|ok go to appointment|go to appointment/i.test(textToSend.trim())) {
       const userMsg: ChatMessage = {
         id: `patient-${Date.now()}`,
         role: 'PATIENT',
@@ -145,6 +145,34 @@ export function IntakePage() {
       };
       setMessages((prev) => [...prev, userMsg]);
       handleCompleteIntake();
+      return;
+    }
+
+    if (/add one more detail|एक और जानकारी जोड़ें|વધુ એક વિગત ઉમેરો/i.test(textToSend.trim())) {
+      setIsComplete(false);
+      const userMsg: ChatMessage = {
+        id: `patient-${Date.now()}`,
+        role: 'PATIENT',
+        content: textToSend.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      const aiPrompt: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'AI',
+        content: language === 'hi'
+          ? 'कृपया बताएं कि आप अपने स्वास्थ्य या लक्षणों के बारे में क्या अतिरिक्त जानकारी जोड़ना चाहते हैं:'
+          : language === 'gu'
+          ? 'કૃપા કરીને જણાવો કે આપ આપની તબિયત કે લક્ષણો વિશે કઈ વધારાની વિગત ઉમેરવા માંગો છો:'
+          : 'Please tell me what other detail or symptom regarding your condition you would like to share with the doctor:',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        options: language === 'hi'
+          ? ['दवाओं से संबंधित अन्य जानकारी', 'कोई पुराना दर्द या एलर्जी', 'खान-पान व दिनचर्या का अन्य प्रभाव']
+          : language === 'gu'
+          ? ['દવાઓ સંબંધિત અન્ય વિગત', 'કોઈ જૂનો દુખાવો કે એલર્જી', 'ખોરાક અને દિનચર્યાની અન્ય વિગત']
+          : ['Additional detail about medications', 'Past chronic aches or allergies', 'Daily routine & diet factors'],
+      };
+      setMessages((prev) => [...prev, userMsg, aiPrompt]);
+      setTouchOptions(aiPrompt.options || []);
       return;
     }
 
@@ -200,13 +228,6 @@ export function IntakePage() {
 
         if (res.isComplete) {
           setIsComplete(true);
-          // If the patient explicitly chosen completion option (Proceed with Appointment / Complete intake), proceed immediately
-          if (/proceed|appointment|consultation|covers all symptoms|complete intake|सब लक्षण बता दिए|परामर्श के लिए आगे बढ़ें|ઇન્ટેક પૂર્ણ|તમામ લક્ષણો જણાવી દીધા|પરામર્શ માટે આગળ વધો|no, that covers|yes, proceed/i.test(textToSend)) {
-            setTimeout(() => {
-              handleCompleteIntake();
-            }, 600);
-            return;
-          }
         }
 
         if (audioEnabled) {

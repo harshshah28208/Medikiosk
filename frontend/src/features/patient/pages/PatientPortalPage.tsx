@@ -6,7 +6,7 @@ import {
   Heart, Calendar, FileText, Activity, ShieldCheck,
   Stethoscope, Clock, ChevronRight, User, Pill, Sparkles,
   ArrowRight, Upload, Phone, LogOut, CheckCircle2, Download, Printer,
-  Eye, X, AlertCircle, ClipboardList, ShieldAlert, RefreshCw
+  Eye, X, AlertCircle, ClipboardList, ShieldAlert, RefreshCw, History
 } from 'lucide-react';
 
 export function PatientPortalPage() {
@@ -17,6 +17,7 @@ export function PatientPortalPage() {
   const [activeVisit, setActiveVisit] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
 
   useEffect(() => {
     const userRaw = localStorage.getItem('medikiosk_user');
@@ -291,19 +292,27 @@ Prescription: ${item.lastPrescription || 'None'}
     URL.revokeObjectURL(url);
   };
 
-  const handleStartNewConsultation = () => {
+  const handleStartBrandNewVisit = () => {
+    localStorage.removeItem('medikiosk_active_visit');
     localStorage.removeItem('medikiosk_recent_changes');
     localStorage.removeItem('medikiosk_target_complaint');
     localStorage.setItem('medikiosk_visit_type', 'NEW_CASE');
+    setIsActionModalOpen(false);
+    navigate('/kiosk/language');
+  };
+
+  const handleSelectFollowUpEncounter = (record: any) => {
+    const targetComplaint = record?.chiefComplaint || record?.doctor?.diagnosis || record?.title || 'Follow-up Consultation';
+    localStorage.setItem('medikiosk_recent_changes', `Follow-up visit for previous condition: ${targetComplaint}`);
+    localStorage.setItem('medikiosk_target_complaint', targetComplaint);
+    localStorage.setItem('medikiosk_follow_up_visit_id', record?.id || record?.visitId || '');
+    localStorage.setItem('medikiosk_visit_type', 'FOLLOW_UP');
+    setIsActionModalOpen(false);
     navigate('/kiosk/language');
   };
 
   const handleFollowUp = (record?: any) => {
-    const targetComplaint = record?.chiefComplaint || record?.doctor?.diagnosis || record?.title || 'Follow-up Consultation';
-    localStorage.setItem('medikiosk_recent_changes', `Follow-up visit for previous condition: ${targetComplaint}`);
-    localStorage.setItem('medikiosk_target_complaint', targetComplaint);
-    localStorage.setItem('medikiosk_visit_type', 'FOLLOW_UP');
-    navigate('/kiosk/language');
+    handleSelectFollowUpEncounter(record);
   };
 
   const handleLogout = () => {
@@ -364,15 +373,15 @@ Prescription: ${item.lastPrescription || 'None'}
             <Sparkles className="w-4 h-4 text-amber-300" />
             <span>OPD Care &amp; AI Consultation</span>
           </div>
-          <h2 className="text-xl font-bold">Start OPD Visit &amp; Select Doctor</h2>
+          <h2 className="text-xl font-bold">Clinical Assessment &amp; Doctor Intake</h2>
           <p className="text-xs text-blue-100 leading-relaxed">
-            Choose your preferred Medical System (Allopathy, Ayurveda, Homeopathy) and consult your assigned specialist doctor.
+            Resume an ongoing session, book a follow-up for a past condition, or start a brand new consultation.
           </p>
           <button
-            onClick={handleStartNewConsultation}
+            onClick={() => setIsActionModalOpen(true)}
             className="w-full py-3 px-4 bg-white text-blue-700 font-bold rounded-2xl flex items-center justify-center gap-2 shadow hover:bg-blue-50 transition-all text-sm cursor-pointer"
           >
-            <span>Proceed to Doctor Selection &amp; Intake</span>
+            <span>Start Clinical Assessment / Choose Action</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -435,7 +444,7 @@ Prescription: ${item.lastPrescription || 'None'}
               Upload prescription PDFs and lab reports. Groq AI will analyze and index your history.
             </p>
             <button
-              onClick={handleStartNewConsultation}
+              onClick={() => setIsActionModalOpen(true)}
               className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <span>Upload Document</span>
@@ -826,6 +835,140 @@ Prescription: ${item.lastPrescription || 'None'}
                 className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
                 Close Summary
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PATIENT INTAKE ACTION MODAL (3-OPTION CHOICE GRID) */}
+      {isActionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 text-white space-y-6 shadow-2xl animate-scale-up">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600/30 text-blue-400 rounded-2xl flex items-center justify-center font-bold">
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Choose Clinical Intake Action</h3>
+                  <p className="text-xs text-slate-400">Select how you would like to proceed with your medical consultation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsActionModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              {/* Option 1: Resume Active Intake */}
+              <div
+                onClick={() => {
+                  if (activeVisit?.id) {
+                    setIsActionModalOpen(false);
+                    navigate(`/kiosk/intake/${activeVisit.id}`);
+                  }
+                }}
+                className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-4 ${
+                  activeVisit?.id
+                    ? 'bg-emerald-950/40 border-emerald-500/50 hover:bg-emerald-950/70 hover:border-emerald-400 cursor-pointer shadow-lg shadow-emerald-950/40'
+                    : 'bg-slate-950/40 border-slate-800 opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <h4 className="text-sm font-bold text-emerald-300">Option 1: Resume Active Intake</h4>
+                    {activeVisit?.token && (
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-mono font-bold">
+                        Token #{activeVisit.token}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    {activeVisit
+                      ? `Continue your active consultation with ${activeVisit.doctor?.user?.name ? 'Dr. ' + activeVisit.doctor.user.name : 'assigned doctor'} (${activeVisit.department?.name || 'OPD'}). Retains all prior responses.`
+                      : 'No ongoing uncompleted intake session. Start a new visit below.'}
+                  </p>
+                </div>
+                <div className="shrink-0 pt-1">
+                  <ChevronRight className={`w-5 h-5 ${activeVisit?.id ? 'text-emerald-400' : 'text-slate-600'}`} />
+                </div>
+              </div>
+
+              {/* Option 2: Book Follow-Up Consultation */}
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-indigo-400" />
+                    <h4 className="text-sm font-bold text-indigo-300">Option 2: Book Follow-Up Consultation</h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{timeline.length} previous visits</span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Select a previously diagnosed condition to follow up on symptom progression and medication response:
+                </p>
+
+                {timeline.length > 0 ? (
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 pt-1 pr-1">
+                    {timeline.slice(0, 4).map((record: any, rIdx: number) => {
+                      const complaint = record.chiefComplaint || record.doctor?.diagnosis || record.title || 'OPD Consultation';
+                      return (
+                        <div
+                          key={rIdx}
+                          onClick={() => handleSelectFollowUpEncounter(record)}
+                          className="p-2.5 bg-slate-900 hover:bg-indigo-950/60 border border-slate-800 hover:border-indigo-500/50 rounded-xl flex items-center justify-between gap-2 cursor-pointer transition-all text-xs"
+                        >
+                          <div className="truncate">
+                            <span className="font-semibold text-slate-200 block truncate">{complaint}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {record.date ? new Date(record.date).toLocaleDateString() : 'Past Visit'} • {record.doctor?.name || 'Physician'} ({record.department || 'OPD'})
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-bold text-indigo-300 px-2 py-1 bg-indigo-500/20 rounded-lg shrink-0">
+                            Follow-Up →
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-slate-900 rounded-xl text-[11px] text-slate-500 italic">
+                    No past visits found on record for follow-up. Please start a brand new consultation.
+                  </div>
+                )}
+              </div>
+
+              {/* Option 3: Start Brand New Consultation / New Issue */}
+              <div
+                onClick={handleStartBrandNewVisit}
+                className="p-4 bg-gradient-to-r from-blue-950/60 to-indigo-950/60 hover:from-blue-900/60 hover:to-indigo-900/60 border border-blue-500/40 hover:border-blue-400 rounded-2xl transition-all flex items-center justify-between gap-4 cursor-pointer shadow-lg shadow-blue-950/30"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <h4 className="text-sm font-bold text-blue-200">Option 3: Start Brand New Consultation / New Issue</h4>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Purges previous session state and starts a completely fresh intake for a new complaint, symptom, or department choice.
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <ArrowRight className="w-5 h-5 text-blue-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsActionModalOpen(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
               </button>
             </div>
           </div>

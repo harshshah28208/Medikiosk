@@ -29,6 +29,17 @@ router.get('/assessment/:visitId', requireClinicalRole(), async (req: AuthReques
     },
   });
 
+  if (assessment) {
+    const safeParse = (val: any) => {
+      if (!val || typeof val !== 'string') return val;
+      try { return JSON.parse(val); } catch { return val; }
+    };
+    (assessment as any).prakritiParsed = safeParse(assessment.prakriti);
+    (assessment as any).vikritiParsed = safeParse(assessment.vikriti);
+    (assessment as any).aharaParsed = safeParse(assessment.ahara);
+    (assessment as any).viharaParsed = safeParse(assessment.vihara);
+  }
+
   res.json({ assessment });
 });
 
