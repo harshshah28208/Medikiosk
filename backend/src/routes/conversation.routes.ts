@@ -579,6 +579,82 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
 });
 
 /**
+ * POST /api/conversation/:sessionId/switch-language
+ * Switches session language, translates active AI question and touch options into target language
+ * while preserving the underlying clinical state variables and completed turns.
+ */
+router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Response): Promise<void> => {
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : req.params.sessionId[0];
+  const { targetLanguage } = req.body;
+
+  if (!targetLanguage || !['EN', 'HI', 'GU'].includes(targetLanguage.toUpperCase())) {
+    res.status(400).json({ error: 'Valid targetLanguage (EN, HI, GU) is required.' });
+    return;
+  }
+
+  const newLang = targetLanguage.toUpperCase() as 'EN' | 'HI' | 'GU';
+
+  const session = await prisma.conversationSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      messages: { orderBy: { timestamp: 'desc' }, take: 2 },
+    },
+  });
+
+  if (!session) {
+    res.status(404).json({ error: 'Conversation session not found.' });
+    return;
+  }
+
+  let state: ClinicalState = createInitialClinicalState(newLang);
+  if (session.clinicalState) {
+    try {
+      state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : session.clinicalState;
+    } catch {}
+  }
+
+  // Update current language in state without erasing clinical facts or completed turns
+  state.currentLanguage = newLang;
+
+  // Translate the latest AI question and its touch options if present
+  const lastAiMessage = session.messages.find(m => m.role === 'AI');
+  let translatedQuestion = '';
+  let translatedOptions: string[] = [];
+
+  if (lastAiMessage) {
+    const rawOptions = lastAiMessage.metadata ? JSON.parse(lastAiMessage.metadata)?.options || [] : [];
+    translatedQuestion = await aiProvider.translateText(lastAiMessage.content, newLang);
+    translatedOptions = await Promise.all(rawOptions.map((opt: string) => aiProvider.translateText(opt, newLang)));
+
+    // Update message record
+    await prisma.conversationMessage.update({
+      where: { id: lastAiMessage.id },
+      data: {
+        content: translatedQuestion,
+        contentLang: newLang,
+        metadata: JSON.stringify({ options: translatedOptions }),
+      },
+    });
+  }
+
+  await prisma.conversationSession.update({
+    where: { id: sessionId },
+    data: {
+      language: newLang,
+      clinicalState: JSON.stringify(state),
+    },
+  });
+
+  res.json({
+    message: 'Language switched successfully',
+    targetLanguage: newLang,
+    activeQuestion: translatedQuestion,
+    touchOptions: translatedOptions,
+    clinicalState: state,
+  });
+});
+
+/**
  * POST /api/conversation/:sessionId/complete
  * Finalize conversation, store structured ClinicalHistory & ClinicalSummary draft,
  * update longitudinal Patient Medication and Allergy profiles, and generate FollowUp appointment.

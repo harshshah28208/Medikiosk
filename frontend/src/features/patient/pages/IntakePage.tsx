@@ -678,90 +678,118 @@ export function IntakePage() {
           </div>
         )}
 
-        {/* Bottom Input Action Bar */}
+        {/* Bottom Input / Phase B Handoff Bar */}
         <footer className="p-4 bg-white border-t border-slate-200 shrink-0 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs text-gray-500">ASR: Browser (Web Speech API)</span>
-          </div>
-
-          {voiceError && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between animate-fade-in">
-              <span>{voiceError}</span>
-              <button type="button" onClick={() => setVoiceError(null)} className="text-amber-600 hover:text-amber-800 font-bold ml-2">✕</button>
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setVoiceConfirmation(null);
-              setVoiceError(null);
-              handleSendMessage(inputText, 'TEXT');
-            }}
-            className="flex items-center gap-2"
-          >
-            {/* Voice Input Button */}
-            <button
-              type="button"
-              onClick={handleVoiceToggle}
-              className={`
-                p-3.5 rounded-2xl font-bold flex items-center justify-center transition-all shadow-md touch-target
-                ${isListening
-                  ? 'bg-red-600 text-white animate-bounce shadow-red-600/30'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
-                }
-              `}
-              title={isListening ? 'Stop Listening' : 'Speak Your Symptoms'}
-            >
-              {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-            </button>
-
-            {/* Text Input */}
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={
-                language === 'hi'
-                  ? 'यहाँ अपनी समस्या टाइप करें या माइक दबाकर बोलें...'
-                  : language === 'gu'
-                  ? 'અહીં આપની તકલીફ લખો અથવા માઇક દબાવીને બોલો...'
-                  : 'Type your symptoms or tap the microphone to speak...'
-              }
-              disabled={isProcessing}
-              className="flex-1 px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-            />
-
-            {/* Send Button */}
-            <button
-              type="submit"
-              disabled={!inputText.trim() || isProcessing}
-              className="p-3.5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all touch-target"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-
-          {/* Completion CTA */}
-          {isComplete && (
-            <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl animate-fade-in shadow-sm">
-              <div className="flex items-center gap-2 text-emerald-800 text-xs sm:text-sm font-semibold">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>
-                  {language === 'hi'
-                    ? 'क्लिनिकल AI पूछताछ पूरी हुई! सभी विवरण रिकॉर्ड हो चुके हैं।'
-                    : language === 'gu'
-                    ? 'ક્લિનિકલ AI પૂછપરછ પૂર્ણ થઈ! તમામ વિગતો નોંધાઈ ગઈ છે.'
-                    : 'Clinical questions completed! Ready for handover.'}
-                </span>
+          {!isComplete ? (
+            <>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs text-gray-500">ASR: Browser (Web Speech API)</span>
               </div>
-              <button
-                onClick={handleCompleteIntake}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5 touch-target cursor-pointer"
+
+              {voiceError && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between animate-fade-in">
+                  <span>{voiceError}</span>
+                  <button type="button" onClick={() => setVoiceError(null)} className="text-amber-600 hover:text-amber-800 font-bold ml-2">✕</button>
+                </div>
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setVoiceConfirmation(null);
+                  setVoiceError(null);
+                  handleSendMessage(inputText, 'TEXT');
+                }}
+                className="flex items-center gap-2"
               >
-                <span>{language === 'hi' ? 'AI सारांश देखें और अपॉइंटमेंट लें' : language === 'gu' ? 'AI સારાંશ જુઓ અને એપોઇન્ટમેન્ટ લો' : 'View AI Summary & Book Appointment'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                {/* Voice Input Button */}
+                <button
+                  type="button"
+                  onClick={handleVoiceToggle}
+                  className={`
+                    p-3.5 rounded-2xl font-bold flex items-center justify-center transition-all shadow-md touch-target
+                    ${isListening
+                      ? 'bg-red-600 text-white animate-bounce shadow-red-600/30'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+                    }
+                  `}
+                  title={isListening ? 'Stop Listening' : 'Speak Your Symptoms'}
+                >
+                  {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                </button>
+
+                {/* Text Input */}
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={
+                    language === 'hi'
+                      ? 'यहाँ अपनी समस्या टाइप करें या माइक दबाकर बोलें...'
+                      : language === 'gu'
+                      ? 'અહીં આપની તકલીફ લખો અથવા માઇક દબાવીને બોલો...'
+                      : 'Type your symptoms or tap the microphone to speak...'
+                  }
+                  disabled={isProcessing}
+                  className="flex-1 px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                />
+
+                {/* Send Button */}
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() || isProcessing}
+                  className="p-3.5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all touch-target"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </form>
+            </>
+          ) : (
+            /* Phase B Complete Handoff CTA (Hide input/mic & show primary handoff button) */
+            <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gradient-to-r from-emerald-900 to-teal-950 text-white border border-emerald-500/40 rounded-2xl animate-fade-in shadow-xl gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/20 border border-emerald-400/40 rounded-xl flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">
+                    {language === 'hi'
+                      ? 'क्लिनिकल पूछताछ पूर्ण हुई'
+                      : language === 'gu'
+                      ? 'ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ'
+                      : 'Clinical Questioning Complete'}
+                  </h4>
+                  <p className="text-xs text-emerald-200">
+                    {language === 'hi'
+                      ? 'आपका संपूर्ण विवरण डॉक्टर व क्लिनिकल टीम के लिए तैयार कर दिया गया है।'
+                      : language === 'gu'
+                      ? 'આપની તમામ વિગતો ડૉક્ટર અને તપાસ ટીમ માટે તૈયાર છે.'
+                      : 'Your information has been compiled for physician review.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSendMessage(language === 'hi' ? 'एक और जानकारी जोड़ें' : language === 'gu' ? 'વધુ એક વિગત ઉમેરો' : 'Add One More Detail', 'TOUCH');
+                  }}
+                  className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-all touch-target cursor-pointer"
+                >
+                  {language === 'hi' ? '+ एक और जानकारी जोड़ें' : language === 'gu' ? '+ વધુ એક વિગત ઉમેરો' : '+ Add One More Detail'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCompleteIntake}
+                  disabled={isProcessing}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 touch-target cursor-pointer"
+                >
+                  <span>{language === 'hi' ? 'अपॉइंटमेंट के लिए आगे बढ़ें' : language === 'gu' ? 'કન્સલ્ટેશન માટે આગળ વધો' : 'Proceed to Appointment'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </footer>
