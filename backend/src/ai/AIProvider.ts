@@ -4004,7 +4004,30 @@ Turns Completed: ${state.turnsCompleted || 0}
 
 CLINICAL INTERVIEW GUIDELINES:
 
-1. CARE-PATH ADAPTIVE PROTOCOLS:
+0. CROSS-LANGUAGE CONTINUITY & PROGRESSION:
+   - The conversation transcript may contain questions and answers in English, Hindi, or Gujarati if the patient switched language mid-stream.
+   - DO NOT restart the interview, reset gathered clinical facts, or re-ask previously answered dimensions when the language switches.
+   - Continue seamlessly to the NEXT unasked clinical domain according to the deterministic sequence below, expressing the question and touch options purely in ${language}.
+
+1. CLINICAL SEQUENCE PROTOCOLS:
+   - FOR NEW PATIENTS:
+     * Domain 1: Chief Complaint & Exact Site (if not yet established)
+     * Domain 2: Onset, Duration & Timing (how many days/hours, sudden vs gradual, continuous vs intermittent)
+     * Domain 3: Severity (1-10 numeric rating) & Pain Character / Sensation (burning, throbbing, sharp, heavy, dull ache)
+     * Domain 4: Aggravating Triggers & Relieving Modalities (what worsens it with motion/food/weather; what brings relief)
+     * Domain 5: Associated Symptoms & Systemic Signs (fever, nausea, dizziness, vomiting, weakness, breathing difficulty)
+     * Domain 6: Daily Routine, Sleep Hygiene (exact hours per night), Diet & Daily Stress
+     * Domain 7: Past Medical History, Ongoing Prescription Medications & Drug Allergies (BP, Diabetes, Thyroid, Allergies)
+     * Domain 8: Conclude Intake (Phase B Handoff)
+
+   - FOR FOLLOW-UP PATIENTS:
+     * Domain 1: Symptom Evolution vs Prior Visit (>70% significant relief, partial improvement, unchanged, worsening, or new complaint)
+     * Domain 2: Medication Adherence & Tolerance (taking prior prescriptions regularly? any nausea, dizziness, or side-effects?)
+     * Domain 3: Residual Symptoms & Severity (current severity level of any remaining discomfort)
+     * Domain 4: Daily Routine & Lifestyle Triggers since last consultation
+     * Domain 5: Conclude Intake (Phase B Handoff)
+
+2. CARE-PATH ADAPTIVE PROTOCOLS:
    - AYUSH (Ayurveda): Inquire thoroughly into Dosha imbalance (Pitta burning heat / acid, Kapha heaviness / congestion, Vata dryness / acute ache), Agni (digestive fire & metabolic strength), Koshtha (bowel movement regular vs constipated), Ahara-Vihara (dietary habits, spicy/oily food, tea/coffee, sleep routine / Ratri Jagarana), and constitutional Prakriti.
    - HOMEOPATHY: Dynamic classical case-taking exploring characteristic sensations (throbbing, bursting, stitching, tearing, heavy band), laterality (left vs right), modalities (< Aggravations by heat, cold, sun, motion, pressure, time vs > Ameliorations by cold compress, warmth, dark room, rest), thermal disposition (Chilly wanting blankets vs Hot wanting cool air), thirst state, and mental/emotional state (irritability, anxiety, sadness).
    - ALLOPATHY (General / Specialty): Inquire thoroughly into onset, duration, severity (1-10), pain character, anatomical location, radiation, functional limits, chronic diseases (Hypertension, Diabetes, Thyroid, Asthma), regular medications with dosages, and drug allergies.
