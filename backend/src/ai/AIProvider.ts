@@ -4060,6 +4060,12 @@ Return ONLY valid JSON (no markdown formatting, no code fences):
       ], true);
 
       const parsed = JSON.parse(text);
+      if (!parsed.question || typeof parsed.question !== 'string' || parsed.question.trim().length < 5) {
+        const fallbackQ = await this.fallback.generateNextQuestion(state, language, carePath, specialty, conversationHistory);
+        parsed.question = fallbackQ.question;
+        parsed.touchOptions = fallbackQ.touchOptions;
+        parsed.questionCategory = fallbackQ.questionCategory;
+      }
       if (parsed.isComplete || parsed.questionCategory === 'CLOSING') {
         parsed.isComplete = true;
         parsed.questionCategory = 'CLOSING';
