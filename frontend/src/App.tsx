@@ -40,23 +40,24 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<RoleRedirect />} />
 
-            {/* Patient / Kiosk Flow */}
-            <Route element={<ProtectedRoute roles={['PATIENT']} />}>
-              <Route path="/kiosk" element={<KioskShell />}>
-                <Route index element={<WelcomePage />} />
-                <Route path="language" element={<LanguagePage />} />
-                <Route path="identify" element={<IdentificationPage />} />
-                <Route path="register" element={<RegistrationPage />} />
-                <Route path="consent" element={<ConsentPage />} />
-                <Route path="token/:visitId" element={<TokenPage />} />
-                <Route path="intake/:visitId" element={<IntakePage />} />
-                <Route path="documents/:visitId" element={<DocumentUploadPage />} />
-                <Route path="review/:visitId" element={<PatientReviewPage />} />
-                <Route path="portal" element={<PatientPortalPage />} />
-              </Route>
-              <Route path="/patient" element={<KioskShell />}>
-                <Route index element={<PatientPortalPage />} />
-              </Route>
+            {/* Patient Portal & Kiosk Flow */}
+            <Route path="/portal" element={<KioskShell />}>
+              <Route index element={<PatientPortalPage />} />
+            </Route>
+            <Route path="/patient" element={<KioskShell />}>
+              <Route index element={<PatientPortalPage />} />
+            </Route>
+            <Route path="/kiosk" element={<KioskShell />}>
+              <Route index element={<WelcomePage />} />
+              <Route path="language" element={<LanguagePage />} />
+              <Route path="identify" element={<IdentificationPage />} />
+              <Route path="register" element={<RegistrationPage />} />
+              <Route path="consent" element={<ConsentPage />} />
+              <Route path="token/:visitId" element={<TokenPage />} />
+              <Route path="intake/:visitId" element={<IntakePage />} />
+              <Route path="documents/:visitId" element={<DocumentUploadPage />} />
+              <Route path="review/:visitId" element={<PatientReviewPage />} />
+              <Route path="portal" element={<PatientPortalPage />} />
             </Route>
 
             {/* Reception Flow */}

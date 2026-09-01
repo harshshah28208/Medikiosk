@@ -40,7 +40,18 @@ export function PatientPortalPage() {
       };
       localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
     } else if (!p) {
-      p = null;
+      p = {
+        id: 'pat-demo-1',
+        name: 'Ramesh Patel',
+        phone: '9876543210',
+        mrn: 'MK-1001',
+        age: 45,
+        gender: 'MALE',
+        bloodGroup: 'B+',
+        abhaId: '91-8823-9941-2041',
+        medicalHistory: 'Hypertension, Mild Gastritis',
+      };
+      localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
     }
     setPatient(p);
 
