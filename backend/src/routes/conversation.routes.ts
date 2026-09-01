@@ -330,7 +330,24 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   // Generate dynamic opening question entirely from live Groq AI using stored prior history
   const activeAi = getAIProvider();
   const initialAIOutput = await activeAi.generateNextQuestion(initialState, initialLang, carePath, specialty, priorVisitChatHistory);
-  initialState.questionsAsked = [initialAIOutput.question];
+
+  // Personalize opening question with Patient Name and Attending Doctor Name
+  const patientName = visit.patient?.name || (previousPatientInfo as any)?.name || 'Patient';
+  const rawDocName = visit.doctor?.user?.name || doctorName;
+  const docDisplayName = rawDocName
+    ? (rawDocName.startsWith('Dr.') || rawDocName.startsWith('Vaidya') ? rawDocName : `Dr. ${rawDocName}`)
+    : (carePath === 'AYUSH' ? 'Vaidya Harish Bhatt' : carePath === 'HOMEOPATHY' ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma');
+
+  let personalizedOpeningQ = initialAIOutput.question;
+  if (initialLang === 'HI') {
+    personalizedOpeningQ = `नमस्ते ${patientName} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${docDisplayName} (${specialty}) से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। ${initialAIOutput.question}`;
+  } else if (initialLang === 'GU') {
+    personalizedOpeningQ = `નમસ્તે ${patientName} ભાઈ/બહેન! હું મેડીકિયોસ્ક AI સહાયક છું. ${docDisplayName} (${specialty}) સાથે આપના કન્સલ્ટેશન માટે આપની વિગતો મેળવી રહ્યો છું. ${initialAIOutput.question}`;
+  } else {
+    personalizedOpeningQ = `Hello ${patientName}! I am MediKiosk Clinical AI. I am preparing your clinical intake for ${docDisplayName} (${specialty}). ${initialAIOutput.question}`;
+  }
+
+  initialState.questionsAsked = [personalizedOpeningQ];
 
   const session = await prisma.conversationSession.create({
     data: {
@@ -352,7 +369,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
     data: {
       sessionId: session.id,
       role: 'AI',
-      content: initialAIOutput.question,
+      content: personalizedOpeningQ,
       contentLang: initialLang,
       inputMethod: 'TEXT',
       metadata: JSON.stringify({ options: initialAIOutput.touchOptions, category: initialAIOutput.questionCategory }),
@@ -979,6 +996,81 @@ router.get('/:sessionId', async (req: AuthRequest, res: Response): Promise<void>
             : null,
         }
       : null,
+  });
+});
+
+/**
+ * POST /api/conversation/:sessionId/switch-language
+ * Switch session language without losing clinical state or generating a new question topic.
+ * Translates the current active question and options directly into the target language.
+ */
+router.post('/:sessionId/switch-language', async (req: AuthRequest, res: Response): Promise<void> => {
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : req.params.sessionId[0];
+  const { targetLanguage, messages } = req.body;
+
+  const targetLang = (targetLanguage?.toUpperCase() || 'EN') as 'EN' | 'HI' | 'GU';
+
+  const session = await prisma.conversationSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      messages: { orderBy: { timestamp: 'asc' } },
+    },
+  });
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  let state = typeof session.clinicalState === 'string' ? JSON.parse(session.clinicalState) : session.clinicalState as unknown as ClinicalState;
+  state.currentLanguage = targetLang;
+
+  await prisma.conversationSession.update({
+    where: { id: sessionId },
+    data: {
+      language: targetLang,
+      clinicalState: JSON.stringify(state),
+    },
+  });
+
+  const activeAi = getAIProvider();
+
+  // Find the last AI message from the conversation
+  const lastAiMsg = (messages && Array.isArray(messages) && messages.length > 0)
+    ? messages.slice().reverse().find((m: any) => m.role === 'AI')
+    : session.messages.slice().reverse().find((m: any) => m.role === 'AI');
+
+  const rawQuestion = lastAiMsg?.content || 'What is your primary health concern today?';
+  const rawOptions = lastAiMsg?.options || (lastAiMsg?.metadata ? (JSON.parse(lastAiMsg.metadata) as any)?.options : []) || [];
+
+  // Translate the active question and touch options directly into target language
+  const translatedQ = await activeAi.translateText(rawQuestion, targetLang);
+  const translatedOptions = Array.isArray(rawOptions) && rawOptions.length > 0
+    ? await Promise.all(rawOptions.map((opt: string) => activeAi.translateText(opt, targetLang)))
+    : [];
+
+  // Translate past messages if client provided them
+  let translatedMessages = undefined;
+  if (messages && Array.isArray(messages) && messages.length > 0) {
+    translatedMessages = await Promise.all(messages.map(async (m: any) => {
+      const transContent = await activeAi.translateText(m.content, targetLang);
+      const transOpts = m.options && Array.isArray(m.options)
+        ? await Promise.all(m.options.map((opt: string) => activeAi.translateText(opt, targetLang)))
+        : undefined;
+      return {
+        ...m,
+        content: transContent,
+        options: transOpts,
+      };
+    }));
+  }
+
+  res.json({
+    activeQuestion: translatedQ,
+    latestQuestion: translatedQ,
+    touchOptions: translatedOptions,
+    translatedMessages,
+    language: targetLang,
   });
 });
 
