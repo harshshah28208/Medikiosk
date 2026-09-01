@@ -700,6 +700,10 @@ export const api = {
           translatedMessages,
         };
       }),
+    getSession: (sessionId: string) =>
+      request(`/conversation/${sessionId}`, {
+        method: 'GET',
+      }),
     complete: (sessionId: string) =>
       request(`/conversation/${sessionId}/complete`, {
         method: 'POST',

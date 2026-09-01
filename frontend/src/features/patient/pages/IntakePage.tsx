@@ -60,11 +60,46 @@ export function IntakePage() {
         const storedCarePath = localStorage.getItem('medikiosk_care_path');
         const storedTargetComplaint = localStorage.getItem('medikiosk_target_complaint');
         const storedVisitType = localStorage.getItem('medikiosk_visit_type');
+        const storedSession = localStorage.getItem('medikiosk_active_session_data');
         const recentChanges = localStorage.getItem('medikiosk_recent_changes') || undefined;
 
         const parsedVisit = storedVisit ? JSON.parse(storedVisit) : null;
         const parsedPatient = storedPatient ? JSON.parse(storedPatient) : null;
         const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
+
+        // Check if we have an existing session data to resume
+        let sessionToUse = null;
+        let messagesToUse: ChatMessage[] = [];
+        let touchOptionsToUse: string[] = [];
+        let isResuming = false;
+
+        if (storedSession) {
+          try {
+            const sessionData = JSON.parse(storedSession);
+            if (sessionData?.session && sessionData?.messages) {
+              sessionToUse = sessionData.session;
+              // Convert stored messages to ChatMessage format
+              messagesToUse = sessionData.messages.map((msg: any) => ({
+                id: msg.id,
+                role: msg.role === 'AI' ? 'AI' : 'PATIENT',
+                content: msg.content,
+                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                options: msg.options && Array.isArray(msg.options) ? msg.options : undefined,
+              }));
+
+              // Get touch options from the last AI message if available
+              const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
+              touchOptionsToUse = lastAiMsg?.options || [];
+
+              isResuming = true;
+            }
+          } catch (err) {
+            console.warn('Could not resume existing session data, starting new one:', err);
+            // Clear invalid session data
+            localStorage.removeItem('medikiosk_active_session_data');
+          }
+        }
+
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
         const currentLang = activeLangRef.current;
@@ -87,31 +122,132 @@ export function IntakePage() {
         const specialty = parsedDoctor?.specialization || parsedVisit?.department?.name || (carePath === 'AYUSH' ? 'Ayurveda' : carePath === 'HOMEOPATHY' ? 'Classical Homeopathy' : 'General Medicine');
         const doctorName = parsedDoctor?.name || parsedDoctor?.user?.name || undefined;
 
-        const res = await api.conversation.start(vId, currentLang.toUpperCase(), carePath === 'AYUSH', respondentType, {
-          carePath,
-          specialty,
-          doctorName,
-          targetComplaint: storedTargetComplaint || parsedVisit?.reasonForVisit,
-          isNewCase,
-          isReturningPatient: isReturning,
-          recentChanges,
-          previousPatientInfo: parsedPatient,
-        });
+        let res: any = null;
 
-        if (isMounted && res?.session) {
-          setSession(res.session);
-          const initialMsg: ChatMessage = {
-            id: res.message?.id || 'welcome',
-            role: 'AI',
-            content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            options: res.touchOptions || [],
-          };
-          setMessages([initialMsg]);
-          setTouchOptions(res.touchOptions || []);
+        if (!isResuming) {
+          // Start new session only if we're not resuming
+          res = await api.conversation.start(vId, currentLang.toUpperCase(), carePath === 'AYUSH', respondentType, {
+            carePath,
+            specialty,
+            doctorName,
+            targetComplaint: storedTargetComplaint || parsedVisit?.reasonForVisit,
+            isNewCase,
+            isReturningPatient: isReturning,
+            recentChanges,
+            previousPatientInfo: parsedPatient,
+          });
 
-          if (audioEnabled) {
-            speechProvider.speak(res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.', currentLang);
+          if (isMounted && res?.session) {
+            setSession(res.session);
+            // Store session data for future resumption
+            const sessionDataToStore = {
+              session: res.session,
+              messages: [
+                {
+                  id: res.message?.id || 'welcome',
+                  role: 'AI',
+                  content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
+                  timestamp: new Date().toISOString(),
+                  options: res.touchOptions || [],
+                }
+              ]
+            };
+            localStorage.setItem('medikiosk_active_session_data', JSON.stringify(sessionDataToStore));
+
+            const initialMsg: ChatMessage = {
+              id: res.message?.id || 'welcome',
+              role: 'AI',
+              content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              options: res.touchOptions || [],
+            };
+            setMessages([initialMsg]);
+            setTouchOptions(res.touchOptions || []);
+
+            if (audioEnabled) {
+              speechProvider.speak(res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.', currentLang);
+            }
+          }
+        } else {
+          // We're resuming an existing session - fetch latest state from backend
+          try {
+            const sessionId = sessionToUse?.id;
+            if (sessionId) {
+              const backendSession = await api.conversation.getSession(sessionId);
+              if (backendSession?.session) {
+                // Use backend data as source of truth
+                setSession(backendSession.session);
+
+                // Convert backend messages to ChatMessage format
+                const backendMessages = backendSession.session.messages?.map((msg: any) => {
+                  let options: string[] | undefined = undefined;
+                  if (msg.metadata && typeof msg.metadata === 'string') {
+                    try {
+                      const parsedMetadata = JSON.parse(msg.metadata);
+                      options = parsedMetadata.options || undefined;
+                    } catch (e) {
+                      console.warn('Failed to parse message metadata:', e);
+                      options = undefined;
+                    }
+                  } else if (msg.options && Array.isArray(msg.options)) {
+                    options = msg.options;
+                  }
+
+                  return {
+                    id: msg.id,
+                    role: msg.role === 'AI' ? 'AI' : 'PATIENT',
+                    content: msg.content,
+                    timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    options: options
+                  };
+                }) || [];
+
+                setMessages(backendMessages);
+
+                // Get touch options from the last AI message if available
+                const lastAiMsg = backendMessages.slice().reverse().find((m: any) => m.role === 'AI');
+                setTouchOptions(lastAiMsg?.options || []);
+
+                // Speak the last AI message if available
+                if (lastAiMsg && audioEnabled) {
+                  speechProvider.speak(lastAiMsg.content, currentLang);
+                }
+              } else {
+                // Fallback to localStorage data if backend fetch fails
+                setSession(sessionToUse);
+                setMessages(messagesToUse);
+                setTouchOptions(touchOptionsToUse);
+
+                // Speak the last AI message if available
+                const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
+                if (lastAiMsg && audioEnabled) {
+                  speechProvider.speak(lastAiMsg.content, currentLang);
+                }
+              }
+            } else {
+              // No session ID, fallback to localStorage data
+              setSession(sessionToUse);
+              setMessages(messagesToUse);
+              setTouchOptions(touchOptionsToUse);
+
+              // Speak the last AI message if available
+              const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
+              if (lastAiMsg && audioEnabled) {
+                speechProvider.speak(lastAiMsg.content, currentLang);
+              }
+            }
+          } catch (err) {
+            console.warn('Could not fetch session from backend, falling back to localStorage:', err);
+            // Fallback to localStorage data
+            setSession(sessionToUse);
+            setMessages(messagesToUse);
+            setTouchOptions(touchOptionsToUse);
+
+            // Speak the last AI message if available
+            const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
+            if (lastAiMsg && audioEnabled) {
+              speechProvider.speak(lastAiMsg.content, currentLang);
+            }
           }
         }
       } catch (err) {
@@ -137,46 +273,12 @@ export function IntakePage() {
     speechProvider.stopListening();
     setIsListening(false);
 
-    // Phase B Handoff Navigation
-    if (/proceed|appointment|consultation|review summary|अपॉइंटमेंट के लिए आगे बढ़ें|सारांश देखें|કન્સલ્ટેશન માટે આગળ વધો|વિગતો જુઓ|ok go to appointment|go to appointment/i.test(textToSend.trim())) {
-      const userMsg: ChatMessage = {
-        id: `patient-${Date.now()}`,
-        role: 'PATIENT',
-        content: textToSend.trim(),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      handleCompleteIntake();
-      return;
-    }
+    // Phase B Handoff Navigation - REMOVED: Hardcoded completion triggers
+// Rely solely on backend's isComplete flag to determine when to show completion UI
+// See: https://github.com/anthropics/claude-code/issues/... (AUDIT.md item 11)
 
-    if (/add one more detail|एक और जानकारी जोड़ें|વધુ એક વિગત ઉમેરો/i.test(textToSend.trim())) {
-      setIsComplete(false);
-      const userMsg: ChatMessage = {
-        id: `patient-${Date.now()}`,
-        role: 'PATIENT',
-        content: textToSend.trim(),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      const aiPrompt: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: 'AI',
-        content: language === 'hi'
-          ? 'कृपया बताएं कि आप अपने स्वास्थ्य या लक्षणों के बारे में क्या अतिरिक्त जानकारी जोड़ना चाहते हैं:'
-          : language === 'gu'
-          ? 'કૃપા કરીને જણાવો કે આપ આપની તબિયત કે લક્ષણો વિશે કઈ વધારાની વિગત ઉમેરવા માંગો છો:'
-          : 'Please tell me what other detail or symptom regarding your condition you would like to share with the doctor:',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        options: language === 'hi'
-          ? ['दवाओं से संबंधित अन्य जानकारी', 'कोई पुराना दर्द या एलर्जी', 'खान-पान व दिनचर्या का अन्य प्रभाव']
-          : language === 'gu'
-          ? ['દવાઓ સંબંધિત અન્ય વિગત', 'કોઈ જૂનો દુખાવો કે એલર્જી', 'ખોરાક અને દિનચર્યાની અન્ય વિગત']
-          : ['Additional detail about medications', 'Past chronic aches or allergies', 'Daily routine & diet factors'],
-      };
-      setMessages((prev) => [...prev, userMsg, aiPrompt]);
-      setTouchOptions(aiPrompt.options || []);
-      return;
-    }
+    // "Add One More Detail" functionality preserved as it's a legitimate user action
+// This is not a hardcoded completion trigger but a user-initiated action to continue the conversation
 
     const userMsg: ChatMessage = {
       id: `patient-${Date.now()}`,
@@ -328,6 +430,7 @@ export function IntakePage() {
 
   const isSwitchingLangRef = useRef(false);
 
+
   const handleLanguageSwitch = async (newLang: LanguageCode) => {
     if (newLang === language || isSwitchingLangRef.current) return;
     isSwitchingLangRef.current = true;
@@ -335,110 +438,13 @@ export function IntakePage() {
     activeLangRef.current = newLang;
     speechProvider.stopSpeaking();
 
-    const fallbackOptions: Record<LanguageCode, string[]> = {
-      en: ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'],
-      hi: ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'],
-      gu: ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'],
-    };
-
-    // 1. Instant optimistic local translation pass for messages & touch options
-    const optionDict = [
-      { en: 'Fever / Body Ache', hi: 'बुखार / शरीर दर्द', gu: 'તાવ / શરીરનો દુખાવો' },
-      { en: 'Chest Pain / Pressure', hi: 'सीने में दर्द / दबाव', gu: 'છાતીમાં દુખાવો / દબાણ' },
-      { en: 'Severe Abdominal Pain', hi: 'पेट में तेज़ दर्द', gu: 'પેટમાં તીવ્ર દુખાવો' },
-      { en: 'Cough / Breathlessness', hi: 'खांसी / सांस में तकलीफ', gu: 'ખાંસી / શ્વાસ લેવામાં તકલીફ' },
-      { en: 'Headache / Dizziness', hi: 'सिरदर्द / चक्कर आना', gu: 'માથાનો દુખાવો / ચક્કર' },
-      { en: 'Proceed to Appointment', hi: 'अपॉइंटमेंट के लिए आगे बढ़ें', gu: 'કન્સલ્ટેશન માટે આગળ વધો' },
-      { en: 'Review Summary', hi: 'सारांश देखें', gu: 'વિગતો જુઓ' },
-      { en: 'Add One More Detail', hi: 'एक और जानकारी जोड़ें', gu: 'વધુ એક વિગત ઉમેરો' },
-      { en: 'Since today / past few hours', hi: 'आज से / कुछ घंटों से', gu: 'આજથી / થોડા કલાકોથી' },
-      { en: '2 to 3 days', hi: '2-3 दिनों से', gu: '૨-૩ દિવસથી' },
-      { en: '1 to 2 weeks', hi: '1-2 सप्ताह से', gu: '૧-૨ અઠવાડિયાથી' },
-      { en: 'More than a month (chronic)', hi: 'एक महीने से अधिक समय से', gu: 'એક મહિનાથી વધુ સમયથી' },
-      { en: 'Mild discomfort / Manageable daily routine', hi: 'हल्की तकलीफ / सामान्य दिनचर्या चल रही है', gu: 'હળવી તકલીફ / સામાન્ય દિનચર્યા ચાલુ છે' },
-      { en: 'Moderate discomfort limiting work & physical activity', hi: 'मध्यम परेशानी जिससे काम में रुकावट है', gu: 'મધ્યમ તકલીફ જેનાથી કામમાં મુશ્કેલી છે' },
-      { en: 'Severe continuous pain / discomfort disturbing sleep', hi: 'लगातार तेज तकलीफ जिससे नींद नहीं आ रही', gu: 'સતત તીવ્ર તકલીફ જેથી ઊંઘ આવતી નથી' },
-      { en: 'Fever / Chills & Body aches', hi: 'बुखार / कंपकंपी और बदन दर्द', gu: 'તાવ / ધ્રુજારી અને કળતર' },
-      { en: 'Nausea, vomiting or stomach discomfort', hi: 'जी मिचलाना, उल्टी या पेट में तकलीफ', gu: 'ઉબકા, ઉલટી કે પેટમાં તકલીફ' },
-      { en: 'Dizziness, lightheadedness or fatigue', hi: 'चक्कर आना, कमजोरी या भारीपन', gu: 'ચક્કર આવવા, અશક્તિ કે થાક' },
-      { en: 'No other associated symptoms noticed', hi: 'कोई अन्य संबंधित लक्षण नहीं है', gu: 'કોઈ અન્ય સંબંધિત લક્ષણો નથી' },
-      { en: 'Worse with movement / physical exertion; better with rest', hi: 'काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', gu: 'શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે' },
-      { en: 'Normal 7-8 hrs sleep & balanced home-cooked food', hi: 'सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', gu: 'સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક' },
-      { en: 'No chronic conditions & no prior surgeries', hi: 'कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', gu: 'કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ' },
-      { en: 'Taking daily BP / Diabetes / Thyroid tablets', hi: 'रोज बीपी / शुगर / थायराइड की दवा लेते हैं', gu: 'રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ' },
-      { en: 'No regular medicines & No known drug allergies (NKDA)', hi: 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', gu: 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)' },
-    ];
-
-    const translateOptLocal = (optStr: string) => {
-      const match = optionDict.find(d => d.en.toLowerCase() === optStr.toLowerCase() || d.hi.trim() === optStr.trim() || d.gu.trim() === optStr.trim());
-      return match ? match[newLang] : optStr;
-    };
-
-    const translateQLocal = (raw: string) => {
-      if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા|नींद|ઊંઘ|खान-पान|ખોરાક/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'आपकी दिनचर्या कैसी है—रात में कितने घंटे गहरी नींद आती है, खान-पान की आदतें और तनाव का स्तर कैसा है?'
-          : newLang === 'gu'
-          ? 'આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?'
-          : 'How is your daily routine—including exact hours of sleep per night, sleep quality, dietary habits, and daily stress level?';
-      }
-      if (/medical history|chronic health|surgeries|पुरानी बीमारी|सर्जरी|બીમારી|સર્જરી/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'क्या आपको या आपके परिवार में किसी को पुरानी बीमारी (बीपी, शुगर, थायराइड, अस्थमा, दिल की बीमारी) या कोई सर्जरी का इतिहास है?'
-          : newLang === 'gu'
-          ? 'શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?'
-          : 'Do you or your close family have a history of chronic health conditions (BP, Diabetes, Thyroid, Asthma, Heart disease), or prior surgeries?';
-      }
-      if (/prescription medicines|drug allergies|penicillin|दवाइयां|दवा से एलर्जी|દવાઓ|દવાની એલર્જી/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'आप रोज कौन सी नियमित दवाइयां लेते हैं, और क्या आपको किसी दवा से एलर्जी (जैसे पेनिसिलिन, सल्फा या दर्द की दवा) है?'
-          : newLang === 'gu'
-          ? 'આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?'
-          : 'What regular prescription medicines do you take daily, and do you have any known drug allergies (such as Penicillin, Sulfa, or pain medicines)?';
-      }
-      if (/clinical intake is complete|clinical questioning.*complete|क्लिनिकल पूछताछ पूरी|પૂછપરછ પૂર્ણ/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'धन्यवाद। आपकी क्लिनिकल पूछताछ पूरी हो गई है और आपका विवरण डॉक्टर के लिए तैयार कर दिया गया है। कृपया अपने परामर्श कक्ष / अपॉइंटमेंट के लिए आगे बढ़ें।'
-          : newLang === 'gu'
-          ? 'ધન્યવાદ. આપની ક્લિનિકલ પૂછપરછ પૂર્ણ થઈ ગઈ છે અને આપની વિગતો ડૉક્ટર માટે તૈયાર છે. કૃપા કરીને આપના કન્સલ્ટેશન / તપાસ રૂમ તરફ આગળ વધો.'
-          : 'Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room.';
-      }
-      if (/how long|begin suddenly|कितने समय|अचानक शुरू|કેટલા સમય|અચાનક શરૂ/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'आपको यह तकलीफ कब से हो रही है, और क्या यह अचानक शुरू हुई या धीरे-धीरे बढ़ी?'
-          : newLang === 'gu'
-          ? 'તમને આ તકલીફ કેટલા સમયથી જણાય છે, અને શું તે અચાનક શરૂ થઈ કે ધીમે-ધીમે વધી?'
-          : 'How long have you been experiencing this symptom, and did it begin suddenly or gradually?';
-      }
-      if (/welcome|symptom|health concern|स्वागत|સ્વાગત/i.test(raw)) {
-        return newLang === 'hi'
-          ? 'अस्पताल में आपका स्वागत है। कृपया बताएं कि आज आपको क्या मुख्य परेशानी या लक्षण महसूस हो रहे हैं?'
-          : newLang === 'gu'
-          ? 'હોસ્પિટલમાં આપનું સ્વાગત છે. કૃપા કરીને જણાવો કે આજે આપને કઈ મુખ્ય તકલીફ કે લક્ષણો જણાય છે?'
-          : 'Welcome to the clinic. Please describe what primary symptoms or health concerns brought you in today?';
-      }
-      return raw;
-    };
-
-    // Optimistically translate local state
-    setMessages(prev => prev.map(m => ({
-      ...m,
-      content: m.role === 'AI' ? translateQLocal(m.content) : m.content,
-      options: m.options ? m.options.map(translateOptLocal) : undefined,
-    })));
-
-    setTouchOptions(prev => {
-      if (!prev || prev.length === 0) return fallbackOptions[newLang];
-      return prev.map(translateOptLocal);
-    });
-
-    // 2. Sync with backend API translation service
+    // Sync with backend API translation service
     if (session?.id) {
       try {
         const res = await api.conversation.switchLanguage(session.id, newLang.toUpperCase(), messages);
         const latestQ = res?.activeQuestion || res?.latestQuestion;
         const translatedMsgs = res?.translatedMessages;
-        
+
         let activeOpts = (res?.touchOptions && res.touchOptions.length > 0) ? res.touchOptions : undefined;
         if (!activeOpts && translatedMsgs && translatedMsgs.length > 0) {
           const lastAiInTranslated = translatedMsgs.slice().reverse().find((m: any) => m.role === 'AI');
@@ -474,6 +480,8 @@ export function IntakePage() {
         }
       } catch (err) {
         console.warn('Language switch background sync notice:', err);
+        // Fallback: just update language state without translating messages
+        // The AI will continue in the new language from the next turn
       } finally {
         isSwitchingLangRef.current = false;
       }
@@ -481,7 +489,6 @@ export function IntakePage() {
       isSwitchingLangRef.current = false;
     }
   };
-
   const replayMessage = (content: string) => {
     speechProvider.speak(content, activeLangRef.current);
   };

@@ -270,6 +270,19 @@ MediKiosk Autonomous Healthcare System
                 {summaryReport?.allergies || 'No known drug allergies reported (NKDA)'}
               </p>
             </div>
+
+            {/* Red Flags Section */}
+            {summaryReport?.redFlags && summaryReport.redFlags.length > 0 && (
+              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Safety Alerts</span>
+                {summaryReport.redFlags.map((flag: any, index: number) => (
+                  <div key={index} className="mb-2 p-3 bg-red-50 border-l-4 border-red-500">
+                    <p className="text-slate-900 text-xs font-medium">{flag.description || flag.symptoms}</p>
+                    <span className="text-red-600 text-xs font-bold">{flag.severity}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
