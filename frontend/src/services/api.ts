@@ -651,7 +651,20 @@ export const api = {
         });
 
         let translatedQ = rawContent;
-        if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા|नींद|ઊંઘ|खान-पान|ખોરાક/i.test(rawContent)) {
+        if (/hello|नमस्ते|નમસ્તે/i.test(rawContent)) {
+          const nameMatch = rawContent.match(/(?:Hello|नमस्ते|નમસ્તે)\s+([A-Za-z0-9\s]+?)(?:!|जी|ભાઈ|બહેન|\.|\,)/i);
+          const docMatch = rawContent.match(/(?:Dr\.|Vaidya)\s+([A-Za-z0-9\s]+?)(?:\s*\(|\s+with|\s+for|\.|\,)/i);
+          const pName = nameMatch ? nameMatch[1].trim() : 'Patient';
+          const dName = docMatch ? `Dr. ${docMatch[1].trim()}` : '';
+
+          if (langLower === 'hi') {
+            translatedQ = `नमस्ते ${pName} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${dName ? `${dName} से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। ` : ''}आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
+          } else if (langLower === 'gu') {
+            translatedQ = `નમસ્તે ${pName} ભાઈ/બહેન! હું મેડીકિયોસ્ક AI સહાયક છું. ${dName ? `${dName} સાથે આપના કન્સલ્ટેશન માટે આપની વિગતો મેળવી રહ્યો છું. ` : ''}આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`;
+          } else {
+            translatedQ = `Hello ${pName}! I am MediKiosk Clinical AI. ${dName ? `I am preparing your clinical intake for ${dName}. ` : ''}What main symptom or health concern brought you in today?`;
+          }
+        } else if (/lifestyle|sleep|routine|diet|दिनचर्या|દિનચર્યા|नींद|ઊંઘ|खान-पान|ખોરાક/i.test(rawContent)) {
           translatedQ = langLower === 'hi'
             ? 'आपकी दिनचर्या कैसी है—जैसे नींद के घंटे, शारीरिक सक्रियता, खान-पान का समय और तनाव का स्तर?'
             : langLower === 'gu'
