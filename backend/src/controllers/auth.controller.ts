@@ -294,6 +294,29 @@ export async function demoLogin(req: AuthRequest, res: Response): Promise<void> 
         },
       },
     });
+
+    if (!patientProfile) {
+      const mrn = `MK-${Math.floor(100000 + Math.random() * 900000)}`;
+      patientProfile = await prisma.patient.create({
+        data: {
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '9876543210',
+          mrn,
+          age: 30,
+          gender: 'MALE',
+          preferredLang: 'EN',
+        },
+        include: {
+          visits: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+            include: { department: true, summary: true, queueEntry: true },
+          },
+        },
+      });
+    }
   }
 
   await createAuditLog({
