@@ -33,6 +33,7 @@ export function IntakePage() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
 
   const activeLangRef = useRef<LanguageCode>(language);
+  const sessionRef = useRef<any>(null);
   useEffect(() => {
     activeLangRef.current = language;
   }, [language]);
@@ -143,6 +144,8 @@ export function IntakePage() {
 
           if (isMounted && res?.session) {
             setSession(res.session);
+            sessionRef.current = res.session;
+            localStorage.setItem('medikiosk_active_session_id', res.session.id);
             // Store session data for future resumption
             const sessionDataToStore = {
               session: res.session,
@@ -231,6 +234,8 @@ export function IntakePage() {
             } else {
               // No session ID, fallback to localStorage data
               setSession(sessionToUse);
+              sessionRef.current = sessionToUse;
+              localStorage.setItem('medikiosk_active_session_id', sessionToUse.id);
               setMessages(messagesToUse);
               setTouchOptions(touchOptionsToUse);
 
@@ -308,7 +313,7 @@ export function IntakePage() {
       }
 
       const currentLang = activeLangRef.current;
-      const sessionId = session?.id || 'demo-session';
+      const sessionId = sessionRef.current?.id || session?.id || localStorage.getItem('medikiosk_active_session_id') || 'active';
       const res = await api.conversation.sendMessage(sessionId, {
         content: textToSend.trim(),
         inputMethod: method,
