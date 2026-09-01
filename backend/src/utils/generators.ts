@@ -6,25 +6,14 @@ import { MRN_CONFIG, TOKEN_PREFIXES } from '../config/constants.js';
  * Format: MK-XXXXX (e.g., MK-1001, MK-1002)
  */
 export async function generateMRN(): Promise<string> {
-  // Find the highest existing MRN number
-  const lastPatient = await prisma.patient.findFirst({
-    where: {
-      mrn: { startsWith: MRN_CONFIG.PREFIX },
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { mrn: true },
-  });
-
-  let nextNumber = MRN_CONFIG.LIVE_START;
-
-  if (lastPatient) {
-    const currentNumber = parseInt(lastPatient.mrn.split('-')[1], 10);
-    if (currentNumber >= MRN_CONFIG.LIVE_START) {
-      nextNumber = currentNumber + 1;
-    }
+  const count = await prisma.patient.count();
+  let candidate = `${MRN_CONFIG.PREFIX}-${(1000 + count + 1).toString()}`;
+  let exists = await prisma.patient.findUnique({ where: { mrn: candidate } });
+  
+  if (exists) {
+    candidate = `${MRN_CONFIG.PREFIX}-${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`;
   }
-
-  return `${MRN_CONFIG.PREFIX}-${nextNumber.toString().padStart(4, '0')}`;
+  return candidate;
 }
 
 /**

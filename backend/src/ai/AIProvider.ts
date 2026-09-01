@@ -790,61 +790,64 @@ function translateOptionDirectly(text: string, targetLanguage: 'EN' | 'HI' | 'GU
 function getSymptomLabelInLang(complaint: string, lang: 'EN' | 'HI' | 'GU'): string {
   const c = complaint.toLowerCase();
   
-  if (/vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला/i.test(c)) {
+  if (/\b(toe|toes|foot|feet|podagra|gout)\b|पैर का अंगूठा|પગનો અંગૂઠો/i.test(c)) {
+    return lang === 'HI' ? 'पैर के अंगूठे व जोड़ों के दर्द' : lang === 'GU' ? 'પગના અંગૂઠા અને સાંધાના દુખાવા' : 'toe joint pain and swelling';
+  }
+  if (/\b(vomit|vomiting|nausea|nauseous)\b|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला/i.test(c)) {
     return lang === 'HI' ? 'उल्टी और जी मिचलाने' : lang === 'GU' ? 'ઉલટી અને ઉબકા' : 'vomiting and nausea';
   }
-  if (/dizz|vertigo|gidd|चक्कर|ચક્કર/i.test(c)) {
+  if (/\b(dizzy|dizziness|vertigo|giddiness|spinning)\b|चक्कर|ચક્કર/i.test(c)) {
     return lang === 'HI' ? 'चक्कर आने' : lang === 'GU' ? 'ચક્કર આવવા' : 'dizziness and vertigo';
   }
-  if (/diarrhea|loose motion|motions|दस्त|ઝાડા|મરોડ/i.test(c)) {
+  if (/\b(diarrhea|loose motion|loose motions|motions)\b|दस्त|ઝાડા|મરોડ/i.test(c)) {
     return lang === 'HI' ? 'दस्त और पेट में मरोड़' : lang === 'GU' ? 'ઝાડા અને પેટમાં ચૂંક' : 'loose motions and diarrhea';
   }
-  if (/breath|dyspnea|asthma|wheez|सांस|શ્વાસ/i.test(c)) {
+  if (/\b(breath|breathing|dyspnea|asthma|wheezing|shortness of breath)\b|सांस|શ્વાસ/i.test(c)) {
     return lang === 'HI' ? 'सांस लेने में तकलीफ' : lang === 'GU' ? 'શ્વાસ લેવામાં તકલીફ' : 'breathing difficulty and shortness of breath';
   }
-  if (/eye|vision|आँख|આંખ/i.test(c)) {
+  if (/\b(eye|eyes|vision|blurry vision)\b|आँख|આંખ/i.test(c)) {
     return lang === 'HI' ? 'आँखों में दर्द और लाली' : lang === 'GU' ? 'આંખોમાં દુખાવો અને લાલાશ' : 'eye pain and irritation';
   }
-  if (/ear|hear|कान|કાન/i.test(c)) {
-    return lang === 'HI' ? 'कान में दर्द और भारीपन' : lang === 'GU' ? 'કાનમાં દુખાવો અને પરુ' : 'ear pain and discharge';
+  if (/\b(ear|ears|earache|tinnitus|ringing ear|buzzing ear)\b|कान|કાન/i.test(c)) {
+    return lang === 'HI' ? 'कान में दर्द, सीटी और भारीपन' : lang === 'GU' ? 'કાનમાં દુખાવો, અવાજ અને પરુ' : 'ear ringing, pain and blockage';
   }
-  if (/pimple|acne|boil|मुँहासे|फुंसी|ખીલ/i.test(c)) {
+  if (/\b(pimple|pimples|acne|boil|boils)\b|मुँहासे|फुंसी|ખીલ/i.test(c)) {
     return lang === 'HI' ? 'मुँहासे / दानों' : lang === 'GU' ? 'ખીલ' : 'pimples / skin spots';
   }
-  if (/rash|skin|itch|खुजली|ચકામા/i.test(c)) {
+  if (/\b(rash|rashes|skin|itch|itching|hives|urticaria|dermatitis)\b|खुजली|ચકામા/i.test(c)) {
     return lang === 'HI' ? 'त्वचा की खुजली / चकत्तों' : lang === 'GU' ? 'ચામડીની ખંજવાળ / ચકામા' : 'skin rash and itching';
   }
-  if (/chest|heart|सीने|छाती/i.test(c)) {
+  if (/\b(chest|heart|angina|palpitations)\b|सीने|छाती/i.test(c)) {
     return lang === 'HI' ? 'सीने में दर्द व भारीपन' : lang === 'GU' ? 'છાતીમાં દુખાવો અને ભારેપણું' : 'chest discomfort';
   }
-  if (/knee|joint|bone|arthritis|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(c)) {
+  if (/\b(knee|knees|joint|joints|bone|bones|arthritis|osteoarthritis)\b|घुटने|जोड़ों|ઘૂંટણ|સાંધા/i.test(c)) {
     return lang === 'HI' ? 'घुटने और जोड़ों के दर्द' : lang === 'GU' ? 'ઘૂંટણ અને સાંધાના દુખાવા' : 'knee and joint pain';
   }
-  if (/back|spine|lumbar|sciatica|कमर|पीठ|પીઠ|વાંસો/i.test(c)) {
-    return lang === 'HI' ? 'कमर और पीठ के दर्द' : lang === 'GU' ? 'કમરના દુખાવા' : 'back pain and stiffness';
+  if (/\b(back|spine|lumbar|sciatica|coccyx|tailbone|pelvic|pelvis)\b|कमर|पीठ|પીઠ|વાંસો/i.test(c)) {
+    return lang === 'HI' ? 'कमर, पेल्विस और पीठ के दर्द' : lang === 'GU' ? 'કમર અને પેલ્વિસના દુખાવા' : 'back, pelvis and pelvic girdle discomfort';
   }
-  if (/groin|inguinal|जांघ|પેલ્વિસ|સાથળ/i.test(c)) {
+  if (/\b(groin|inguinal)\b|जांघ|પેલ્વિસ|સાથળ/i.test(c)) {
     return lang === 'HI' ? 'जांघ और ग्रोइन के दर्द' : lang === 'GU' ? 'સાથળ અને પેલ્વિસના દુખાવા' : 'groin discomfort and pain';
   }
-  if (/penis|genitourinary|urology|erectile|लिंग|ઇન્દ્રિય|પુરુષ અંગ/i.test(c)) {
+  if (/\b(penis|genitourinary|urology|erectile)\b|लिंग|ઇન્દ્રિય|પુરુષ અંગ/i.test(c)) {
     return lang === 'HI' ? 'जननांग व यूरिन संबंधी चिंता' : lang === 'GU' ? 'જનનાંગ અને પેશાબ સંબંધિત સમસ્યા' : 'genitourinary concerns';
   }
-  if (/urine|urina|burning urine|पेशाब|પેશાબ/i.test(c)) {
+  if (/\b(urine|urination|burning urine|dysuria|hematuria)\b|पेशाब|પેશાબ/i.test(c)) {
     return lang === 'HI' ? 'पेशाब में जलन और दर्द' : lang === 'GU' ? 'પેશાબમાં બળતરા અને દુખાવો' : 'urinary burning and discomfort';
   }
-  if (/stomach|abdom|acidity|gas|मरोड़|पेट|પેટ/i.test(c)) {
+  if (/\b(stomach|abdomen|abdominal|acidity|gas|gastritis|cramps)\b|मरोड़|पेट|પેટ/i.test(c)) {
     return lang === 'HI' ? 'पेट दर्द, जलन और तकलीफ' : lang === 'GU' ? 'પેટમાં દુખાવો અને બળતરા' : 'stomach discomfort and acidity';
   }
-  if (/headache|head|migraine|सिरदर्द|माथा|માથા/i.test(c)) {
+  if (/\b(headache|migraine|head pain)\b|सिरदर्द|माथा|માથા/i.test(c)) {
     return lang === 'HI' ? 'सिरदर्द' : lang === 'GU' ? 'માથાના દુખાવા' : 'headache';
   }
-  if (/cough|cold|throat|sore throat|खांसी|गला|ઉધરસ|ગળું/i.test(c)) {
-    return lang === 'HI' ? 'खांसी और गले की खराश' : lang === 'GU' ? 'ઉધરસ અને ગળાની તકલીફ' : 'cough and throat irritation';
+  if (/\b(cough|cold|throat|sore throat|hoarse|hoarseness|croup|stridor)\b|खांसी|गला|ઉધરસ|ગળું/i.test(c)) {
+    return lang === 'HI' ? 'खांसी, गले की खराश और सांस की आवाज' : lang === 'GU' ? 'ઉધરસ અને ગળાની તકલીફ' : 'cough, stridor and throat irritation';
   }
-  if (/fever|temperature|shiver|chills|बुखार|તાવ/i.test(c)) {
+  if (/\b(fever|temperature|shiver|shivering|chills)\b|बुखार|તાવ/i.test(c)) {
     return lang === 'HI' ? 'बुखार और शारीरिक कमजोरी' : lang === 'GU' ? 'તાવ અને શારીરિક નબળાઈ' : 'fever and body weakness';
   }
-  if (/hair|scalp|dandruff|बाल|डैंड्रफ|વાળ|ખોડો/i.test(c)) {
+  if (/\b(hair|scalp|dandruff|alopecia)\b|बाल|डैंड्रफ|વાળ|ખોડો/i.test(c)) {
     return lang === 'HI' ? 'बाल और डैंड्रफ की समस्या' : lang === 'GU' ? 'વાળ અને ખોડાની તકલીફ' : 'hair fall and dandruff condition';
   }
   if (/\b(injury|wound|trauma|fracture|fell down|physical injury)\b|चोट|घाव|ઈજા/i.test(c) && !/hair fall/i.test(c)) {
@@ -954,7 +957,6 @@ export class UniversalClinicalEngine implements AIProvider {
     const isSymptomMentioned = /vomit|nausea|उल्टी|ઉલટી|उबका|ઉબકા|जी मिचला|headache|सिरदर्द|માથા|chest|pain|दर्द|દુખાવો|ear|कान|કાન|stomach|पेट|પેટ|acidity|fever|बुखार|તાવ|cough|खांसी|ઉધરસ|rash|दाने|ધાબા|diarrhea|दस्त|ઝાડા|urine|पेशाब|પેશાબ|sciatica|कमर|spine|swelling|सूजन|સોજો/i.test(text);
 
     if (isNew) {
-      // 1. Establish Chief Complaint if not yet present
       if (!state.chiefComplaint) {
         update.chiefComplaint = text;
         update.chiefComplaintOriginal = text;
@@ -977,7 +979,6 @@ export class UniversalClinicalEngine implements AIProvider {
         return update;
       }
 
-      // 2. Active Symptom Progression
       const currentSymptom = (state.symptoms && state.symptoms[0]) ? { ...state.symptoms[0] } : {
         name: state.chiefComplaint,
         originalText: state.chiefComplaint,
@@ -993,48 +994,79 @@ export class UniversalClinicalEngine implements AIProvider {
         progression: null,
       };
 
-      // Check if answer is Onset / Timing
-      if (!currentSymptom.onset || !currentSymptom.duration) {
+      // 1. Onset / Timing
+      if (/\b(ago|days|hours|weeks|months|yesterday|midnight|sudden|gradual|since)\b|पहले|घंटे|दिन|અઠવાડિયા|કલાકો|ગઈકાલે/i.test(tLower)) {
         currentSymptom.onset = text;
         currentSymptom.duration = text;
-        update.symptoms = [currentSymptom];
-        return update;
       }
 
-      // Check if answer is Severity / Character
-      if (!currentSymptom.severity || !currentSymptom.character) {
-        const numMatch = text.match(/\b([1-9]|10)\b/);
-        currentSymptom.severity = numMatch ? parseInt(numMatch[1], 10) : 5;
+      // 2. Severity & Character
+      const numMatch = text.match(/\b([1-9]|10)\b/);
+      if (numMatch) {
+        currentSymptom.severity = parseInt(numMatch[1], 10);
+      }
+      if (/\b(sharp|dull|throbbing|burning|itching|ache|cramps|stabbing|swelling|redness|blister|vesicle|seal|bark|whistle|stridor|noise|pain)\b|दर्द|जलन|टीस|चुभन|દુખાવો|બળતરા|ધબકારા/i.test(tLower)) {
         currentSymptom.character = text;
-        update.symptoms = [currentSymptom];
-        return update;
       }
 
-      // Check if answer mentions lifestyle
-      if (/sleep|diet|food|stress|routine|काम|नींद|खाना|ઊંઘ|ખોરાક/i.test(text)) {
+      // 3. Aggravating & Relieving Factors (Triggers)
+      if (/\b(worse|aggravat|trigger|better|relief|ice|warm|rest|sitting|walking|touch|food|spicy|lying|air)\b|बढ़ता|आराम|વધે|રાહત/i.test(tLower)) {
+        const aggs = [...(currentSymptom.aggravatingFactors || [])];
+        const rels = [...(currentSymptom.relievingFactors || [])];
+        if (/\b(worse|aggravat|trigger|touch|walking|standing|sitting|food)\b/i.test(tLower) && !aggs.includes(text)) {
+          aggs.push(text);
+        }
+        if (/\b(better|relief|ice|warm|rest|belt|drops)\b/i.test(tLower) && !rels.includes(text)) {
+          rels.push(text);
+        }
+        currentSymptom.aggravatingFactors = aggs.length > 0 ? aggs : [text];
+        currentSymptom.relievingFactors = rels;
+      }
+
+      // 4. Associated & Denied Symptoms
+      if (/\b(no |denies|without|not having|नहीं है|નથી)\b/i.test(tLower)) {
+        const denied = [...(state.deniedSymptoms || [])];
+        if (!denied.includes(text)) denied.push(text);
+        update.deniedSymptoms = denied;
+      } else if (/\b(fever|nausea|vomit|dizzy|discharge|swelling|rash|red|hot|cold|cough|runny nose)\b|बुखार|उल्टी|चक्कर|તાવ|ઉલટી/i.test(tLower)) {
+        const assoc = [...(state.associatedSymptoms || [])];
+        if (!assoc.some(a => a.name === text)) assoc.push({ name: text, present: true });
+        update.associatedSymptoms = assoc;
+      }
+
+      // 5. Lifestyle & Routine
+      if (/sleep|diet|food|stress|routine|hours|baby|breastfeed|work|laptop|desk|काम|नींद|खाना|ઊંઘ|ખોરાક/i.test(tLower)) {
         update.lifestyle = {
           sleep: text,
           diet: text,
           activity: text,
-          stress: state.lifestyle?.stress || 'Normal daily routine and stress level',
+          stress: state.lifestyle?.stress || 'Normal daily routine',
           occupation: state.lifestyle?.occupation || '',
           smoking: state.lifestyle?.smoking || null,
           alcohol: state.lifestyle?.alcohol || null,
         };
-        return update;
       }
 
-      // Check if answer mentions chronic illness or allergy
-      if (/bp|blood pressure|sugar|diabetes|thyroid|allergy|एलर्जी|બીમારી|ડાયાબિટીસ/i.test(text)) {
-        update.pastMedicalHistory = [text];
-        update.allergies = [{ allergen: text, reaction: 'Reported during intake', severity: 'MILD' }];
-        return update;
+      // 6. Medical History, Medications & Allergies
+      if (/bp|hypertension|sugar|diabetes|thyroid|asthma|gestational|vaccin|birth|surgery|operation|बीमारी|દવા/i.test(tLower)) {
+        const past = [...(state.pastMedicalHistory || [])];
+        if (!past.includes(text)) past.push(text);
+        update.pastMedicalHistory = past;
       }
 
-      if ((state.associatedSymptoms || []).length === 0) {
-        update.associatedSymptoms = [{ name: text, present: true }];
-        return update;
+      if (/tablet|syrup|paracetamol|amlodipine|calcium|iron|cetirizine|medication|taking|दवा|દવાઓ/i.test(tLower)) {
+        const meds = [...(state.medications || [])];
+        if (!meds.some(m => m.name === text)) meds.push({ name: text });
+        update.medications = meds;
       }
+
+      if (/allergy|allergies|nkda|no known|एलर्जी|એલર્જી/i.test(tLower)) {
+        const allg = [...(state.allergies || [])];
+        if (!allg.some(a => a.allergen === text)) allg.push({ allergen: text, reaction: 'Reported during intake', severity: 'MILD' });
+        update.allergies = allg;
+      }
+
+      update.symptoms = [currentSymptom];
     } else {
       // RETURNING PATIENT WORKFLOW
       const syms = [...(state.symptoms || [])];
@@ -1055,28 +1087,24 @@ export class UniversalClinicalEngine implements AIProvider {
 
       if (!currentSymptom.progression) {
         currentSymptom.progression = text;
-        update.symptoms = [currentSymptom];
-        return update;
-      }
-
-      if (!(currentSymptom as any).residualSymptoms) {
+      } else if (!(currentSymptom as any).residualSymptoms) {
         (currentSymptom as any).residualSymptoms = text;
-        update.symptoms = [currentSymptom];
-        return update;
       }
 
-      if ((state.medications || []).length === 0) {
-        update.medications = [{ name: text }];
-        return update;
+      if (/tablet|medicine|dose|schedule|missed|refill|regular|दवा|દવા/i.test(tLower)) {
+        const meds = [...(state.medications || [])];
+        if (!meds.some(m => m.name === text)) meds.push({ name: text });
+        update.medications = meds;
       }
 
-      if (!(state.lifestyle as any)?.followUpTriggers) {
+      if (/trigger|stress|exertion|diet|work|movement|काम|તણાવ/i.test(tLower)) {
         update.lifestyle = {
           ...(state.lifestyle || { sleep: '', diet: '', stress: '', activity: '' }),
           followUpTriggers: text,
         } as any;
-        return update;
       }
+
+      update.symptoms = [currentSymptom];
     }
 
     return update;
@@ -2949,6 +2977,12 @@ export class UniversalClinicalEngine implements AIProvider {
       };
     }
 
+    const isAlreadyAsked = (qStr: string): boolean => {
+      if (!state.questionsAsked || state.questionsAsked.length === 0) return false;
+      const target = qStr.toLowerCase().slice(0, 30);
+      return state.questionsAsked.some(prev => prev.toLowerCase().slice(0, 30) === target);
+    };
+
     // Step 4: Associated Symptoms & Systemic Manifestations
     if (!answeredDimensions.has('ASSOCIATED')) {
       const qText = {
@@ -2962,21 +2996,23 @@ export class UniversalClinicalEngine implements AIProvider {
           ? `શું દર્દીને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ છે?`
           : `શું આપને તાવ, ઉબકા, ચક્કર, શ્વાસ ચડવો, માથાનો દુખાવો કે કોઈ સોજો/સ્ત્રાવ જેવા અન્ય લક્ષણો પણ જણાય છે?`,
       };
-      const touchOpts = {
-        EN: ['Fever / Chills & Body aches', 'Nausea, vomiting or stomach discomfort', 'Dizziness, lightheadedness or fatigue', 'No other associated symptoms noticed'],
-        HI: ['बुखार / कंपकंपी और बदन दर्द', 'जी मिचलाना, उल्टी या पेट में तकलीफ', 'चक्कर आना, कमजोरी या भारीपन', 'कोई अन्य संबंधित लक्षण नहीं है'],
-        GU: ['તાવ / ધ્રુજારી અને કળતર', 'ઉબકા, ઉલટી કે પેટમાં તકલીફ', 'ચક્કર આવવા, અશક્તિ કે થાક', 'કોઈ અન્ય સંબંધિત લક્ષણો નથી'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'CHARACTER',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Screening for secondary systemic manifestations, autonomic clues, and red flags',
-      };
+      if (!isAlreadyAsked(qText[lang])) {
+        const touchOpts = {
+          EN: ['Fever / Chills & Body aches', 'Nausea, vomiting or stomach discomfort', 'Dizziness, lightheadedness or fatigue', 'No other associated symptoms noticed'],
+          HI: ['बुखार / कंपकंपी और बदन दर्द', 'जी मिचलाना, उल्टी या पेट में तकलीफ', 'चक्कर आना, कमजोरी या भारीपन', 'कोई अन्य संबंधित लक्षण नहीं है'],
+          GU: ['તાવ / ધ્રુજારી અને કળતર', 'ઉબકા, ઉલટી કે પેટમાં તકલીફ', 'ચક્કર આવવા, અશક્તિ કે થાક', 'કોઈ અન્ય સંબંધિત લક્ષણો નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'CHARACTER',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Screening for secondary systemic manifestations, autonomic clues, and red flags',
+        };
+      }
     }
 
     // Step 5: Modalities — Aggravating Triggers & Relieving Factors
@@ -2992,21 +3028,23 @@ export class UniversalClinicalEngine implements AIProvider {
           ? `કયા કારણોથી દર્દીની ${localizedLabel} વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?`
           : `કયા કારણોથી આપની ${localizedLabel} વધે છે (જેમ કે ખોરાક, હલનચલન, ઋતુ, તણાવ કે ચોક્કસ સમયે) અને શેનાથી રાહત મળે છે?`,
       };
-      const touchOpts = {
-        EN: ['Worse with movement / physical exertion; better with rest', 'Worse with spicy/oily food; better after warm liquids', 'Worse in heat / sun / AC cold drafts; better in normal temperature', 'Constant intensity with no identifiable triggers'],
-        HI: ['काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', 'तला/मसालेदार खाने से बढ़ता है; गर्म पानी से आराम', 'गर्मी/धूप/एसी की ठंड से बढ़ता है; सामान्य मौसम में आराम', 'लगातार एक जैसा रहता है, कोई खास ट्रिगर नहीं'],
-        GU: ['શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે', 'તીખા/તળેલા ખોરાકથી વધે છે; ગરમ પીણાંથી રાહત', 'ગરમી/તડકો/એસીથી વધે છે; સામાન્ય વાતાવરણમાં રાહત', 'સતત એકસરખો રહે છે, કોઈ ચોક્કસ કારણ નથી'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'LIFESTYLE',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Assessing aggravating triggers, postural variations, and relieving factors',
-      };
+      if (!isAlreadyAsked(qText[lang])) {
+        const touchOpts = {
+          EN: ['Worse with movement / physical exertion; better with rest', 'Worse with spicy/oily food; better after warm liquids', 'Worse in heat / sun / AC cold drafts; better in normal temperature', 'Constant intensity with no identifiable triggers'],
+          HI: ['काम करने/हिलने पर बढ़ता है; आराम से ठीक होता है', 'तला/मसालेदार खाने से बढ़ता है; गर्म पानी से आराम', 'गर्मी/धूप/एसी की ठंड से बढ़ता है; सामान्य मौसम में आराम', 'लगातार एक जैसा रहता है, कोई खास ट्रिगर नहीं'],
+          GU: ['શ્રમ/હલનચલનથી વધે છે; આરામ કરવાથી રાહત મળે છે', 'તીખા/તળેલા ખોરાકથી વધે છે; ગરમ પીણાંથી રાહત', 'ગરમી/તડકો/એસીથી વધે છે; સામાન્ય વાતાવરણમાં રાહત', 'સતત એકસરખો રહે છે, કોઈ ચોક્કસ કારણ નથી'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'LIFESTYLE',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing aggravating triggers, postural variations, and relieving factors',
+        };
+      }
     }
 
     // Step 6: Lifestyle, Sleep Hygiene, Diet & Daily Routine
@@ -3022,21 +3060,23 @@ export class UniversalClinicalEngine implements AIProvider {
           ? `દર્દીની દિનચર્યા, રાત્રિની ઊંઘ (ચોક્કસ કેટલા કલાક), ખોરાકની આદતો અને તણાવનું પ્રમાણ કેવું રહે છે?`
           : `આપની દિનચર્યા કેવી છે—રાત્રે કેટલા કલાક ઊંઘ આવે છે, ખોરાકની આદતો અને દૈનિક તણાવ કેવો રહે છે?`,
       };
-      const touchOpts = {
-        EN: ['Normal 7-8 hrs sleep & balanced home-cooked food', 'Disturbed sleep (<5 hrs) & high mental/work stress', 'Oily / fast food, frequent tea/coffee & irregular meals', 'Sedentary desk routine & physical fatigue'],
-        HI: ['सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', 'नींद में रुकावट (<5 घंटे) और काम का भारी तनाव', 'तला-भुना/बाहर का खाना, अधिक चाय और अनियमित समय', 'बैठकर काम करने की दिनचर्या और शारीरिक थकान'],
-        GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ (<૫ કલાક) અને ભારે માનસિક તણાવ', 'તળેલું/બહારનું ભોજન, વધુ ચા અને અનિયમિત સમય', 'બેઠાડુ કામકાજ અને શારીરિક થાક'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'LIFESTYLE',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and daily routine context',
-      };
+      if (!isAlreadyAsked(qText[lang])) {
+        const touchOpts = {
+          EN: ['Normal 7-8 hrs sleep & balanced home-cooked food', 'Disturbed sleep (<5 hrs) & high mental/work stress', 'Oily / fast food, frequent tea/coffee & irregular meals', 'Sedentary desk routine & physical fatigue'],
+          HI: ['सामान्य 7-8 घंटे गहरी नींद और घर का सादा भोजन', 'नींद में रुकावट (<5 घंटे) और काम का भारी तनाव', 'तला-भुना/बाहर का खाना, अधिक चाय और अनियमित समय', 'बैठकर काम करने की दिनचर्या और शारीरिक थकान'],
+          GU: ['સામાન્ય ૭-૮ કલાક ઊંઘ અને સાદો ઘરનો ખોરાક', 'ઊંઘમાં ખલેલ (<૫ કલાક) અને ભારે માનસિક તણાવ', 'તળેલું/બહારનું ભોજન, વધુ ચા અને અનિયમિત સમય', 'બેઠાડુ કામકાજ અને શારીરિક થાક'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'LIFESTYLE',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Gathering baseline lifestyle, sleep hygiene, and daily routine context',
+        };
+      }
     }
 
     // Step 7: Past Medical History & Family Health Background
@@ -3052,21 +3092,23 @@ export class UniversalClinicalEngine implements AIProvider {
           ? `શું દર્દી કે તેમના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે કોઈ સર્જરી થયેલી છે?`
           : `શું આપને કે આપના પરિવારમાં કોઈને જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ, અસ્થમા, હૃદય રોગ) કે સર્જરીનો ઇતિહાસ છે?`,
       };
-      const touchOpts = {
-        EN: ['No chronic conditions & no prior surgeries', 'Hypertension (High BP) / Diabetes (Sugar)', 'Thyroid disorder / Asthma / Breathing trouble', 'Family history of similar health condition'],
-        HI: ['कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', 'हाई बीपी / डायबिटीज (शुगर) की समस्या', 'थायराइड / अस्थमा / सांस की पुरानी तकलीफ', 'परिवार में भी किसी को ऐसी ही समस्या रही है'],
-        GU: ['કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ', 'હાઈ બીપી / ડાયાબિટીસ (સુગર) ની તકલીફ', 'થાયરોઇડ / અસ્થમા / શ્વાસની જૂની તકલીફ', 'પરિવારમાં પણ કોઈને આવી જ સમસ્યા રહી છે'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'PAST_HISTORY',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Assessing longitudinal chronic disease background, surgical history, and familial predisposition',
-      };
+      if (!isAlreadyAsked(qText[lang])) {
+        const touchOpts = {
+          EN: ['No chronic conditions & no prior surgeries', 'Hypertension (High BP) / Diabetes (Sugar)', 'Thyroid disorder / Asthma / Breathing trouble', 'Family history of similar health condition'],
+          HI: ['कोई पुरानी बीमारी नहीं व कोई सर्जरी नहीं हुई', 'हाई बीपी / डायबिटीज (शुगर) की समस्या', 'थायराइड / अस्थमा / सांस की पुरानी तकलीफ', 'परिवार में भी किसी को ऐसी ही समस्या रही है'],
+          GU: ['કોઈ જૂની બીમારી નથી અને કોઈ સર્જરી નથી થઈ', 'હાઈ બીપી / ડાયાબિટીસ (સુગર) ની તકલીફ', 'થાયરોઇડ / અસ્થમા / શ્વાસની જૂની તકલીફ', 'પરિવારમાં પણ કોઈને આવી જ સમસ્યા રહી છે'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'PAST_HISTORY',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Assessing longitudinal chronic disease background, surgical history, and familial predisposition',
+        };
+      }
     }
 
     // Step 8: Prescription Medications & Drug Allergies Safety Profile
@@ -3082,21 +3124,23 @@ export class UniversalClinicalEngine implements AIProvider {
           ? `દર્દી કઈ નિયમિત દવાઓ લઈ રહ્યા છે, અને શું તેમને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?`
           : `આપ રોજ કઈ નિયમિત દવાઓ લો છો, અને શું આપને કોઈ દવાની એલર્જી (જેમ કે પેનિસિલિન, સલ્ફા કે પેઈનકિલર) છે?`,
       };
-      const touchOpts = {
-        EN: ['Taking daily BP / Diabetes / Thyroid tablets', 'No regular medicines & No known drug allergies (NKDA)', 'Known drug allergy to Penicillin / Sulfa / Pain relievers', 'Taking occasional OTC pain / antacid medicines'],
-        HI: ['रोज बीपी / शुगर / थायराइड की दवा लेते हैं', 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा / पेनकिलर दवाओं से एलर्जी है', 'कभी-कभार गैस या दर्द की सामान्य दवा लेते हैं'],
-        GU: ['રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા / પેઈનકિલર દવાની એલર્જી છે', 'ક્યારેક ગેસ કે દુખાવાની સામાન્ય દવા લઈએ છીએ'],
-      };
-      return {
-        question: qText[lang],
-        questionLanguage: lang,
-        questionCategory: 'MEDICATIONS',
-        touchOptions: touchOpts[lang],
-        isRedFlag: false,
-        redFlagReason: null,
-        isComplete: false,
-        clinicalRationale: 'Screening ongoing prescription medications, self-medication, and drug allergy safety profile',
-      };
+      if (!isAlreadyAsked(qText[lang])) {
+        const touchOpts = {
+          EN: ['Taking daily BP / Diabetes / Thyroid tablets', 'No regular medicines & No known drug allergies (NKDA)', 'Known drug allergy to Penicillin / Sulfa / Pain relievers', 'Taking occasional OTC pain / antacid medicines'],
+          HI: ['रोज बीपी / शुगर / थायराइड की दवा लेते हैं', 'कोई नियमित दवा नहीं व कोई दवा एलर्जी नहीं (NKDA)', 'पेनिसिलिन / सल्फा / पेनकिलर दवाओं से एलर्जी है', 'कभी-कभार गैस या दर्द की सामान्य दवा लेते हैं'],
+          GU: ['રોજ બીપી / ડાયાબિટીસ / થાયરોઇડની દવા લઈએ છીએ', 'કોઈ નિયમિત દવા નથી અને કોઈ દવાની એલર્જી નથી (NKDA)', 'પેનિસિલિન / સલ્ફા / પેઈનકિલર દવાની એલર્જી છે', 'ક્યારેક ગેસ કે દુખાવાની સામાન્ય દવા લઈએ છીએ'],
+        };
+        return {
+          question: qText[lang],
+          questionLanguage: lang,
+          questionCategory: 'MEDICATIONS',
+          touchOptions: touchOpts[lang],
+          isRedFlag: false,
+          redFlagReason: null,
+          isComplete: false,
+          clinicalRationale: 'Screening ongoing prescription medications, self-medication, and drug allergy safety profile',
+        };
+      }
     }
 
     // Step 9: Phase B Intake Completion & Handoff (All clinical dimensions comprehensively covered)

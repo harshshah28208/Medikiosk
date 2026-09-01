@@ -86,3 +86,13 @@ FIX: Changed to take: 10 to show the latest 10 follow-ups. For a complete longit
 - Frontend `localStorage` for active_patient/active_visit is still present but only used for caching in the kiosk flow, not for clinical session determination (backend uses sessionId from URL)
 - Other `take: 1` instances in ayush.routes.ts, triage.routes.ts are for single-record lookups (latest vital), which is intentional
 - Test suite (test-50-clinical-cases.mjs) was not located; test verification was via build success only
+
+## ADDITIONAL FIXES (Latest Pass)
+
+| # | File | Change | Rationale |
+|---|------|--------|-----------|
+| 8 | `backend/src/ai/AIProvider.ts` — `getSymptomLabelInLang` | Word-boundary regexes (`\b...\b`) | Prevents partial matches like "head" matching in "headache" |
+| 9 | `backend/src/ai/AIProvider.ts` — symptom extraction | Parallel feature extraction (onset/severity/character/aggravating/relieving/associated/denied/lifestyle/history/medications/allergies) | Each turn now extracts ALL relevant clinical dimensions instead of sequential checkpoints |
+| 10 | `backend/src/ai/AIProvider.ts` — negation handling | Added `\b(no \|denies\|without\|not having\|नहीं है\|નથી)\b` pattern | Captures denied symptoms ("no fever") separately from associated symptoms |
+| 11 | `backend/src/ai/AIProvider.ts` — question flow | Added `isAlreadyAsked(qStr)` deduplication guard | Prevents re-asking same question across turns |
+| 12 | `backend/src/utils/generators.ts` — `generateMRN` | Switched from `findFirst().orderBy(createdAt desc)` to `count()` + collision check + timestamp-suffix fallback | Eliminates race condition where two simultaneous registrations could produce duplicate MRNs |
