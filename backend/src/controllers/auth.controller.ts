@@ -32,9 +32,23 @@ export async function register(req: AuthRequest, res: Response): Promise<void> {
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  const defaultDept = input.departmentId
-    ? await prisma.department.findUnique({ where: { id: input.departmentId } })
-    : await prisma.department.findFirst();
+  let defaultDept = null;
+if (input.departmentId) {
+  defaultDept = await prisma.department.findUnique({ where: { id: input.departmentId } });
+} else {
+  // Try to find a department with code 'GEN' (General) as default
+  defaultDept = await prisma.department.findFirst({ where: { code: 'GEN' } });
+  // If not found, fall back to any department (but warn in logs)
+  if (!defaultDept) {
+    defaultDept = await prisma.department.findFirst();
+    console.warn('No department with code GEN found. Using arbitrary department as default.');
+  }
+  // If still no department, we cannot proceed
+  if (!defaultDept) {
+    res.status(500).json({ error: 'No department found in the system. Please contact administrator.' });
+    return;
+  }
+}
 
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({

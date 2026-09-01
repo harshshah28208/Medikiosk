@@ -262,7 +262,12 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
     include: { user: true },
   });
 
-  const docId = doctorProfile?.id || (await prisma.doctorProfile.findFirst())?.id;
+  if (!doctorProfile) {
+    res.status(404).json({ error: 'Doctor profile not found for the current user' });
+    return;
+  }
+
+  const docId = doctorProfile.id;
   if (!docId) {
     res.status(400).json({ error: 'Doctor profile not found' });
     return;

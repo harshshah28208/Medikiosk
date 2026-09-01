@@ -52,7 +52,7 @@ export async function getVisit(req: AuthRequest, res: Response): Promise<void> {
         },
       },
       queueEntry: true,
-      vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+      vitals: { orderBy: { recordedAt: 'desc' }, take: 10 },
       emergencyAlerts: { where: { status: { not: 'RESOLVED' } } },
       clinicalHistory: {
         include: { answers: { orderBy: { timestamp: 'asc' } } },
@@ -64,7 +64,7 @@ export async function getVisit(req: AuthRequest, res: Response): Promise<void> {
         orderBy: { uploadedAt: 'desc' },
         include: { extractions: true },
       },
-      followUps: { orderBy: { scheduledAt: 'desc' }, take: 1 },
+      followUps: { orderBy: { scheduledAt: 'desc' }, take: 10 },
       sessions: {
         include: { messages: { orderBy: { timestamp: 'asc' } } },
         orderBy: { startedAt: 'desc' },

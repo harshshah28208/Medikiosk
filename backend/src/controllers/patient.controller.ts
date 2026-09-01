@@ -46,9 +46,14 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
   }
 
   if (!department) {
-    department = await prisma.department.findFirst({
-      select: { id: true, code: true, name: true },
-    });
+    // Try to find a department with code 'GEN' (General) as default
+    department = await prisma.department.findFirst({ where: { code: 'GEN' } });
+    // If not found, fall back to any department (but warn in logs)
+    if (!department) {
+      department = await prisma.department.findFirst();
+      console.warn('No department with code GEN found. Using arbitrary department as default.');
+    }
+    // If still no department, the code below will try to create one under a hospital
   }
 
   if (!department) {
