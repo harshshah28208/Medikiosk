@@ -100,7 +100,6 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
   const isExplicitNewCase = req.body.isNewCase === true ||
     req.body.visitType === 'NEW_CASE' ||
     req.body.isReturningPatient === false ||
-    (!req.body.isReturningPatient && !req.body.followUpVisitId && !req.body.recentChanges) ||
     Boolean(visit.reasonForVisit && /new complaint|new symptom|new problem|नई समस्या|નવી સમસ્યા/i.test(visit.reasonForVisit));
 
   // Fetch prior completed visits for this patient ONLY if this is a genuine follow-up
@@ -238,9 +237,12 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
       matchingPriorSessionId = matchedVisit.sessions?.[0]?.id || null;
       const prevDocName = matchedVisit.doctor?.user?.name ? `Dr. ${matchedVisit.doctor.user.name}` : undefined;
 
-      let extractedComplaint = '';
-      if (matchedVisit.reasonForVisit && !/follow-?up|consultation|routine|checkup|general|intake/i.test(matchedVisit.reasonForVisit)) {
-        extractedComplaint = matchedVisit.reasonForVisit;
+      let extractedComplaint = req.body.targetComplaint || '';
+      if (!extractedComplaint && visit.reasonForVisit && !/follow-?up:\s*$/i.test(visit.reasonForVisit)) {
+        extractedComplaint = visit.reasonForVisit.replace(/^follow-?up:\s*/i, '').trim();
+      }
+      if (!extractedComplaint && matchedVisit.reasonForVisit && !/follow-?up|consultation|routine|checkup|general|intake/i.test(matchedVisit.reasonForVisit)) {
+        extractedComplaint = matchedVisit.reasonForVisit.replace(/^follow-?up:\s*/i, '').trim();
       }
       if (!extractedComplaint && matchedVisit.consultation?.diagnosis) {
         extractedComplaint = matchedVisit.consultation.diagnosis;
@@ -261,7 +263,7 @@ router.post('/start', async (req: AuthRequest, res: Response): Promise<void> => 
         } catch (e) {}
       }
       if (!extractedComplaint) {
-        extractedComplaint = matchedVisit.reasonForVisit || `${matchedVisit.department?.name || 'Previous'} health complaint`;
+        extractedComplaint = 'Previous health condition';
       }
 
       previousVisitInfo = {
@@ -678,8 +680,7 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
     }
   }
 
-  const combinedHistory = isGenuineFollowUp ? [...priorVisitChatHistory, ...pastMessages] : pastMessages;
-  const nextQ = await activeAi.generateNextQuestion(state, currentLang, carePath, specialty, combinedHistory);
+  const nextQ = await activeAi.generateNextQuestion(state, currentLang, carePath, specialty, pastMessages);
   
   const isCompletionTriggered = isFinalAnswer || nextQ.isComplete;
   let finalQuestion = nextQ.question;

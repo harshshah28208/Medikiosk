@@ -3914,23 +3914,20 @@ Carefully analyze the patient input in ${language} and extract all clinical fact
   async translateText(text: string, targetLanguage: 'EN' | 'HI' | 'GU'): Promise<string> {
     if (!text || !text.trim()) return text;
     try {
-      // 1. Check exact 1-to-1 short option translations
-      const directOpt = translateOptionDirectly(text, targetLanguage);
-      if (directOpt && directOpt !== text) {
-        return directOpt;
+      // 1. Check exact 1-to-1 short option translations for touch chips
+      if (text.length < 50) {
+        const directOpt = translateOptionDirectly(text, targetLanguage);
+        if (directOpt && directOpt.toLowerCase() !== text.toLowerCase()) {
+          return directOpt;
+        }
       }
 
-      // 2. Check structured clinical stage translations
-      const directClinical = await this.fallback.translateText(text, targetLanguage);
-      if (directClinical && directClinical !== text) {
-        return directClinical;
-      }
-
-      // 3. Use Groq AI to translate the exact text faithfully without altering the question
-      const langName = targetLanguage === 'HI' ? 'Hindi (in Devanagari script: हिन्दी)' : targetLanguage === 'GU' ? 'Gujarati (in Gujarati script: ગુજરાતી)' : 'clear, professional English';
+      // 2. Translate full clinical text faithfully via LLM
+      const langName = targetLanguage === 'HI' ? 'Hindi (in pure Devanagari script: हिन्दी)' : targetLanguage === 'GU' ? 'Gujarati (in pure Gujarati script: ગુજરાતી)' : 'clear, professional English';
       const prompt = `You are a certified clinical medical translator.
-Translate the following medical phrase/question/option directly and faithfully into pure, natural, fluent ${langName}.
-Do NOT change the medical meaning, do NOT answer the question, do NOT add explanations, notes, or quotes.
+Translate the following medical phrase/question/greeting faithfully and directly into pure, natural, fluent ${langName}.
+Keep all names (e.g. Dr. Name, department, patient name, symptoms, numbers) exact.
+Do NOT change the question topic, do NOT substitute with a generic template, do NOT answer the question, do NOT add explanations or quotes.
 Return ONLY the direct translated string in ${langName}.
 
 Source Text: "${text}"`;
@@ -3940,12 +3937,13 @@ Source Text: "${text}"`;
         { role: 'user', content: prompt }
       ], false);
 
-      if (translated && translated.length > 0) {
+      if (translated && translated.trim().length > 0) {
         return translated.replace(/^["']|["']$/g, '').trim();
       }
-      return this.fallback.translateText(text, targetLanguage);
+      return text;
     } catch (e) {
-      return this.fallback.translateText(text, targetLanguage);
+      console.warn('Groq translate error, preserving original:', e);
+      return text;
     }
   }
 

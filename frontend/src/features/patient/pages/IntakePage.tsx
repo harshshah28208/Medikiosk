@@ -327,7 +327,18 @@ export function IntakePage() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           options: res.touchOptions || [],
         };
-        setMessages((prev) => [...prev, aiMsg]);
+        setMessages((prev) => {
+          const updated = [...prev, aiMsg];
+          if (session) {
+            try {
+              localStorage.setItem('medikiosk_active_session_data', JSON.stringify({
+                session,
+                messages: updated,
+              }));
+            } catch (e) {}
+          }
+          return updated;
+        });
         setTouchOptions(res.touchOptions || []);
 
         if (res.hasRedFlag && res.redFlagAlert) {
