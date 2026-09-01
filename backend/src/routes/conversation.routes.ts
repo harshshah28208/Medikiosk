@@ -620,7 +620,8 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
   const isGenuineFollowUp = state.isNewPatient === false && Boolean(state.previousVisitInfo);
   if (isGenuineFollowUp) {
     try {
-      const priorSession = await prisma.conversationSession.findFirst({
+      // Fetch prior sessions for the same patient, excluding current session
+      const priorSessions = await prisma.conversationSession.findMany({
         where: {
           visit: {
             patientId: session.visit.patientId,
@@ -635,8 +636,22 @@ router.post('/:sessionId/message', async (req: AuthRequest, res: Response): Prom
           },
         },
       });
-      if (priorSession?.messages?.length) {
-        priorVisitChatHistory = priorSession.messages.map(m => ({
+
+      // Filter by carePath to ensure we only load prior visits from the same care path
+      const matchingSession = priorSessions.find(priorSession => {
+        try {
+          const priorState = typeof priorSession.clinicalState === 'string'
+            ? JSON.parse(priorSession.clinicalState)
+            : priorSession.clinicalState;
+          return priorState.carePath === state.carePath;
+        } catch (e) {
+          // If we can't parse the clinicalState, don't match this session
+          return false;
+        }
+      });
+
+      if (matchingSession?.messages?.length) {
+        priorVisitChatHistory = matchingSession.messages.map(m => ({
           role: m.role === 'AI' ? 'Previous Visit Doctor AI' : 'Previous Visit Patient',
           content: m.content,
         }));

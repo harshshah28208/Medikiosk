@@ -419,15 +419,7 @@ export const api = {
         const text = (data.content || '').trim();
         const langUpper = ((data.language || 'EN').toUpperCase()) as 'EN' | 'HI' | 'GU';
 
-        if (/proceed to appointment|proceed with appointment|complete intake|review summary|done with intake|अपॉइंटमेंट के लिए आगे बढ़ें|કન્સલ્ટેશન માટે આગળ વધો/i.test(text)) {
-          return {
-            aiMessage: { id: `msg-${Date.now()}`, role: 'AI', content: langUpper === 'HI' ? 'धन्यवाद। आपकी अपॉइंटमेंट के लिए आगे बढ़ रहे हैं।' : langUpper === 'GU' ? 'ધન્યવાદ. આપની મુલાકાત માટે આગળ વધી રહ્યા છીએ.' : 'Thank you. Proceeding with your appointment now.' },
-            nextQuestion: langUpper === 'HI' ? 'धन्यवाद। आपकी अपॉइंटमेंट के लिए आगे बढ़ रहे हैं।' : langUpper === 'GU' ? 'ધન્યવાદ. આપની મુલાકાત માટે આગળ વધી રહ્યા છીએ.' : 'Thank you. Proceeding with your appointment now.',
-            touchOptions: langUpper === 'HI' ? ['अपॉइंटमेंट के लिए आगे बढ़ें', 'सारांश देखें'] : langUpper === 'GU' ? ['કન્સલ્ટેશન માટે આગળ વધો', 'વિગતો જુઓ'] : ['Proceed to Appointment', 'Review Summary'],
-            isComplete: true,
-          };
-        }
-
+        
         try {
           const state = {
             latestAnswer: text,
@@ -448,13 +440,13 @@ export const api = {
           };
         } catch {
           const tLow = text.toLowerCase();
-          const isExplicitClosing = /proceed|covers all symptoms|no further questions|आगे बढ़ें|આગળ વધો/i.test(tLow);
           const isMedicationAnswer = /prescription|penicillin|sulfa|regular|tablet|capsule|nkda|पेनिसिलिन|दवा|ગોળી|પેનિસિલિન/i.test(tLow);
           const isMedicalHistoryAnswer = /bp|diabetes|sugar|thyroid|asthma|chronic|surgery|hospital|पुरानी बीमारी|शुगर|बीपी|બીપી|સુગર|જૂની બીમારી/i.test(tLow);
           const isLifestyleAnswer = /sleep|diet|stress|routine|hours|exercise|खाना|नींद|तनाव|ઊંઘ|ખોરાક|તણાવ/i.test(tLow);
           const isTriggersAnswer = /worse|better|spicy|movement|heat|cold|rest|धूप|आराम|ગરમી|આરામ|ખોરાક/i.test(tLow);
           const isAssociatedAnswer = /fever|nausea|dizzy|vomit|headache|swelling|बुखार|उल्टी|चक्कर|તાવ|ઉલટી|ચક્કર/i.test(tLow);
           const isSeverityAnswer = /pain|severe|burning|throbbing|mild|moderate|1|2|3|4|5|6|7|8|9|10|तीव्र|दर्द|जलन|દુખાવો|બળતરા/i.test(tLow);
+          const isExplicitClosing = /proceed|covers all symptoms|no further questions|आगे बढ़ें|આગળ વધો/i.test(tLow);
 
           let aiMessageContent = '';
           let touchOptions: string[] = [];
