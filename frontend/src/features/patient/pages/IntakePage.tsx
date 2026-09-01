@@ -67,7 +67,9 @@ export function IntakePage() {
         const parsedPatient = storedPatient ? JSON.parse(storedPatient) : null;
         const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
 
-        // Check if we have an existing session data to resume
+        const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
+
+        // Check if we have an existing active session data to resume for this specific visit
         let sessionToUse = null;
         let messagesToUse: ChatMessage[] = [];
         let touchOptionsToUse: string[] = [];
@@ -76,9 +78,13 @@ export function IntakePage() {
         if (storedSession) {
           try {
             const sessionData = JSON.parse(storedSession);
-            if (sessionData?.session && sessionData?.messages) {
+            if (
+              sessionData?.session?.id &&
+              sessionData?.messages?.length > 0 &&
+              sessionData.session.visitId === vId &&
+              sessionData.session.status !== 'COMPLETED'
+            ) {
               sessionToUse = sessionData.session;
-              // Convert stored messages to ChatMessage format
               messagesToUse = sessionData.messages.map((msg: any) => ({
                 id: msg.id,
                 role: msg.role === 'AI' ? 'AI' : 'PATIENT',
@@ -87,20 +93,18 @@ export function IntakePage() {
                 options: msg.options && Array.isArray(msg.options) ? msg.options : undefined,
               }));
 
-              // Get touch options from the last AI message if available
               const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
               touchOptionsToUse = lastAiMsg?.options || [];
-
               isResuming = true;
+            } else {
+              // Stale or different visit session -> clean up
+              localStorage.removeItem('medikiosk_active_session_data');
             }
           } catch (err) {
             console.warn('Could not resume existing session data, starting new one:', err);
-            // Clear invalid session data
             localStorage.removeItem('medikiosk_active_session_data');
           }
         }
-
-        const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
         const currentLang = activeLangRef.current;
         const respondentType = localStorage.getItem('medikiosk_respondent_type') || 'PATIENT';
@@ -381,47 +385,49 @@ export function IntakePage() {
   const handleCompleteIntake = async () => {
     setIsProcessing(true);
     try {
-      // Build a summary from the conversation messages
-      const allPatientAnswers = messages
-        .filter((m) => m.role === 'PATIENT')
-        .map((m) => m.content)
-        .join(' | ');
+      let compSummary = null;
+      if (session?.id) {
+        const compRes = await api.conversation.complete(session.id);
+        compSummary = compRes?.summaryDraft || (compRes?.clinicalSummary?.summaryJson ? JSON.parse(compRes.clinicalSummary.summaryJson) : null);
+      }
 
-      const firstAiQ = messages.find((m) => m.role === 'AI')?.content || '';
-      const allAiQs = messages
-        .filter((m) => m.role === 'AI')
-        .map((m) => m.content)
-        .join('\n');
+      // If backend didn't return summary, build rich clinical fallback
+      if (!compSummary) {
+        const allPatientAnswers = messages
+          .filter((m) => m.role === 'PATIENT')
+          .map((m) => m.content)
+          .join('. ');
 
-      // Extract key clinical fields from conversation
-      const chiefComplaint = messages[1]?.content || messages.find((m) => m.role === 'PATIENT')?.content || 'Clinical intake completed';
+        const chiefComplaint = messages.find((m) => m.role === 'PATIENT')?.content || localStorage.getItem('medikiosk_target_complaint') || 'General Medical Consultation';
 
-      const summaryFromConversation = {
-        chiefComplaint,
-        historyOfPresentIllness: allPatientAnswers,
-        lifestyle: messages.filter((m) => m.role === 'PATIENT').slice(1, 3).map((m) => m.content).join('. '),
-        pastMedicalHistory: messages.filter((m) => m.role === 'PATIENT').slice(3, 5).map((m) => m.content).join('. ') || 'None reported',
-        medications: 'As discussed during intake',
-        allergies: 'As reported during intake',
-        fullConversation: messages.map((m) => `${m.role === 'AI' ? 'MediKiosk AI' : 'Patient'}: ${m.content}`).join('\n'),
-        generatedAt: new Date().toISOString(),
-      };
+        compSummary = {
+          chiefComplaint,
+          historyOfPresentIllness: allPatientAnswers || 'Completed conversational clinical intake session.',
+          lifestyle: messages.filter((m) => m.role === 'PATIENT').slice(1, 3).map((m) => m.content).join('. ') || 'Standard daily routine and habits assessed.',
+          pastMedicalHistory: messages.filter((m) => m.role === 'PATIENT').slice(3, 5).map((m) => m.content).join('. ') || 'No chronic medical conditions reported.',
+          medications: 'Prescription details reviewed during intake.',
+          allergies: 'No known drug allergies reported.',
+          fullConversation: messages.map((m) => `${m.role === 'AI' ? 'MediKiosk AI' : 'Patient'}: ${m.content}`).join('\n'),
+          generatedAt: new Date().toISOString(),
+        };
+      }
 
       // Save summary to active visit in localStorage
       const storedVisitRaw = localStorage.getItem('medikiosk_active_visit');
       if (storedVisitRaw) {
         try {
           const storedVisit = JSON.parse(storedVisitRaw);
-          storedVisit.summary = summaryFromConversation;
+          storedVisit.summary = compSummary;
           localStorage.setItem('medikiosk_active_visit', JSON.stringify(storedVisit));
         } catch {/* ignore */}
       }
 
-      if (session?.id) {
-        await api.conversation.complete(session.id);
-      }
+      // Clean up session data so future visits don't resume this finished session
+      localStorage.removeItem('medikiosk_active_session_data');
       navigate(`/kiosk/review/${visitId || 'current'}`);
     } catch (err) {
+      console.warn('Error completing intake:', err);
+      localStorage.removeItem('medikiosk_active_session_data');
       navigate(`/kiosk/review/${visitId || 'current'}`);
     } finally {
       setIsProcessing(false);

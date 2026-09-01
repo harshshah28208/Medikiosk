@@ -38,7 +38,22 @@ export function PatientReviewPage() {
     const parsedVisit = v ? JSON.parse(v) : null;
 
     if (parsedPatient) setActivePatient(parsedPatient);
-    if (parsedVisit) setActiveVisit(parsedVisit);
+    if (parsedVisit) {
+      setActiveVisit(parsedVisit);
+      if (parsedVisit.summary) {
+        const parsed = typeof parsedVisit.summary === 'string'
+          ? JSON.parse(parsedVisit.summary)
+          : parsedVisit.summary;
+        setSummaryReport(parsed);
+        setEditForm({
+          chiefComplaint: parsed?.chiefComplaint || parsedVisit?.reasonForVisit || '',
+          lifestyle: parsed?.lifestyle || '',
+          pastMedicalHistory: parsed?.pastMedicalHistory || '',
+          medications: parsed?.medications || '',
+          allergies: parsed?.allergies || '',
+        });
+      }
+    }
 
     const targetVisitId = (visitId && visitId !== 'current') ? visitId : parsedVisit?.id;
 
@@ -230,53 +245,108 @@ MediKiosk Autonomous Healthcare System
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Chief Complaint</span>
+              <span className="text-[10px] font-bold text-blue-600 uppercase block">Chief Complaint</span>
               <p className="text-slate-900 font-semibold">
                 {summaryReport?.chiefComplaint || activeVisit?.reasonForVisit || 'Symptom Consultation'}
               </p>
             </div>
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Routine &amp; Lifestyle</span>
+              <span className="text-[10px] font-bold text-amber-600 uppercase block">Daily Routine &amp; Lifestyle</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.lifestyle || 'Standard routine reported'}
+                {summaryReport?.lifestyle || summaryReport?.dailyRoutine || 'Standard routine and habits reported.'}
               </p>
             </div>
 
-            <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">History of Present Illness (HPI)</span>
+            <div className="sm:col-span-2 bg-white p-4 rounded-xl border border-slate-200 space-y-1.5">
+              <span className="text-[10px] font-bold text-indigo-600 uppercase block">History of Present Illness (HPI Narrative)</span>
               <p className="text-slate-700 leading-relaxed text-xs sm:text-sm">
-                {summaryReport?.historyOfPresentIllness || 'Synthesized across multi-turn adaptive clinical intake.'}
+                {summaryReport?.historyOfPresentIllness || summaryReport?.symptomHistory || 'Synthesized across multi-turn adaptive clinical intake.'}
+              </p>
+            </div>
+
+            {/* Clinical Characteristics & Modalities */}
+            {(summaryReport?.severity || summaryReport?.character || summaryReport?.aggravatingFactors || summaryReport?.relievingFactors) && (
+              <div className="sm:col-span-2 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-4 rounded-xl border border-blue-100 space-y-2">
+                <span className="text-[10px] font-bold text-blue-700 uppercase block">Clinical Presentation &amp; Modalities</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
+                  {summaryReport.severity && (
+                    <div><span className="font-semibold text-slate-900">Severity Rating:</span> {summaryReport.severity}</div>
+                  )}
+                  {summaryReport.character && (
+                    <div><span className="font-semibold text-slate-900">Pain Character:</span> {summaryReport.character}</div>
+                  )}
+                  {summaryReport.aggravatingFactors && (
+                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Aggravating Factors:</span> {typeof summaryReport.aggravatingFactors === 'object' ? JSON.stringify(summaryReport.aggravatingFactors) : summaryReport.aggravatingFactors}</div>
+                  )}
+                  {summaryReport.relievingFactors && (
+                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Relieving Factors:</span> {typeof summaryReport.relievingFactors === 'object' ? JSON.stringify(summaryReport.relievingFactors) : summaryReport.relievingFactors}</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* AYUSH Assessment Card */}
+            {(summaryReport?.ayushAssessment || summaryReport?.prakriti || summaryReport?.agni || summaryReport?.koshtha) && (
+              <div className="sm:col-span-2 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 space-y-1.5">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase block">AYUSH &amp; Dosha Profile Assessment</span>
+                <p className="text-emerald-950 text-xs leading-relaxed">
+                  {typeof summaryReport.ayushAssessment === 'object'
+                    ? JSON.stringify(summaryReport.ayushAssessment, null, 2)
+                    : summaryReport.ayushAssessment || `Prakriti/Dosha: ${summaryReport.prakriti || 'Vata-Pitta Balance'} • Agni: ${summaryReport.agni || 'Sama Agni'} • Koshtha: ${summaryReport.koshtha || 'Madhyama'}`}
+                </p>
+              </div>
+            )}
+
+            {/* Homeopathy Characteristics Card */}
+            {(summaryReport?.characteristicSymptoms || summaryReport?.modalities || summaryReport?.individualizingCharacteristics) && (
+              <div className="sm:col-span-2 bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-1.5">
+                <span className="text-[10px] font-bold text-purple-800 uppercase block">Homeopathic Totality &amp; Modalities</span>
+                <p className="text-purple-950 text-xs leading-relaxed">
+                  {typeof summaryReport.modalities === 'object'
+                    ? JSON.stringify(summaryReport.modalities, null, 2)
+                    : summaryReport.characteristicSymptoms || summaryReport.individualizingCharacteristics || 'Characteristic totality recorded.'}
+                </p>
+              </div>
+            )}
+
+            {/* Follow-up Longitudinal Progression Card */}
+            {(summaryReport?.treatmentResponse || summaryReport?.followUpChanges || summaryReport?.progression || summaryReport?.previousComparison) && (
+              <div className="sm:col-span-2 bg-teal-50/60 p-4 rounded-xl border border-teal-200 space-y-1.5">
+                <span className="text-[10px] font-bold text-teal-800 uppercase block">Longitudinal Follow-up Progression</span>
+                <p className="text-teal-950 text-xs leading-relaxed">
+                  {summaryReport.treatmentResponse || summaryReport.followUpChanges || summaryReport.progression || summaryReport.previousComparison}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase block">Past Medical &amp; Surgical History</span>
+              <p className="text-slate-800 text-xs">
+                {summaryReport?.pastMedicalHistory || 'No prior chronic conditions declared.'}
               </p>
             </div>
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Past Medical &amp; Surgical History</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block">Regular Medications</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.pastMedicalHistory || 'No prior chronic conditions declared'}
-              </p>
-            </div>
-
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Regular Medications</span>
-              <p className="text-slate-800 text-xs">
-                {summaryReport?.medications || 'No regular medications reported'}
+                {summaryReport?.medications || 'No regular prescription medications reported.'}
               </p>
             </div>
 
             <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergies &amp; Drug Sensitivities</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase block">Allergies &amp; Drug Sensitivities</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.allergies || 'No known drug allergies reported (NKDA)'}
+                {summaryReport?.allergies || 'No known drug allergies reported (NKDA).'}
               </p>
             </div>
 
             {/* Red Flags Section */}
             {summaryReport?.redFlags && summaryReport.redFlags.length > 0 && (
               <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Safety Alerts</span>
+                <span className="text-[10px] font-bold text-red-600 uppercase block">Safety Alerts</span>
                 {summaryReport.redFlags.map((flag: any, index: number) => (
-                  <div key={index} className="mb-2 p-3 bg-red-50 border-l-4 border-red-500">
+                  <div key={index} className="mb-2 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
                     <p className="text-slate-900 text-xs font-medium">{flag.description || flag.symptoms}</p>
                     <span className="text-red-600 text-xs font-bold">{flag.severity}</span>
                   </div>
