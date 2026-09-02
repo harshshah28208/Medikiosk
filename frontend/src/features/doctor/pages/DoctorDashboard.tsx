@@ -270,23 +270,53 @@ export function DoctorDashboard() {
           }
         }
         
-        // Preserve doctor and summary if backend object lacks them
+        // Preserve doctor if backend object lacks it
         if (!visitObj.doctor && (visit.doctor || localActive?.doctor)) {
           visitObj.doctor = visit.doctor || localActive?.doctor;
         }
 
-        const fullSummary = visitObj.summary || effectiveSummary;
-        if (fullSummary) {
-          visitObj.summary = fullSummary;
-          const sJson = typeof fullSummary.summaryJson === 'string'
-            ? safeJsonParse(fullSummary.summaryJson, null)
-            : (fullSummary.summaryJson || fullSummary);
-          if (sJson) {
-            setSummaryData(sJson);
-            setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
-            setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
-            setSoapAssessment(safeString(sJson?.chiefComplaint, ''));
-          }
+        // Multi-tier AI summary resolution
+        let resolvedSummaryJson = null;
+        if (visitObj.summary) {
+          resolvedSummaryJson = typeof visitObj.summary.summaryJson === 'string'
+            ? safeJsonParse(visitObj.summary.summaryJson, null)
+            : (visitObj.summary.summaryJson || visitObj.summary);
+        }
+
+        if (!resolvedSummaryJson) {
+          try {
+            const sumRes = await api.doctor.summary(visit.id);
+            if (sumRes?.summary) {
+              resolvedSummaryJson = typeof sumRes.summary.summaryJson === 'string'
+                ? safeJsonParse(sumRes.summary.summaryJson, null)
+                : (sumRes.summary.summaryJson || sumRes.summary);
+            }
+          } catch {}
+        }
+
+        if (!resolvedSummaryJson && effectiveSummary) {
+          resolvedSummaryJson = typeof effectiveSummary === 'string'
+            ? safeJsonParse(effectiveSummary, null)
+            : (effectiveSummary.summaryJson ? (typeof effectiveSummary.summaryJson === 'string' ? safeJsonParse(effectiveSummary.summaryJson, null) : effectiveSummary.summaryJson) : effectiveSummary);
+        }
+
+        if (!resolvedSummaryJson && visitObj.clinicalHistory) {
+          const ch = visitObj.clinicalHistory;
+          resolvedSummaryJson = {
+            chiefComplaint: ch.chiefComplaint || visitObj.reasonForVisit || 'OPD Consultation',
+            historyOfPresentIllness: ch.hpiNarrative || 'Clinical intake completed at MediKiosk.',
+            pastMedicalHistory: typeof ch.pastMedicalHistory === 'string' ? safeJsonParse(ch.pastMedicalHistory, ch.pastMedicalHistory) : ch.pastMedicalHistory,
+            medications: typeof ch.medications === 'string' ? safeJsonParse(ch.medications, ch.medications) : ch.medications,
+            allergies: typeof ch.allergies === 'string' ? safeJsonParse(ch.allergies, ch.allergies) : ch.allergies,
+          };
+        }
+
+        if (resolvedSummaryJson) {
+          visitObj.summary = resolvedSummaryJson;
+          setSummaryData(resolvedSummaryJson);
+          setImpression(safeString(resolvedSummaryJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
+          setSoapSubjective(safeString(resolvedSummaryJson?.historyOfPresentIllness, ''));
+          setSoapAssessment(safeString(resolvedSummaryJson?.chiefComplaint, ''));
         }
 
         setSelectedVisit(visitObj);
