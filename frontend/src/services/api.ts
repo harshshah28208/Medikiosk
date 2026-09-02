@@ -76,9 +76,13 @@ async function request<T = any>(
       throw new Error(error.error || `Request failed (${response.status})`);
     }
 
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error(`Invalid content-type: ${contentType}. Expected JSON.`);
+    }
+
     return response.json();
   } catch (err: any) {
-    console.error(`❌ API Error [${fullUrl}]:`, err);
     throw new Error(err.message?.includes('Failed to fetch') 
       ? `Cannot connect to server at ${API_BASE}. Please ensure the backend is awake or check connection.`
       : (err.message || 'Network error'));

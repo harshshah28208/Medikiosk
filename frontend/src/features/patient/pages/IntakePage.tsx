@@ -142,10 +142,33 @@ export function IntakePage() {
             previousPatientInfo: parsedPatient,
           });
 
+          if (!res || !res.session) {
+            const initialGreetingText = currentLang === 'gu'
+              ? `નમસ્તે ${parsedPatient?.name || 'દર્દી'}! હું MediKiosk Clinical AI છું. હું ${parsedDoctor?.name ? `Dr. ${parsedDoctor.name}` : (carePath === 'AYUSH' ? 'Vaidya Harish Bhatt' : carePath === 'HOMEOPATHY' ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma')} (${specialty}) માટે તમારો ક્લિનિકલ ઇન્ટેક તૈયાર કરી રહ્યો છું. આજે તમને અહીં લાવતી મુખ્ય આરોગ્ય સમસ્યા શું છે? કૃપા કરીને તે વિશિષ્ટ ક્ષેત્ર અથવા લક્ષણ જણાવો જે તમે અનુભવી રહ્યા છો.`
+              : currentLang === 'hi'
+              ? `नमस्ते ${parsedPatient?.name || 'रोगी'} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${parsedDoctor?.name ? `Dr. ${parsedDoctor.name}` : (carePath === 'AYUSH' ? 'Vaidya Harish Bhatt' : carePath === 'HOMEOPATHY' ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma')} (${specialty}) से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`
+              : `Hello ${parsedPatient?.name || 'Patient'}! I am MediKiosk Clinical AI. I am preparing your clinical intake for ${parsedDoctor?.name ? `Dr. ${parsedDoctor.name}` : (carePath === 'AYUSH' ? 'Vaidya Harish Bhatt' : carePath === 'HOMEOPATHY' ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma')} (${specialty}). What main symptom or health concern brought you in today?`;
+
+            const defaultOpts = currentLang === 'gu'
+              ? ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર']
+              : currentLang === 'hi'
+              ? ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना']
+              : ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
+
+            res = {
+              session: { id: `session-${Date.now()}`, visitId: vId, language: currentLang, status: 'ACTIVE' },
+              message: { id: 'msg-start', role: 'AI', content: initialGreetingText },
+              nextQuestion: initialGreetingText,
+              touchOptions: defaultOpts,
+            };
+          }
+
           if (isMounted && res?.session) {
             setSession(res.session);
             sessionRef.current = res.session;
             localStorage.setItem('medikiosk_active_session_id', res.session.id);
+            const greetingMsg = res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.';
+            
             // Store session data for future resumption
             const sessionDataToStore = {
               session: res.session,
@@ -153,7 +176,7 @@ export function IntakePage() {
                 {
                   id: res.message?.id || 'welcome',
                   role: 'AI',
-                  content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
+                  content: greetingMsg,
                   timestamp: new Date().toISOString(),
                   options: res.touchOptions || [],
                 }
@@ -164,7 +187,7 @@ export function IntakePage() {
             const initialMsg: ChatMessage = {
               id: res.message?.id || 'welcome',
               role: 'AI',
-              content: res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.',
+              content: greetingMsg,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               options: res.touchOptions || [],
             };
@@ -172,7 +195,7 @@ export function IntakePage() {
             setTouchOptions(res.touchOptions || []);
 
             if (audioEnabled) {
-              speechProvider.speak(res.message?.content || res.nextQuestion || 'Welcome to MediKiosk.', currentLang);
+              speechProvider.speak(greetingMsg, currentLang);
             }
           }
         } else {
