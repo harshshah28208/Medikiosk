@@ -90,7 +90,7 @@ async function request<T = any>(
 }
 
 import { DEMO_USERS, DEMO_QUEUE, DEMO_DOCTORS, DEMO_TIMELINES } from './demoFallbackData';
-import { callGroqDynamicIntake } from './groqClient';
+import { callGroqDynamicIntake, type GroqIntakeResponse } from './groqClient';
 
 export const api = {
   health: () => request('/health').catch(() => ({ status: 'OK', environment: 'standalone-demo' })),
@@ -441,6 +441,112 @@ export const api = {
       request(`/conversation/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
+      }).catch(async () => {
+        // Dynamic client-side intake progression for Vercel / standalone cloud mode
+        const langUpper = (data.language || 'EN').toUpperCase() as 'EN' | 'HI' | 'GU';
+        const sessionRaw = localStorage.getItem('medikiosk_active_session_data');
+        let priorMessages: Array<{ role: string; content: string }> = [];
+        let turns = 1;
+
+        if (sessionRaw) {
+          try {
+            const sd = JSON.parse(sessionRaw);
+            if (Array.isArray(sd.messages)) {
+              priorMessages = sd.messages.map((m: any) => ({
+                role: m.role === 'AI' ? 'AI' : 'PATIENT',
+                content: m.content || '',
+              }));
+              turns = priorMessages.filter((m: any) => m.role === 'PATIENT').length + 1;
+            }
+          } catch {}
+        }
+
+        priorMessages.push({ role: 'PATIENT', content: data.content });
+
+        const isClosing = data.content.toLowerCase().includes('complete') || 
+          data.content.toLowerCase().includes('પૂર્ણ') || 
+          data.content.toLowerCase().includes('पूर्ण') ||
+          turns >= 6;
+
+        let groqRes: GroqIntakeResponse | null = null;
+        try {
+          groqRes = await callGroqDynamicIntake({
+            carePath: data.carePath || (data.isAyush ? 'AYUSH' : data.isHomeopathy ? 'HOMEOPATHY' : 'ALLOPATHY'),
+            specialty: data.specialty || 'General Medicine',
+            turnsCompleted: turns,
+          }, langUpper, priorMessages);
+        } catch {
+          groqRes = null;
+        }
+
+        if (groqRes && !isClosing) {
+          const aiMsg = {
+            id: `msg-${Date.now()}`,
+            role: 'AI',
+            content: groqRes.question,
+            timestamp: new Date().toISOString(),
+            options: groqRes.touchOptions,
+          };
+
+          return {
+            message: aiMsg,
+            aiMessage: aiMsg,
+            nextQuestion: groqRes.question,
+            touchOptions: groqRes.touchOptions,
+            isComplete: groqRes.isComplete,
+            session: { id: sessionId, status: groqRes.isComplete ? 'COMPLETED' : 'ACTIVE' },
+          };
+        }
+
+        // Deterministic intelligent dynamic clinical question progression
+        const deterministicStages = {
+          EN: [
+            { q: "How long have you been experiencing these symptoms, and is it continuous or intermittent?", opts: ["Started today", "1-3 days ago", "More than 1 week", "Chronic / recurrent"] },
+            { q: "Can you describe the intensity and specific triggers (such as eating, movement, or rest)?", opts: ["Mild discomfort", "Moderate pain", "Severe / intolerable", "Worse with exertion", "Better with rest"] },
+            { q: "Do you have any related symptoms like fever, nausea, dizziness, or localized swelling?", opts: ["Mild fever / body warmth", "Nausea or stomach upset", "Dizziness / fatigue", "No other symptoms"] },
+            { q: "What is your current occupation, daily routine, sleep pattern, and dietary habits?", opts: ["Desk job / sedentary", "Physical labor / active", "Normal sleep & home diet", "Irregular sleep & outside food"] },
+            { q: "Do you have any chronic conditions (diabetes, BP, thyroid) or known medicine allergies?", opts: ["None / perfectly healthy", "Hypertension (High BP)", "Diabetes Mellitus", "Known Drug Allergy (NKDA)"] },
+            { q: "Thank you. Does this cover all your symptoms, or would you like to add anything else before consulting the doctor?", opts: ["No, that covers all symptoms — complete intake", "Yes, I want to add one more detail"] }
+          ],
+          HI: [
+            { q: "यह समस्या आपको कितने समय से हो रही है, और क्या यह लगातार बनी रहती है या कभी-कभी होती है?", opts: ["आज से शुरू हुई", "1-3 दिनों से", "1 सप्ताह से अधिक", "पुरानी / बार-बार होती है"] },
+            { q: "इस तकलीफ की तीव्रता कैसी है, और क्या चलने, खाने या आराम करने से कोई बदलाव आता है?", opts: ["हल्का दर्द / बेचैनी", "मध्यम दर्द", "असहनीय / तेज दर्द", "चलने पर बढ़ता है", "आराम से घटता है"] },
+            { q: "क्या इसके साथ बुखार, जी मिचलाना, चक्कर आना या कोई अन्य लक्षण भी हैं?", opts: ["हल्का बुखार / बदन दर्द", "जी मिचलाना / उल्टी", "चक्कर / कमजोरी", "कोई अन्य लक्षण नहीं"] },
+            { q: "आपका व्यवसाय, दैनिक दिनचर्या, नींद और खान-पान की आदतें कैसी हैं?", opts: ["डेस्क जॉब / बैठना ज्यादा", "मेहनत का काम / सक्रिय", "सामान्य नींद और घर का खाना", "अनियमित नींद व बाहर का खाना"] },
+            { q: "क्या आपको पहले से कोई पुरानी बीमारी (बीपी, शुगर, थायरॉइड) या किसी दवा से एलर्जी है?", opts: ["कोई बीमारी नहीं / स्वस्थ", "हाई ब्लड प्रेशर (BP)", "डायबिटीज (शुगर)", "दवा से एलर्जी है"] },
+            { q: "धन्यवाद। क्या आपने अपने सभी लक्षण बता दिए हैं, या डॉक्टर से मिलने से पहले कुछ और जोड़ना चाहते हैं?", opts: ["नहीं, सब लक्षण बता दिए — इनटेक पूर्ण करें", "हाँ, मुझे एक और लक्षण बताना है"] }
+          ],
+          GU: [
+            { q: "આ તકલીફ તમને કેટલા સમયથી છે, અને શું તે સતત રહે છે કે વચગાળે થાય છે?", opts: ["આજથી શરૂ થઈ", "1-3 દિવસથી", "1 અઠવાડિયાથી વધુ", "જૂની / વારંવાર થતી"] },
+            { q: "આ દુખાવા કે તકલીફની તીવ્રતા કેવી છે, અને હલનચલન, ખોરાક કે આરામ કરવાથી વધે કે ઘટે છે?", opts: ["હળવો દુખાવો / અસ્વસ્થતા", "મધ્યમ દુખાવો", "અસહ્ય / તીવ્ર દુખાવો", "હલનચલનથી વધે છે", "આરામથી રાહત થાય છે"] },
+            { q: "શું આની સાથે તાવ, ઉબકા, ચક્કર આવવા કે શરીરમાં કોઈ સોજો જણાય છે?", opts: ["હળવો તાવ / શરીરનો દુખાવો", "ઉબકા / પેટમાં ગરબડ", "ચક્કર / અશક્તિ", "બીજા કોઈ લક્ષણો નથી"] },
+            { q: "આપનો વ્યવસાય, દિનચર્યા, ઊંઘ અને ખોરાકની આદતો કેવી છે?", opts: ["ડેસ્ક જોબ / બેઠાડુ જીવન", "શારીરિક શ્રમ / સક્રિય", "નિયમિત ઊંઘ અને સાદો ખોરાક", "અનિયમિત ઊંઘ અને બહારનો ખોરાક"] },
+            { q: "શું આપને કોઈ જૂની બીમારી (બીપી, ડાયાબિટીસ, થાયરોઇડ) કે કોઈ દવાની એલર્જી છે?", opts: ["કોઈ બીમારી નથી / તંદુરસ્ત", "હાઈ બ્લડ પ્રેશર (BP)", "ડાયાબિટીસ (સુગર)", "દવાની એલર્જી છે"] },
+            { q: "આભાર. શું આપે તમામ લક્ષણો જણાવી દીધા છે, કે ડૉક્ટર પાસે જતાં પહેલાં વધુ કંઈ ઉમેરવું છે?", opts: ["ના, તમામ લક્ષણો જણાવી દીધા — ઇન્ટેક પૂર્ણ કરો", "હા, મારે બીજું એક લક્ષણ જણાવવું છે"] }
+          ]
+        };
+
+        const stageList = deterministicStages[langUpper] || deterministicStages.EN;
+        const stageIdx = Math.min(turns - 1, stageList.length - 1);
+        const stage = stageList[stageIdx];
+        const isLastStage = stageIdx === stageList.length - 1 && isClosing;
+
+        const aiMsg = {
+          id: `msg-${Date.now()}`,
+          role: 'AI',
+          content: stage.q,
+          timestamp: new Date().toISOString(),
+          options: stage.opts,
+        };
+
+        return {
+          message: aiMsg,
+          aiMessage: aiMsg,
+          nextQuestion: stage.q,
+          touchOptions: stage.opts,
+          isComplete: isLastStage,
+          session: { id: sessionId, status: isLastStage ? 'COMPLETED' : 'ACTIVE' },
+        };
       }),
 
     switchLanguage: (sessionId: string, targetLanguage: string, messages: any[] = []) =>
