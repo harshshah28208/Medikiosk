@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../store/AuthContext';
+import { safeJsonParse, safeGetItem } from '../../../utils/storage';
 import {
   Users, Stethoscope, AlertCircle, Clock, CheckCircle2,
   FileText, Activity, ChevronRight, RefreshCw, UserCheck, Trash2,
@@ -206,8 +207,8 @@ export function DoctorDashboard() {
     setSelectedVisit(visit);
     if (visit.summary) {
       const sJson = typeof visit.summary === 'string'
-        ? JSON.parse(visit.summary)
-        : (visit.summary.summaryJson ? (typeof visit.summary.summaryJson === 'string' ? JSON.parse(visit.summary.summaryJson) : visit.summary.summaryJson) : visit.summary);
+        ? safeJsonParse(visit.summary, null)
+        : (visit.summary.summaryJson ? (typeof visit.summary.summaryJson === 'string' ? safeJsonParse(visit.summary.summaryJson, null) : visit.summary.summaryJson) : visit.summary);
       setSummaryData(sJson);
       setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
       setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
@@ -241,12 +242,9 @@ export function DoctorDashboard() {
         }
         // Fallback to local storage vitals
         if (!visitObj.vitals || visitObj.vitals.length === 0) {
-          const localV = localStorage.getItem(`medikiosk_vitals_${visit.id}`);
-          if (localV) {
-            try {
-              const parsed = JSON.parse(localV);
-              visitObj = { ...visitObj, vitals: Array.isArray(parsed) ? parsed : [parsed] };
-            } catch {}
+          const parsed = safeGetItem<any>(`medikiosk_vitals_${visit.id}`, null);
+          if (parsed) {
+            visitObj = { ...visitObj, vitals: Array.isArray(parsed) ? parsed : [parsed] };
           }
         }
         setSelectedVisit(visitObj);
@@ -256,7 +254,7 @@ export function DoctorDashboard() {
         }
         if (visitObj.summary) {
           const sJson = typeof visitObj.summary.summaryJson === 'string'
-            ? JSON.parse(visitObj.summary.summaryJson)
+            ? safeJsonParse(visitObj.summary.summaryJson, null)
             : (visitObj.summary.summaryJson || visitObj.summary);
           setSummaryData(sJson);
           setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));

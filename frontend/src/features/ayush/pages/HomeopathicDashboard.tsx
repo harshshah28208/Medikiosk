@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../../services/api";
+import { safeJsonParse, safeGetItem } from "../../../utils/storage";
 import {
   Droplets, Users, CheckCircle2, RefreshCw,
   Flower2, FileText, Activity, AlertTriangle, Sparkles, Eye, Download, X, Printer, Search
@@ -95,17 +96,13 @@ export function HomeopathicDashboard() {
       }
 
       // Check localStorage for freshly registered kiosk patients
-      const localActiveVisit = localStorage.getItem('medikiosk_active_visit');
-      const localActivePatient = localStorage.getItem('medikiosk_active_patient');
-      if (localActiveVisit && localActivePatient) {
-        try {
-          const parsedV = JSON.parse(localActiveVisit);
-          const parsedP = JSON.parse(localActivePatient);
-          parsedV.patient = parsedP;
-          if (isHomeoVisit(parsedV) && !visitList.some((v) => v.id === parsedV.id)) {
-            visitList.unshift(parsedV);
-          }
-        } catch {}
+      const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
+      const parsedP = safeGetItem<any>('medikiosk_active_patient', null);
+      if (parsedV && parsedP) {
+        parsedV.patient = parsedP;
+        if (isHomeoVisit(parsedV) && !visitList.some((v) => v.id === parsedV.id)) {
+          visitList.unshift(parsedV);
+        }
       }
 
       setPatients(visitList);

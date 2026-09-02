@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../store/AuthContext';
+import { safeGetItem, safeSetItem, safeJsonParse } from '../../../utils/storage';
 import {
   Heart, Calendar, FileText, Activity, ShieldCheck,
   Stethoscope, Clock, ChevronRight, User, Pill, Sparkles,
@@ -20,10 +21,8 @@ export function PatientPortalPage() {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
 
   useEffect(() => {
-    const userRaw = localStorage.getItem('medikiosk_user');
-    const storedUser = userRaw ? JSON.parse(userRaw) : null;
-    const raw = localStorage.getItem('medikiosk_active_patient');
-    const parsedRaw = raw ? JSON.parse(raw) : null;
+    const storedUser = safeGetItem<any>('medikiosk_user', null);
+    const parsedRaw = safeGetItem<any>('medikiosk_active_patient', null);
 
     let p = parsedRaw;
     if (storedUser?.role === 'PATIENT') {
@@ -38,33 +37,23 @@ export function PatientPortalPage() {
         bloodGroup: storedUser.bloodGroup || 'B+',
         abhaId: storedUser.abhaId || undefined,
       };
-      localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
+      safeSetItem('medikiosk_active_patient', p);
     } else if (!p) {
       if (storedUser?.patient) {
         p = storedUser.patient;
       } else {
-        const activeVRaw = localStorage.getItem('medikiosk_active_visit');
-        if (activeVRaw) {
-          try {
-            const parsedV = JSON.parse(activeVRaw);
-            if (parsedV.patient) p = parsedV.patient;
-          } catch {}
-        }
+        const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
+        if (parsedV?.patient) p = parsedV.patient;
       }
       if (p) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(p));
+        safeSetItem('medikiosk_active_patient', p);
       }
     }
     setPatient(p);
 
-    const activeVisitRaw = localStorage.getItem('medikiosk_active_visit');
-    if (activeVisitRaw) {
-      try {
-        const parsedVisit = JSON.parse(activeVisitRaw);
-        setActiveVisit(parsedVisit);
-      } catch {
-        setActiveVisit(null);
-      }
+    const parsedVisit = safeGetItem<any>('medikiosk_active_visit', null);
+    if (parsedVisit) {
+      setActiveVisit(parsedVisit);
     } else if (p?.visits?.[0]) {
       setActiveVisit(p.visits[0]);
     } else {
@@ -73,8 +62,7 @@ export function PatientPortalPage() {
 
     // Fetch full visit from API to get the complete AI summary
     const loadFull = async () => {
-      const currentV = localStorage.getItem('medikiosk_active_visit');
-      const vObj = currentV ? JSON.parse(currentV) : null;
+      const vObj = safeGetItem<any>('medikiosk_active_visit', null);
       const targetVisitId = vObj?.id;
       if (targetVisitId) {
         try {

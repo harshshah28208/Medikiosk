@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage, type LanguageCode } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
 import { speechProvider } from '../../../services/speech';
+import { safeGetItem, safeSetItem, safeJsonParse } from '../../../utils/storage';
 import {
   Mic, MicOff, Send, Volume2, VolumeX, ShieldAlert,
   Sparkles, CheckCircle2, User, Bot, RefreshCw, ArrowRight, CheckSquare
@@ -55,18 +56,15 @@ export function IntakePage() {
     const initSession = async () => {
       setIsProcessing(true);
       try {
-        const storedVisit = localStorage.getItem('medikiosk_active_visit');
-        const storedPatient = localStorage.getItem('medikiosk_active_patient');
-        const storedDoctor = localStorage.getItem('medikiosk_active_doctor');
         const storedCarePath = localStorage.getItem('medikiosk_care_path');
         const storedTargetComplaint = localStorage.getItem('medikiosk_target_complaint');
         const storedVisitType = localStorage.getItem('medikiosk_visit_type');
-        const storedSession = localStorage.getItem('medikiosk_active_session_data');
         const recentChanges = localStorage.getItem('medikiosk_recent_changes') || undefined;
 
-        const parsedVisit = storedVisit ? JSON.parse(storedVisit) : null;
-        const parsedPatient = storedPatient ? JSON.parse(storedPatient) : null;
-        const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
+        const parsedVisit = safeGetItem<any>('medikiosk_active_visit', null);
+        const parsedPatient = safeGetItem<any>('medikiosk_active_patient', null);
+        const parsedDoctor = safeGetItem<any>('medikiosk_active_doctor', null);
+        const sessionData = safeGetItem<any>('medikiosk_active_session_data', null);
 
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
@@ -76,35 +74,27 @@ export function IntakePage() {
         let touchOptionsToUse: string[] = [];
         let isResuming = false;
 
-        if (storedSession) {
-          try {
-            const sessionData = JSON.parse(storedSession);
-            if (
-              sessionData?.session?.id &&
-              sessionData?.messages?.length > 0 &&
-              sessionData.session.visitId === vId &&
-              sessionData.session.status !== 'COMPLETED'
-            ) {
-              sessionToUse = sessionData.session;
-              messagesToUse = sessionData.messages.map((msg: any) => ({
-                id: msg.id,
-                role: msg.role === 'AI' ? 'AI' : 'PATIENT',
-                content: msg.content,
-                timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                options: msg.options && Array.isArray(msg.options) ? msg.options : undefined,
-              }));
+        if (
+          sessionData?.session?.id &&
+          sessionData?.messages?.length > 0 &&
+          sessionData.session.visitId === vId &&
+          sessionData.session.status !== 'COMPLETED'
+        ) {
+          sessionToUse = sessionData.session;
+          messagesToUse = sessionData.messages.map((msg: any) => ({
+            id: msg.id,
+            role: msg.role === 'AI' ? 'AI' : 'PATIENT',
+            content: msg.content,
+            timestamp: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            options: msg.options && Array.isArray(msg.options) ? msg.options : undefined,
+          }));
 
-              const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
-              touchOptionsToUse = lastAiMsg?.options || [];
-              isResuming = true;
-            } else {
-              // Stale or different visit session -> clean up
-              localStorage.removeItem('medikiosk_active_session_data');
-            }
-          } catch (err) {
-            console.warn('Could not resume existing session data, starting new one:', err);
-            localStorage.removeItem('medikiosk_active_session_data');
-          }
+          const lastAiMsg = messagesToUse.slice().reverse().find((m: any) => m.role === 'AI');
+          touchOptionsToUse = lastAiMsg?.options || [];
+          isResuming = true;
+        } else if (sessionData) {
+          // Stale or different visit session -> clean up
+          localStorage.removeItem('medikiosk_active_session_data');
         }
 
         const currentLang = activeLangRef.current;
@@ -325,9 +315,8 @@ export function IntakePage() {
     setIsProcessing(true);
 
     try {
-      const storedDoctor = localStorage.getItem('medikiosk_active_doctor');
+      const parsedDoctor = safeGetItem<any>('medikiosk_active_doctor', null);
       const storedCarePath = localStorage.getItem('medikiosk_care_path');
-      const parsedDoctor = storedDoctor ? JSON.parse(storedDoctor) : null;
       let carePath: 'ALLOPATHY' | 'AYUSH' | 'HOMEOPATHY' = 'ALLOPATHY';
       if (storedCarePath === 'AYUSH' || storedCarePath === 'AYURVEDA' || parsedDoctor?.system === 'AYURVEDA') {
         carePath = 'AYUSH';
@@ -452,13 +441,10 @@ export function IntakePage() {
       }
 
       // Save summary to active visit in localStorage
-      const storedVisitRaw = localStorage.getItem('medikiosk_active_visit');
-      if (storedVisitRaw) {
-        try {
-          const storedVisit = JSON.parse(storedVisitRaw);
-          storedVisit.summary = compSummary;
-          localStorage.setItem('medikiosk_active_visit', JSON.stringify(storedVisit));
-        } catch {/* ignore */}
+      const storedVisit = safeGetItem<any>('medikiosk_active_visit', null);
+      if (storedVisit) {
+        storedVisit.summary = compSummary;
+        safeSetItem('medikiosk_active_visit', storedVisit);
       }
 
       // Clean up session data so future visits don't resume this finished session

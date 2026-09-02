@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeGetItem } from '../../../utils/storage';
 import { ShieldAlert, CheckCircle2, ArrowLeft, ArrowRight, Stethoscope, AlertTriangle } from 'lucide-react';
 
 export function ConsentPage() {
@@ -22,11 +23,8 @@ export function ConsentPage() {
 
     setIsSubmitting(true);
     try {
-      const activePatientRaw = localStorage.getItem('medikiosk_active_patient');
-      const activeVisitRaw = localStorage.getItem('medikiosk_active_visit');
-
-      const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
-      const activeVisit = activeVisitRaw ? JSON.parse(activeVisitRaw) : null;
+      const activePatient = safeGetItem<any>('medikiosk_active_patient', null);
+      const activeVisit = safeGetItem<any>('medikiosk_active_visit', null);
 
       if (activePatient?.id) {
         await api.consent.grant({

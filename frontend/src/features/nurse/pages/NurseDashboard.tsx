@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../store/AuthContext';
+import { safeJsonParse, safeGetItem } from '../../../utils/storage';
 import {
   Activity, Users, AlertTriangle, Clock, Heart,
   Flame, CheckCircle2, ChevronRight, RefreshCw, FileText,
@@ -69,29 +70,20 @@ export function NurseDashboard() {
       }
 
       // Check localStorage for the active visit so newly queued patient is selected
-      const localActiveVisit = localStorage.getItem('medikiosk_active_visit');
-      const localActivePatient = localStorage.getItem('medikiosk_active_patient');
-      if (localActiveVisit) {
-        try {
-          const parsedV = JSON.parse(localActiveVisit);
-          if (localActivePatient) {
-            parsedV.patient = JSON.parse(localActivePatient);
-          }
-          if (!visitList.some((v) => v.id === parsedV.id)) {
-            visitList.unshift(parsedV);
-          }
-        } catch {}
+      const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
+      const parsedP = safeGetItem<any>('medikiosk_active_patient', null);
+      if (parsedV) {
+        if (parsedP) {
+          parsedV.patient = parsedP;
+        }
+        if (!visitList.some((v) => v.id === parsedV.id)) {
+          visitList.unshift(parsedV);
+        }
       }
 
       setPatients(visitList);
       if (visitList.length > 0) {
-        let targetToSelect = null;
-        if (localActiveVisit) {
-          try {
-            const localActive = JSON.parse(localActiveVisit);
-            targetToSelect = visitList.find((v: any) => v.id === localActive.id);
-          } catch {}
-        }
+        const targetToSelect = parsedV ? visitList.find((v: any) => v.id === parsedV.id) : null;
 
         if (targetToSelect) {
           handleSelectPatient(targetToSelect);

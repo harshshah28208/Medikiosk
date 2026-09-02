@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeGetItem, safeSetItem } from '../../../utils/storage';
 import {
   UserPlus, ArrowRight, ArrowLeft, AlertCircle, Building2,
   Phone, User, Calendar, CreditCard, Sparkles, Pill, Activity
@@ -41,10 +42,8 @@ export function RegistrationPage() {
     // Check for existing logged in session or patient
     const visitType = localStorage.getItem('medikiosk_visit_type');
     const isNewCase = visitType === 'NEW_CASE';
-    const activePatientRaw = isNewCase ? null : localStorage.getItem('medikiosk_active_patient');
-    const userRaw = isNewCase ? null : localStorage.getItem('medikiosk_user');
-    const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
-    const storedUser = userRaw ? JSON.parse(userRaw) : null;
+    const activePatient = isNewCase ? null : safeGetItem<any>('medikiosk_active_patient', null);
+    const storedUser = isNewCase ? null : safeGetItem<any>('medikiosk_user', null);
     const sessionPatient = activePatient || (storedUser?.patient ? storedUser.patient : (storedUser?.role === 'PATIENT' ? storedUser : null));
 
     if (!isNewCase && sessionPatient && (sessionPatient.name || sessionPatient.phone)) {

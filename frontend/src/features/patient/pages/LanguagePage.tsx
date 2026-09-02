@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { speechProvider } from '../../../services/speech';
+import { safeGetItem } from '../../../utils/storage';
 import { Globe, ArrowRight, ArrowLeft, Volume2 } from 'lucide-react';
 
 export function LanguagePage() {
@@ -68,8 +69,7 @@ export function LanguagePage() {
           <button
             onClick={() => {
               speechProvider.stopSpeaking();
-              const storedVisit = localStorage.getItem('medikiosk_active_visit');
-              const parsed = storedVisit ? JSON.parse(storedVisit) : null;
+              const parsed = safeGetItem<any>('medikiosk_active_visit', null);
               navigate(`/kiosk/intake/${parsed?.id || 'follow-up'}`);
             }}
             className="w-full mb-4 p-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-between transition-all touch-target text-left"

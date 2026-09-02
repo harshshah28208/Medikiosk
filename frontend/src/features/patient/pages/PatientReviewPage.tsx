@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeGetItem, safeSetItem } from '../../../utils/storage';
 import {
   CheckCircle2, ArrowRight, ArrowLeft, Stethoscope,
   Heart, AlertTriangle, FileText, Activity, Download, Printer, ShieldCheck, User, Calendar, Edit3, X, Save, CheckSquare
@@ -51,10 +52,8 @@ export function PatientReviewPage() {
   };
 
   useEffect(() => {
-    const p = localStorage.getItem('medikiosk_active_patient');
-    const v = localStorage.getItem('medikiosk_active_visit');
-    const parsedPatient = p ? JSON.parse(p) : null;
-    const parsedVisit = v ? JSON.parse(v) : null;
+    const parsedPatient = safeGetItem<any>('medikiosk_active_patient', null);
+    const parsedVisit = safeGetItem<any>('medikiosk_active_visit', null);
 
     if (parsedPatient) setActivePatient(parsedPatient);
     if (parsedVisit) {

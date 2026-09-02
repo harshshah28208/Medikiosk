@@ -56,11 +56,26 @@ export function cleanCorruptStorage(): void {
       const k = window.localStorage.key(i);
       if (k) {
         const val = window.localStorage.getItem(k);
-        if (val === 'undefined' || val === 'null' || val === '[object Object]') {
+        if (
+          val === null ||
+          val === undefined ||
+          val === 'undefined' ||
+          val === 'null' ||
+          val === '[object Object]' ||
+          val.trim() === ''
+        ) {
           keysToRemove.push(k);
+        } else if (k.startsWith('medikiosk_') && (val.startsWith('{') || val.startsWith('['))) {
+          try {
+            JSON.parse(val);
+          } catch {
+            keysToRemove.push(k);
+          }
         }
       }
     }
-    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+    keysToRemove.forEach((k) => {
+      try { window.localStorage.removeItem(k); } catch {}
+    });
   } catch {}
 }
