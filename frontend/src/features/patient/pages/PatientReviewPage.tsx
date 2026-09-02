@@ -375,17 +375,36 @@ MediKiosk Autonomous Healthcare System
             </div>
 
             {/* Red Flags Section */}
-            {summaryReport?.redFlags && summaryReport.redFlags.length > 0 && (
-              <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
-                <span className="text-[10px] font-bold text-red-600 uppercase block">Safety Alerts</span>
-                {summaryReport.redFlags.map((flag: any, index: number) => (
-                  <div key={index} className="mb-2 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
-                    <p className="text-slate-900 text-xs font-medium">{flag.description || flag.symptoms}</p>
-                    <span className="text-red-600 text-xs font-bold">{flag.severity}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {(() => {
+              const redFlags = summaryReport?.redFlags;
+              if (!redFlags) return null;
+
+              const flagsArray = Array.isArray(redFlags)
+                ? redFlags
+                : typeof redFlags === 'string' && redFlags.trim() && !/^(none|nil|no red flags|no known|false)/i.test(redFlags.trim())
+                ? [{ description: redFlags, severity: 'URGENT' }]
+                : typeof redFlags === 'object' && Object.keys(redFlags).length > 0
+                ? [redFlags]
+                : [];
+
+              if (flagsArray.length === 0) return null;
+
+              return (
+                <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-red-600 uppercase block">Safety Alerts</span>
+                  {flagsArray.map((flag: any, index: number) => {
+                    const desc = typeof flag === 'string' ? flag : (flag.description || flag.symptoms || flag.title || 'Safety alert detected');
+                    const sev = typeof flag === 'object' ? (flag.severity || 'URGENT') : 'URGENT';
+                    return (
+                      <div key={index} className="mb-2 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+                        <p className="text-slate-900 text-xs font-medium">{desc}</p>
+                        <span className="text-red-600 text-xs font-bold">{sev}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </div>
 
