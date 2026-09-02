@@ -31,6 +31,25 @@ export function PatientReviewPage() {
     allergies: '',
   });
 
+  const safeString = (val: any, fallback = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val.trim() || fallback;
+    if (Array.isArray(val)) {
+      if (val.length === 0) return fallback;
+      return val
+        .map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
+        .join(', ');
+    }
+    if (typeof val === 'object') {
+      const entries = Object.entries(val);
+      if (entries.length === 0) return fallback;
+      return entries
+        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+        .join(' | ');
+    }
+    return String(val);
+  };
+
   useEffect(() => {
     const p = localStorage.getItem('medikiosk_active_patient');
     const v = localStorage.getItem('medikiosk_active_visit');
@@ -41,17 +60,23 @@ export function PatientReviewPage() {
     if (parsedVisit) {
       setActiveVisit(parsedVisit);
       if (parsedVisit.summary) {
-        const parsed = typeof parsedVisit.summary === 'string'
-          ? JSON.parse(parsedVisit.summary)
-          : parsedVisit.summary;
-        setSummaryReport(parsed);
-        setEditForm({
-          chiefComplaint: parsed?.chiefComplaint || parsedVisit?.reasonForVisit || '',
-          lifestyle: parsed?.lifestyle || '',
-          pastMedicalHistory: parsed?.pastMedicalHistory || '',
-          medications: parsed?.medications || '',
-          allergies: parsed?.allergies || '',
-        });
+        try {
+          const parsed = typeof parsedVisit.summary === 'string'
+            ? JSON.parse(parsedVisit.summary)
+            : (parsedVisit.summary?.summaryJson
+                ? (typeof parsedVisit.summary.summaryJson === 'string' ? JSON.parse(parsedVisit.summary.summaryJson) : parsedVisit.summary.summaryJson)
+                : parsedVisit.summary);
+          setSummaryReport(parsed);
+          setEditForm({
+            chiefComplaint: safeString(parsed?.chiefComplaint, parsedVisit?.reasonForVisit || ''),
+            lifestyle: safeString(parsed?.lifestyle, ''),
+            pastMedicalHistory: safeString(parsed?.pastMedicalHistory, ''),
+            medications: safeString(parsed?.medications, ''),
+            allergies: safeString(parsed?.allergies, ''),
+          });
+        } catch (e) {
+          console.warn('Failed to parse active visit summary:', e);
+        }
       }
     }
 
@@ -64,18 +89,22 @@ export function PatientReviewPage() {
             setActiveVisit(res.visit);
             if (res.visit.patient) setActivePatient(res.visit.patient);
             if (res.visit.summary) {
-              const parsed = typeof res.visit.summary.summaryJson === 'string'
-                ? JSON.parse(res.visit.summary.summaryJson)
-                : res.visit.summary.summaryJson;
-              setSummaryReport(parsed);
+              try {
+                const parsed = typeof res.visit.summary.summaryJson === 'string'
+                  ? JSON.parse(res.visit.summary.summaryJson)
+                  : (res.visit.summary.summaryJson || res.visit.summary);
+                setSummaryReport(parsed);
 
-              setEditForm({
-                chiefComplaint: parsed?.chiefComplaint || res.visit.reasonForVisit || '',
-                lifestyle: parsed?.lifestyle || '',
-                pastMedicalHistory: parsed?.pastMedicalHistory || '',
-                medications: parsed?.medications || '',
-                allergies: parsed?.allergies || '',
-              });
+                setEditForm({
+                  chiefComplaint: safeString(parsed?.chiefComplaint, res.visit.reasonForVisit || ''),
+                  lifestyle: safeString(parsed?.lifestyle, ''),
+                  pastMedicalHistory: safeString(parsed?.pastMedicalHistory, ''),
+                  medications: safeString(parsed?.medications, ''),
+                  allergies: safeString(parsed?.allergies, ''),
+                });
+              } catch (e) {
+                console.warn('Failed to parse backend visit summary:', e);
+              }
             }
           }
         })
@@ -136,14 +165,23 @@ MediKiosk Autonomous Healthcare System
   };
 
   const handleSaveEdits = () => {
-    setSummaryReport((prev: any) => ({
-      ...prev,
+    const updated = {
+      ...summaryReport,
       chiefComplaint: editForm.chiefComplaint,
       lifestyle: editForm.lifestyle,
       pastMedicalHistory: editForm.pastMedicalHistory,
       medications: editForm.medications,
       allergies: editForm.allergies,
-    }));
+    };
+    setSummaryReport(updated);
+    const vRaw = localStorage.getItem('medikiosk_active_visit');
+    if (vRaw) {
+      try {
+        const parsed = JSON.parse(vRaw);
+        parsed.summary = updated;
+        localStorage.setItem('medikiosk_active_visit', JSON.stringify(parsed));
+      } catch {}
+    }
     setIsEditModalOpen(false);
   };
 
@@ -247,21 +285,21 @@ MediKiosk Autonomous Healthcare System
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] font-bold text-blue-600 uppercase block">Chief Complaint</span>
               <p className="text-slate-900 font-semibold">
-                {summaryReport?.chiefComplaint || activeVisit?.reasonForVisit || 'Symptom Consultation'}
+                {safeString(summaryReport?.chiefComplaint, safeString(activeVisit?.reasonForVisit, 'Symptom Consultation'))}
               </p>
             </div>
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] font-bold text-amber-600 uppercase block">Daily Routine &amp; Lifestyle</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.lifestyle || summaryReport?.dailyRoutine || 'Standard routine and habits reported.'}
+                {safeString(summaryReport?.lifestyle, safeString(summaryReport?.dailyRoutine, 'Standard routine and habits reported.'))}
               </p>
             </div>
 
             <div className="sm:col-span-2 bg-white p-4 rounded-xl border border-slate-200 space-y-1.5">
               <span className="text-[10px] font-bold text-indigo-600 uppercase block">History of Present Illness (HPI Narrative)</span>
               <p className="text-slate-700 leading-relaxed text-xs sm:text-sm">
-                {summaryReport?.historyOfPresentIllness || summaryReport?.symptomHistory || 'Synthesized across multi-turn adaptive clinical intake.'}
+                {safeString(summaryReport?.historyOfPresentIllness, safeString(summaryReport?.symptomHistory, 'Synthesized across multi-turn adaptive clinical intake.'))}
               </p>
             </div>
 
@@ -271,16 +309,16 @@ MediKiosk Autonomous Healthcare System
                 <span className="text-[10px] font-bold text-blue-700 uppercase block">Clinical Presentation &amp; Modalities</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
                   {summaryReport.severity && (
-                    <div><span className="font-semibold text-slate-900">Severity Rating:</span> {summaryReport.severity}</div>
+                    <div><span className="font-semibold text-slate-900">Severity Rating:</span> {safeString(summaryReport.severity)}</div>
                   )}
                   {summaryReport.character && (
-                    <div><span className="font-semibold text-slate-900">Pain Character:</span> {summaryReport.character}</div>
+                    <div><span className="font-semibold text-slate-900">Pain Character:</span> {safeString(summaryReport.character)}</div>
                   )}
                   {summaryReport.aggravatingFactors && (
-                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Aggravating Factors:</span> {typeof summaryReport.aggravatingFactors === 'object' ? JSON.stringify(summaryReport.aggravatingFactors) : summaryReport.aggravatingFactors}</div>
+                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Aggravating Factors:</span> {safeString(summaryReport.aggravatingFactors)}</div>
                   )}
                   {summaryReport.relievingFactors && (
-                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Relieving Factors:</span> {typeof summaryReport.relievingFactors === 'object' ? JSON.stringify(summaryReport.relievingFactors) : summaryReport.relievingFactors}</div>
+                    <div className="sm:col-span-2"><span className="font-semibold text-slate-900">Relieving Factors:</span> {safeString(summaryReport.relievingFactors)}</div>
                   )}
                 </div>
               </div>
@@ -291,9 +329,10 @@ MediKiosk Autonomous Healthcare System
               <div className="sm:col-span-2 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 space-y-1.5">
                 <span className="text-[10px] font-bold text-emerald-800 uppercase block">AYUSH &amp; Dosha Profile Assessment</span>
                 <p className="text-emerald-950 text-xs leading-relaxed">
-                  {typeof summaryReport.ayushAssessment === 'object'
-                    ? JSON.stringify(summaryReport.ayushAssessment, null, 2)
-                    : summaryReport.ayushAssessment || `Prakriti/Dosha: ${summaryReport.prakriti || 'Vata-Pitta Balance'} • Agni: ${summaryReport.agni || 'Sama Agni'} • Koshtha: ${summaryReport.koshtha || 'Madhyama'}`}
+                  {safeString(
+                    summaryReport.ayushAssessment,
+                    `Prakriti/Dosha: ${safeString(summaryReport.prakriti, 'Vata-Pitta Balance')} • Agni: ${safeString(summaryReport.agni, 'Sama Agni')} • Koshtha: ${safeString(summaryReport.koshtha, 'Madhyama')}`
+                  )}
                 </p>
               </div>
             )}
@@ -303,9 +342,7 @@ MediKiosk Autonomous Healthcare System
               <div className="sm:col-span-2 bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-1.5">
                 <span className="text-[10px] font-bold text-purple-800 uppercase block">Homeopathic Totality &amp; Modalities</span>
                 <p className="text-purple-950 text-xs leading-relaxed">
-                  {typeof summaryReport.modalities === 'object'
-                    ? JSON.stringify(summaryReport.modalities, null, 2)
-                    : summaryReport.characteristicSymptoms || summaryReport.individualizingCharacteristics || 'Characteristic totality recorded.'}
+                  {safeString(summaryReport.modalities, safeString(summaryReport.characteristicSymptoms, safeString(summaryReport.individualizingCharacteristics, 'Characteristic totality recorded.')))}
                 </p>
               </div>
             )}
@@ -315,7 +352,7 @@ MediKiosk Autonomous Healthcare System
               <div className="sm:col-span-2 bg-teal-50/60 p-4 rounded-xl border border-teal-200 space-y-1.5">
                 <span className="text-[10px] font-bold text-teal-800 uppercase block">Longitudinal Follow-up Progression</span>
                 <p className="text-teal-950 text-xs leading-relaxed">
-                  {summaryReport.treatmentResponse || summaryReport.followUpChanges || summaryReport.progression || summaryReport.previousComparison}
+                  {safeString(summaryReport.treatmentResponse, safeString(summaryReport.followUpChanges, safeString(summaryReport.progression, safeString(summaryReport.previousComparison))))}
                 </p>
               </div>
             )}
@@ -323,21 +360,21 @@ MediKiosk Autonomous Healthcare System
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] font-bold text-slate-500 uppercase block">Past Medical &amp; Surgical History</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.pastMedicalHistory || 'No prior chronic conditions declared.'}
+                {safeString(summaryReport?.pastMedicalHistory, 'No prior chronic conditions declared.')}
               </p>
             </div>
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] font-bold text-slate-500 uppercase block">Regular Medications</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.medications || 'No regular prescription medications reported.'}
+                {safeString(summaryReport?.medications, 'No regular prescription medications reported.')}
               </p>
             </div>
 
             <div className="sm:col-span-2 bg-white p-3.5 rounded-xl border border-slate-200 space-y-1">
               <span className="text-[10px] font-bold text-slate-500 uppercase block">Allergies &amp; Drug Sensitivities</span>
               <p className="text-slate-800 text-xs">
-                {summaryReport?.allergies || 'No known drug allergies reported (NKDA).'}
+                {safeString(summaryReport?.allergies, 'No known drug allergies reported (NKDA).')}
               </p>
             </div>
 

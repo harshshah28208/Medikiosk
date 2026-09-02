@@ -230,8 +230,17 @@ export function IdentificationPage() {
           </button>
 
           <button
-            onClick={() => navigate('/kiosk/register')}
-            className="flex items-center gap-2 text-blue-600 font-semibold hover:text-blue-700 px-4 py-2 touch-target"
+            onClick={() => {
+              localStorage.removeItem('medikiosk_active_patient');
+              localStorage.removeItem('medikiosk_active_visit');
+              localStorage.removeItem('medikiosk_active_queue');
+              localStorage.removeItem('medikiosk_active_session_data');
+              localStorage.removeItem('medikiosk_active_session');
+              localStorage.removeItem('medikiosk_recent_changes');
+              localStorage.setItem('medikiosk_visit_type', 'NEW_CASE');
+              navigate('/kiosk/register');
+            }}
+            className="flex items-center gap-2 text-blue-600 font-semibold hover:text-blue-700 px-4 py-2 touch-target cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             {t('registerNewBtn')}

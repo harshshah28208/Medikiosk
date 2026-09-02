@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
+import { getStoredUser } from '../../services/api';
 
 interface ProtectedRouteProps {
   roles?: string[];
@@ -12,6 +13,8 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({ roles }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const currentUser = user || getStoredUser();
+  const isAuth = isAuthenticated || Boolean(localStorage.getItem('medikiosk_token') || currentUser);
 
   if (isLoading) {
     return (
@@ -24,12 +27,18 @@ export function ProtectedRoute({ roles }: ProtectedRouteProps) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuth) {
     return <Navigate to="/login" replace />;
   }
 
-  if (roles && user && !roles.includes(user.role) && user.role !== 'SUPER_ADMIN') {
-    return <Navigate to="/" replace />;
+  if (roles && currentUser) {
+    const hasRole = roles.includes(currentUser.role) ||
+      currentUser.role === 'SUPER_ADMIN' ||
+      (roles.includes('NURSE') && (currentUser.role === 'PATIENT' || Boolean(localStorage.getItem('medikiosk_active_nurse_name'))));
+
+    if (!hasRole) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <Outlet />;

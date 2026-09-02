@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import {
   Hospital, LogOut, Menu, X,
   LayoutDashboard, Users, Stethoscope, Activity, Shield,
@@ -138,7 +139,7 @@ export function StaffShell() {
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-2 w-full text-sm text-slate-400
-              hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors touch-target"
+              hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors touch-target cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             {sidebarOpen && <span>Logout</span>}
@@ -149,16 +150,19 @@ export function StaffShell() {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 border-t border-slate-700/50 text-slate-500 hover:text-slate-300
-            flex items-center justify-center"
+            flex items-center justify-center cursor-pointer"
         >
           {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content protected with ErrorBoundary */}
       <main className="flex-1 overflow-auto">
-        <Outlet />
+        <ErrorBoundary fallbackTitle="Clinical Workspace Encountered an Issue">
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );
 }
+

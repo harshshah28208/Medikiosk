@@ -69,7 +69,7 @@ export function LoginPage() {
   const getTargetWorkspace = (role: string, spec?: string) => {
     switch (role) {
       case 'PATIENT':
-        return '/kiosk/portal';
+        return '/portal';
       case 'DOCTOR':
       case 'SPECIALIST_DOCTOR':
         return '/doctor';
@@ -85,7 +85,7 @@ export function LoginPage() {
       case 'SUPER_ADMIN':
         return '/admin';
       default:
-        return '/kiosk';
+        return '/portal';
     }
   };
 
@@ -570,14 +570,15 @@ export function LoginPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { role: 'PATIENT', label: 'Patient / Kiosk', icon: User, color: 'bg-blue-600', path: '/kiosk' },
-                { role: 'DOCTOR', label: 'OPD Doctor', icon: Stethoscope, color: 'bg-indigo-600', path: '/doctor' },
-                { role: 'NURSE', label: 'Nurse / Triage', icon: Activity, color: 'bg-green-600', path: '/nurse' },
-                { role: 'TRIAGE_STAFF', label: 'Triage Center', icon: AlertCircle, color: 'bg-red-600', path: '/triage' },
-                { role: 'AYUSH_DOCTOR', label: 'AYUSH Doctor', icon: Leaf, color: 'bg-amber-700', path: '/ayush' },
-                { role: 'AYUSH_DOCTOR', label: 'Homeopathic Doctor', icon: Droplets, color: 'bg-teal-600', path: '/homeopathic' },
-                { role: 'HOSPITAL_ADMIN', label: 'Hospital Admin', icon: UserCog, color: 'bg-purple-600', path: '/admin' },
-              ].map(({ role, label, icon: Icon, color, path }) => (
+                { role: 'PATIENT', label: 'Patient Portal', icon: User, color: 'bg-blue-600', path: '/portal', subtitle: 'Health records & AI summary' },
+                { role: 'PATIENT', label: 'Patient Kiosk', icon: Sparkles, color: 'bg-cyan-600', path: '/kiosk', subtitle: 'Touch intake & registration' },
+                { role: 'DOCTOR', label: 'OPD Doctor', icon: Stethoscope, color: 'bg-indigo-600', path: '/doctor', subtitle: 'SOAP notes & prescription' },
+                { role: 'NURSE', label: 'Nurse / Triage', icon: Activity, color: 'bg-green-600', path: '/nurse', subtitle: 'Vital signs & station queue' },
+                { role: 'TRIAGE_STAFF', label: 'Triage Center', icon: AlertCircle, color: 'bg-red-600', path: '/triage', subtitle: 'Red flag & urgency alerts' },
+                { role: 'AYUSH_DOCTOR', label: 'AYUSH Doctor', icon: Leaf, color: 'bg-amber-700', path: '/ayush', subtitle: 'Prakriti & Ayurvedic care' },
+                { role: 'AYUSH_DOCTOR', label: 'Homeopathic Doctor', icon: Droplets, color: 'bg-teal-600', path: '/homeopathic', subtitle: 'Repertory & constitutional Rx' },
+                { role: 'HOSPITAL_ADMIN', label: 'Hospital Admin', icon: UserCog, color: 'bg-purple-600', path: '/admin', subtitle: 'ABDM, metrics & governance' },
+              ].map(({ role, label, icon: Icon, color, path, subtitle }) => (
                 <button
                   key={`${role}-${path}`}
                   onClick={() => handleDemoLogin(role, path)}
@@ -589,7 +590,7 @@ export function LoginPage() {
                   </div>
                   <div className="text-left">
                     <span className="text-sm font-bold text-slate-100 block">{label}</span>
-                    <span className="text-[10px] text-slate-400">Click to enter workspace →</span>
+                    <span className="text-[10px] text-slate-400">{subtitle || 'Click to enter workspace →'}</span>
                   </div>
                 </button>
               ))}

@@ -125,10 +125,21 @@ export function DocumentUploadPage() {
 
           {/* Quick Skip Button */}
           <button
-            onClick={() => navigate(`/kiosk/review/${visitId || 'current'}`)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all self-start sm:self-auto touch-target"
+            type="button"
+            onClick={() => {
+              const activeV = localStorage.getItem('medikiosk_active_visit');
+              let targetId = visitId;
+              if (!targetId || targetId === 'current') {
+                try {
+                  const vObj = activeV ? JSON.parse(activeV) : null;
+                  targetId = vObj?.id || 'current';
+                } catch {}
+              }
+              navigate(`/kiosk/review/${targetId || 'current'}`);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all self-start sm:self-auto touch-target cursor-pointer"
           >
-            <span>Skip Upload</span>
+            <span>{language === 'hi' ? 'अपलोड छोड़ें (स्किप)' : language === 'gu' ? 'અપલોડ છોડી દો (Skip)' : 'Skip Upload'}</span>
             <SkipForward className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -138,30 +149,44 @@ export function DocumentUploadPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Document Category
+                {language === 'hi' ? 'दस्तावेज़ का प्रकार' : language === 'gu' ? 'દસ્તાવેજનો પ્રકાર' : 'Document Category'}
               </label>
               <select
                 value={fileType}
                 onChange={(e) => setFileType(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-blue-600"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-blue-600 font-medium"
               >
-                <option value="PRESCRIPTION">Prior Doctor Prescription (PDF / Scan)</option>
-                <option value="LAB_REPORT">Blood / Pathology Lab Report</option>
-                <option value="DISCHARGE_SUMMARY">Discharge Summary / Hospital Record</option>
-                <option value="IMAGING">X-Ray / CT / Ultrasound Report</option>
+                <option value="PRESCRIPTION">
+                  {language === 'hi' ? 'पुरानी डॉक्टर पर्ची (PDF / फोटो)' : language === 'gu' ? 'જૂની ડૉક્ટરની ચિઠ્ઠી (PDF / ફોટો)' : 'Prior Doctor Prescription (PDF / Scan)'}
+                </option>
+                <option value="LAB_REPORT">
+                  {language === 'hi' ? 'खून / पैथोलॉजी लैब रिपोर्ट' : language === 'gu' ? 'લેબ રિપોર્ટ (લોહી / પેશાબ)' : 'Blood / Pathology Lab Report'}
+                </option>
+                <option value="DISCHARGE_SUMMARY">
+                  {language === 'hi' ? 'अस्पताल डिस्चार्ज समरी' : language === 'gu' ? 'હોસ્પિટલ ડિસ્ચાર્જ સમરી' : 'Discharge Summary / Hospital Record'}
+                </option>
+                <option value="IMAGING">
+                  {language === 'hi' ? 'एक्स-रे / सीटी / सोनोग्राफी रिपोर्ट' : language === 'gu' ? 'એક્સ-રે / સીટી / સોનોગ્રાફી' : 'X-Ray / CT / Ultrasound Report'}
+                </option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Document Title / Doctor Name
+                {language === 'hi' ? 'दस्तावेज़ का नाम / डॉक्टर का नाम' : language === 'gu' ? 'દસ્તાવેજ શીર્ષક / ડૉક્ટરનું નામ' : 'Document Title / Doctor Name'}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Previous Prescription / Cardiology Record"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-blue-600"
+                placeholder={
+                  language === 'hi'
+                    ? 'उदा. पुरानी पर्ची / हृदय रोग रिपोर्ट'
+                    : language === 'gu'
+                    ? 'દા.ત. જૂની દવાઓની ચિઠ્ઠી / હૃદય રિપોર્ટ'
+                    : 'e.g. Previous Prescription / Cardiology Record'
+                }
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm focus:ring-2 focus:ring-blue-600 font-medium"
               />
             </div>
           </div>
@@ -170,9 +195,11 @@ export function DocumentUploadPage() {
           <label className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/20 transition-all">
             <Upload className="w-10 h-10 text-slate-400 mb-2" />
             <span className="text-sm font-semibold text-slate-700">
-              {selectedFile ? selectedFile.name : 'Tap to select PDF or image file (JPG, PNG, PDF)'}
+              {selectedFile ? selectedFile.name : (language === 'hi' ? 'PDF या इमेज फाइल (JPG, PNG, PDF) चुनें' : language === 'gu' ? 'PDF અથવા ફોટો ફાઇલ (JPG, PNG, PDF) પસંદ કરો' : 'Tap to select PDF or image file (JPG, PNG, PDF)')}
             </span>
-            <span className="text-xs text-slate-400 mt-1">Maximum file size: 10MB</span>
+            <span className="text-xs text-slate-400 mt-1">
+              {language === 'hi' ? 'अधिकतम आकार: 10MB' : language === 'gu' ? 'મહત્તમ સાઇઝ: 10MB' : 'Maximum file size: 10MB'}
+            </span>
             <input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
@@ -184,10 +211,14 @@ export function DocumentUploadPage() {
           <button
             type="submit"
             disabled={!selectedFile || isUploading}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all touch-target-lg"
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all touch-target-lg cursor-pointer"
           >
             <Sparkles className="w-5 h-5" />
-            <span>{isUploading ? 'Extracting Medical History from PDF...' : 'Upload PDF & Update Medical Record'}</span>
+            <span>
+              {isUploading
+                ? (language === 'hi' ? 'PDF से मेडिकल इतिहास निकाला जा रहा है...' : language === 'gu' ? 'PDF માંથી માહિતી કાઢી રહ્યા છીએ...' : 'Extracting Medical History from PDF...')
+                : (language === 'hi' ? 'PDF अपलोड करें और रिकॉर्ड जोड़ें' : language === 'gu' ? 'PDF અપલોડ કરો અને રેકોર્ડ ઉમેરો' : 'Upload PDF & Update Medical Record')}
+            </span>
           </button>
         </form>
 
@@ -196,7 +227,9 @@ export function DocumentUploadPage() {
           <div className="p-5 bg-green-50 border-2 border-green-500/40 rounded-2xl space-y-2">
             <div className="flex items-center gap-2 text-green-800 font-bold text-sm">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
-              <span>Extracted Medical History (Saved to Doctor & Nurse Workspaces)</span>
+              <span>
+                {language === 'hi' ? 'निकाला गया मेडिकल इतिहास (डॉक्टर और नर्स स्क्रीन पर सुरक्षित)' : language === 'gu' ? 'મેળવેલી મેડિકલ વિગતો (ડૉક્ટર અને નર્સ વર્કસ્પેસમાં સચવાયેલ)' : 'Extracted Medical History (Saved to Doctor & Nurse Workspaces)'}
+              </span>
             </div>
             <pre className="text-xs text-slate-700 bg-white p-3 rounded-xl border border-green-200 overflow-x-auto font-mono">
               {JSON.stringify(extractedResult, null, 2)}
@@ -208,17 +241,28 @@ export function DocumentUploadPage() {
         <div className="flex items-center justify-between pt-4 border-t border-slate-100">
           <button
             onClick={() => navigate(`/kiosk/intake/${visitId || 'current'}`)}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 touch-target text-xs sm:text-sm"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 touch-target text-xs sm:text-sm cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to AI Intake</span>
+            <span>{language === 'hi' ? 'वापस AI पूछताछ पर जाएं' : language === 'gu' ? 'પાછા AI પૂછપરછ પર જાઓ' : 'Back to AI Intake'}</span>
           </button>
 
           <button
-            onClick={() => navigate(`/kiosk/review/${visitId || 'current'}`)}
-            className="flex items-center gap-2 px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all touch-target-lg text-sm sm:text-base"
+            type="button"
+            onClick={() => {
+              const activeV = localStorage.getItem('medikiosk_active_visit');
+              let targetId = visitId;
+              if (!targetId || targetId === 'current') {
+                try {
+                  const vObj = activeV ? JSON.parse(activeV) : null;
+                  targetId = vObj?.id || 'current';
+                } catch {}
+              }
+              navigate(`/kiosk/review/${targetId || 'current'}`);
+            }}
+            className="flex items-center gap-2 px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all touch-target-lg text-sm sm:text-base cursor-pointer"
           >
-            <span>Proceed to Review & Appointment</span>
+            <span>{language === 'hi' ? 'समीक्षा व अपॉइंटमेंट के लिए आगे बढ़ें' : language === 'gu' ? 'સમીક્ષા અને કન્સલ્ટેશન માટે આગળ વધો' : 'Proceed to Review & Appointment'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

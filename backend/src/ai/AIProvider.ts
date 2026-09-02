@@ -1416,6 +1416,47 @@ export class UniversalClinicalEngine implements AIProvider {
     }
 
     // ==========================================
+    // DEDUPLICATION SAFETY NET (PREVENT INFINITE LOOPS)
+    // ==========================================
+    // If the LLM parsing fails to extract specific entities, the dimensions might not be marked as answered.
+    // This safety net forces the dimension to be marked as answered if its associated question was already asked.
+    if (state.questionsAsked && state.questionsAsked.length > 0) {
+      for (const q of state.questionsAsked) {
+        const ql = q.toLowerCase();
+        if (ql.includes('how long') || ql.includes('suddenly') || ql.includes('कब से') || ql.includes('કેટલા સમય')) {
+          answeredDimensions.add('ONSET');
+          answeredDimensions.add('DURATION');
+        }
+        if (ql.includes('sensation') || ql.includes('describe the exact') || ql.includes('what specific factors make your') ||
+            ql.includes('throbbing') || ql.includes('bright lights') || ql.includes('vomit') || ql.includes('nausea') ||
+            ql.includes('chest') || ql.includes('tightness') || ql.includes('breath') || ql.includes('cough') ||
+            ql.includes('wheez') || ql.includes('rash') || ql.includes('itching') || ql.includes('stiff') ||
+            ql.includes('joint') || ql.includes('groin') || ql.includes('diarrhea') || ql.includes('stools') ||
+            ql.includes('hearing') || ql.includes('tinnitus') || ql.includes('eye') || ql.includes('vision') ||
+            ql.includes('दर्द') || ql.includes('तकलीफ') || ql.includes('દુખાવો') || ql.includes('જકડન')) {
+          answeredDimensions.add('CHARACTER');
+        }
+        if (ql.includes('associated symptoms') || ql.includes('fever, nausea') || ql.includes('अन्य लक्षण') || ql.includes('અન્ય લક્ષણો')) {
+          answeredDimensions.add('ASSOCIATED');
+        }
+        if ((ql.includes('make your') && ql.includes('worse')) || ql.includes('relief') || ql.includes('बढ़ता') || ql.includes('વધે')) {
+          answeredDimensions.add('TRIGGERS');
+        }
+        if (ql.includes('prescription medicines') || ql.includes('drug allergies') || ql.includes('दवा') || ql.includes('દવાઓ')) {
+          answeredDimensions.add('MEDICATIONS');
+          answeredDimensions.add('ALLERGIES');
+        }
+        if (ql.includes('chronic health conditions') || ql.includes('surgeries') || ql.includes('family') || ql.includes('बीमारी') || ql.includes('બીમારી')) {
+          answeredDimensions.add('PAST_HISTORY');
+          answeredDimensions.add('FAMILY_HISTORY');
+        }
+        if (ql.includes('daily routine') || ql.includes('sleep') || ql.includes('नींद') || ql.includes('ઊંઘ') || ql.includes('lifestyle')) {
+          answeredDimensions.add('LIFESTYLE');
+        }
+      }
+    }
+
+    // ==========================================
     // WORKFLOW A: RETURNING PATIENT 100% DYNAMIC ANSWER-DRIVEN INTAKE
     // ==========================================
     if (!isNew) {
@@ -4046,7 +4087,19 @@ Turns Completed: ${state.turnsCompleted || 0}
 
 CLINICAL INTERVIEW GUIDELINES:
 
-0. CROSS-LANGUAGE CONTINUITY & PROGRESSION:
+0. DYNAMIC DISEASE-SPECIFIC INVESTIGATION (100% TAILORED & DYNAMIC):
+   - Formulate every single question with rigorous clinical precision tailored to the patient's exact disease, symptoms, and pathology.
+   - For Neurological / Headache: Dynamically explore unilateral vs bilateral, throbbing, visual aura (zigzag/flashes), nausea, photophobia, neck stiffness.
+   - For Cardiovascular / Chest Pain: Dynamically explore heavy tightness/crushing sensation, radiation to left arm/shoulder/jaw, cold sweats, breathlessness upon exertion.
+   - For Respiratory / Cough / Asthma: Dynamically explore dry vs productive cough, sputum color/thickness, wheezing sounds, nocturnal breathlessness.
+   - For Gastrointestinal / Abdomen / Acidity: Dynamically explore exact quadrant (epigastric, RUQ, RLQ), burning vs cramping, relation to meals, vomiting, bowel habits.
+   - For Orthopedic / Joint / Spine: Dynamically explore morning stiffness duration, pain on walking/stairs, swelling, sciatica radiation down the leg.
+   - For Dermatology / Skin: Dynamically explore rash location, intense itching, redness, blisters/pus, weeping or scaling, cosmetic/chemical triggers.
+   - For Pediatric / ENT / Fever: Dynamically explore fever pattern/chills, ear discharge, throat pain/swallowing difficulty, hydration, activity level.
+   - For AYUSH (Ayurveda): Dynamically explore Doshic imbalance (Pitta burning/sour burps, Kapha heaviness/congestion, Vata dryness/acute ache), Agni (digestive strength), Koshtha (bowel movement), Ahara-Vihara (diet, routine).
+   - For HOMEOPATHY: Dynamically explore characteristic sensation, thermal state (chilly vs hot), thirst, mental state, and modalities (< Aggravations vs > Ameliorations).
+
+0.1 CROSS-LANGUAGE CONTINUITY & PROGRESSION:
    - The conversation transcript may contain questions and answers in English, Hindi, or Gujarati if the patient switched language mid-stream.
    - DO NOT restart the interview, reset gathered clinical facts, or re-ask previously answered dimensions when the language switches.
    - Continue seamlessly to the NEXT unasked clinical domain according to the deterministic sequence below, expressing the question and touch options purely in ${language}.
@@ -4055,12 +4108,14 @@ CLINICAL INTERVIEW GUIDELINES:
    - FOR NEW PATIENTS:
      * Domain 1: Chief Complaint & Exact Site (if not yet established)
      * Domain 2: Onset, Duration & Timing (how many days/hours, sudden vs gradual, continuous vs intermittent)
-     * Domain 3: Severity (1-10 numeric rating) & Pain Character / Sensation (burning, throbbing, sharp, heavy, dull ache)
-     * Domain 4: Aggravating Triggers & Relieving Modalities (what worsens it with motion/food/weather; what brings relief)
+     * Domain 3: Severity (1-10 numeric rating) & Pain Character / Sensation (burning, throbbing, sharp, heavy, dull ache, tightness)
+     * Domain 4: Aggravating Triggers & Relieving Modalities (what worsens it with motion/food/weather/stress; what brings relief)
      * Domain 5: Associated Symptoms & Systemic Signs (fever, nausea, dizziness, vomiting, weakness, breathing difficulty)
-     * Domain 6: Daily Routine, Sleep Hygiene (exact hours per night), Diet & Daily Stress
-     * Domain 7: Past Medical History, Ongoing Prescription Medications & Drug Allergies (BP, Diabetes, Thyroid, Allergies)
-     * Domain 8: Conclude Intake (Phase B Handoff)
+     * Domain 6: Occupation, Daily Work Environment & Ergonomics (job profile, desk job, prolonged sitting/standing, heavy physical lifting, field work, screen time, exposure to dust/chemicals/heat)
+     * Domain 7: Lifestyle, Sleep Hygiene (exact hours per night), Dietary Habits (veg/non-veg, meal times, hydration) & Personal Habits (smoking, tobacco, alcohol, exercise)
+     * Domain 8: Past Medical History, Surgical History & Family Health Background (BP, Diabetes, Thyroid, Asthma, Heart disease, surgeries, and family illnesses)
+     * Domain 9: Ongoing Prescription Medications (with dosage/frequency) & Known Drug Allergies (Penicillin, Sulfa, NSAIDs, etc.)
+     * Domain 10: Conclude Intake (Phase B Handoff)
 
    - FOR FOLLOW-UP PATIENTS:
      * Domain 1: Symptom Evolution vs Prior Visit (>70% significant relief, partial improvement, unchanged, worsening, or new complaint)
@@ -4082,15 +4137,16 @@ CLINICAL INTERVIEW GUIDELINES:
        3. Severity (1-10 rating), Character, Sensation & Radiation (exact feeling: burning, sharp, throbbing, dull, tightness, itching)
        4. Associated Symptoms & Systemic Manifestations (fever, nausea, dizziness, vomiting, weakness, swelling, cough, etc.)
        5. Modalities — Aggravating Triggers & Relieving Factors (what worsens: food, movement, weather, posture, stress; what relieves: rest, meds, hydration)
-       6. Targeted Lifestyle, Sleep Hygiene (exact hours/night), Dietary Habits, Work Ergonomics & Stress
-       7. Past Medical History, Surgical History & Family Health Background (BP, Diabetes, Thyroid, Asthma, Heart conditions)
-       8. Ongoing Prescription Medications (with dosage/frequency) & Drug Allergies (Penicillin, Sulfa, NSAIDs, etc.)
-     * DO NOT set "isComplete": true if any of the above dimensions have not yet been explored in the transcript.
+       6. Occupation, Job Profile & Work Ergonomics (desk work, standing hours, physical lifting, screen time, occupational hazards)
+       7. Daily Routine, Sleep Hygiene (exact hours/night), Dietary Habits & Personal Habits (smoking, tobacco, alcohol, exercise)
+       8. Past Medical History, Surgical History & Family Health Background (BP, Diabetes, Thyroid, Asthma, Heart conditions)
+       9. Ongoing Prescription Medications (with dosage/frequency) & Drug Allergies (Penicillin, Sulfa, NSAIDs, etc.)
+     * DO NOT set "isComplete": true if any of the above dimensions (especially Occupation, Lifestyle, and Family History) have not yet been explored in the transcript. NEVER leave Occupation as "Unknown" — actively ask the patient!
      * NEVER bundle multiple complex domains into a single superficial question. Take note of each detail step by step.
      * If the patient provided a vague answer (e.g. "normal" without hours or specific names), actively ask a detailed follow-up question.
      * "touchOptions" MUST contain ONLY 3-4 medical symptom/parameter choices answering the clinical question. NEVER include handoff actions during Phase A.
    - Phase B (Intake Completion & Handoff: "isComplete": true):
-     * ONLY when all 8 clinical dimensions are thoroughly answered in full detail across the conversation, conclude the intake.
+     * ONLY when all clinical dimensions are thoroughly answered in full detail across the conversation, conclude the intake.
      * "questionCategory" MUST be "CLOSING".
      * "question" MUST be exclusively the polite closing statement:
        - If language is EN: "Thank you. Your clinical intake is complete and your information has been prepared for the clinical team. Please proceed to your appointment / consultation room."

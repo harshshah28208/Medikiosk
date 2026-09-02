@@ -21,6 +21,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   demoLogin: (role: string) => Promise<void>;
+  setSessionUser: (user: User | null, token?: string) => void;
   logout: () => void;
   clearError: () => void;
 }
@@ -39,9 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(stored);
       // Verify token is still valid
       api.auth.me()
-        .then((res) => setUser(res.user))
-        .catch(() => {
-          // Keep local fallback session if backend is offline on Vercel
+        .then((res) => {
+          if (res?.user) setUser(res.user);
+        })
+        .catch((err) => {
+          if (err?.message?.includes('expired') || err?.message?.includes('Token expired') || !localStorage.getItem('medikiosk_token')) {
+            clearAuthSession();
+            setUser(null);
+          }
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -110,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               doctor: { user: { name: 'Dr. Yogesh Sharma' }, specialization: 'General Medicine' },
               patient: patientObj,
               reasonForVisit: 'General OPD Consultation',
-              vitals: [{ bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99, recordedAt: new Date().toISOString() }],
+              vitals: [],
               summary: {
                 chiefComplaint: 'General OPD Consultation',
                 historyOfPresentIllness: 'Logged in patient ready for consultation.',
@@ -175,24 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         regPats.unshift(patientObj);
         localStorage.setItem('medikiosk_registered_patients', JSON.stringify(regPats));
 
-        const activeV = {
-          id: `vis-${Date.now()}`,
-          patientId: patientObj.id,
-          token: 'P-101',
-          status: 'READY_FOR_DOCTOR',
-          createdAt: new Date().toISOString(),
-          department: { name: 'General Medicine', code: 'GEN' },
-          doctor: { user: { name: 'Dr. Yogesh Sharma' }, specialization: 'General Medicine' },
-          patient: patientObj,
-          reasonForVisit: 'General OPD Consultation',
-          vitals: [{ bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99, recordedAt: new Date().toISOString() }],
-          summary: {
-            chiefComplaint: 'General OPD Consultation',
-            historyOfPresentIllness: 'Registered new patient.',
-            lifestyle: 'Baseline recorded.',
-          }
-        };
-        localStorage.setItem('medikiosk_active_visit', JSON.stringify(activeV));
+        localStorage.removeItem('medikiosk_active_visit');
+        localStorage.removeItem('medikiosk_active_queue');
       }
 
       // Store in registered users list
@@ -237,6 +227,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setSessionUser = useCallback((newUser: User | null, token?: string) => {
+    if (newUser) {
+      setAuthSession(token || `demo-token-${Date.now()}`, newUser);
+      setUser(newUser);
+    } else {
+      clearAuthSession();
+      setUser(null);
+    }
+  }, []);
+
   const logout = useCallback(() => {
     clearAuthSession();
     setUser(null);
@@ -254,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       demoLogin,
+      setSessionUser,
       logout,
       clearError,
     }}>

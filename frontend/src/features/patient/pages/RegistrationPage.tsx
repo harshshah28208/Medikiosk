@@ -39,13 +39,15 @@ export function RegistrationPage() {
 
   useEffect(() => {
     // Check for existing logged in session or patient
-    const activePatientRaw = localStorage.getItem('medikiosk_active_patient');
-    const userRaw = localStorage.getItem('medikiosk_user');
+    const visitType = localStorage.getItem('medikiosk_visit_type');
+    const isNewCase = visitType === 'NEW_CASE';
+    const activePatientRaw = isNewCase ? null : localStorage.getItem('medikiosk_active_patient');
+    const userRaw = isNewCase ? null : localStorage.getItem('medikiosk_user');
     const activePatient = activePatientRaw ? JSON.parse(activePatientRaw) : null;
     const storedUser = userRaw ? JSON.parse(userRaw) : null;
     const sessionPatient = activePatient || (storedUser?.patient ? storedUser.patient : (storedUser?.role === 'PATIENT' ? storedUser : null));
 
-    if (sessionPatient && (sessionPatient.name || sessionPatient.phone)) {
+    if (!isNewCase && sessionPatient && (sessionPatient.name || sessionPatient.phone)) {
       setHasSession(true);
       setFormData((prev) => ({
         ...prev,
@@ -59,6 +61,7 @@ export function RegistrationPage() {
         abhaId: sessionPatient.abhaId || '',
       }));
     } else {
+      setHasSession(false);
       setIsEditingDetails(true);
     }
 
@@ -393,28 +396,28 @@ export function RegistrationPage() {
           {/* ─── Step 1: Medical System Selection ─── */}
           <div className="pt-2 border-t border-slate-100">
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-              1. Select Medical System / Treatment Approach <span className="text-red-500">*</span>
+              {language === 'hi' ? '1. चिकित्सा पद्धति / विभाग चुनें' : language === 'gu' ? '1. તબીબી પદ્ધતિ / વિભાગ પસંદ કરો' : '1. Select Medical System / Treatment Approach'} <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 {
                   id: 'ALLOPATHY',
-                  title: 'Modern Medicine (Allopathy)',
-                  desc: 'Cardiology, Pediatrics, General OPD, Orthopedics & ENT',
+                  title: language === 'hi' ? 'एलोपैथी (आधुनिक चिकित्सा)' : language === 'gu' ? 'એલોપેથી (આધુનિક સારવાર)' : 'Modern Medicine (Allopathy)',
+                  desc: language === 'hi' ? 'हृदय रोग, बाल रोग, जनरल ओपीडी, हड्डी व ईएनटी' : language === 'gu' ? 'હૃદય રોગ, બાળ રોગ, જનરલ ઓપીડી, હાડકા અને કાન-નાક-ગળું' : 'Cardiology, Pediatrics, General OPD, Orthopedics & ENT',
                   icon: '🩺',
                   activeClass: 'border-blue-600 bg-blue-50/70 text-blue-950 ring-2 ring-blue-500/30',
                 },
                 {
                   id: 'AYURVEDA',
-                  title: 'Ayurveda (AYUSH)',
-                  desc: 'Prakriti assessment, Panchakarma & herbal formulations',
+                  title: language === 'hi' ? 'आयुर्वेद (आयुष)' : language === 'gu' ? 'આયુર્વેદ (આયુષ)' : 'Ayurveda (AYUSH)',
+                  desc: language === 'hi' ? 'प्रकृति परीक्षण, पंचकर्म और हर्बल औषधियां' : language === 'gu' ? 'પ્રકૃતિ પરીક્ષણ, પંચકર્મ અને ઔષધિ સારવાર' : 'Prakriti assessment, Panchakarma & herbal formulations',
                   icon: '🌿',
                   activeClass: 'border-amber-600 bg-amber-50/70 text-amber-950 ring-2 ring-amber-500/30',
                 },
                 {
                   id: 'HOMEOPATHY',
-                  title: 'Classical Homeopathy',
-                  desc: 'Constitutional remedy, holistic evaluation & repertory',
+                  title: language === 'hi' ? 'शास्त्रीय होम्योपैथी' : language === 'gu' ? 'શાસ્ત્રીય હોમિયોપેથી' : 'Classical Homeopathy',
+                  desc: language === 'hi' ? 'संवैधानिक उपचार, संपूर्ण स्वास्थ्य मूल्यांकन' : language === 'gu' ? 'સર્વાંગી મૂલ્યાંકન અને કુદરતી ઉપચાર' : 'Constitutional remedy, holistic evaluation & repertory',
                   icon: '💧',
                   activeClass: 'border-teal-600 bg-teal-50/70 text-teal-950 ring-2 ring-teal-500/30',
                 },
@@ -444,7 +447,7 @@ export function RegistrationPage() {
                     </div>
                     {isSelected && (
                       <span className="text-[11px] font-bold text-blue-700 mt-3 inline-flex items-center gap-1">
-                        ✓ Selected System
+                        ✓ {language === 'hi' ? 'चयनित' : language === 'gu' ? 'પસંદ કરેલ' : 'Selected System'}
                       </span>
                     )}
                   </button>
@@ -457,10 +460,10 @@ export function RegistrationPage() {
           <div className="pt-2">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                2. Select Doctor &amp; Assigned Nurse Room <span className="text-red-500">*</span>
+                {language === 'hi' ? '2. डॉक्टर एवं जांच रूम चुनें' : language === 'gu' ? '2. ડૉક્ટર અને તપાસ રૂમ પસંદ કરો' : '2. Select Doctor & Assigned Nurse Room'} <span className="text-red-500">*</span>
               </label>
               <span className="text-[11px] text-slate-500">
-                {filteredDoctors.length} available specialist{filteredDoctors.length !== 1 ? 's' : ''}
+                {filteredDoctors.length} {language === 'hi' ? 'विशेषज्ञ उपलब्ध' : language === 'gu' ? 'સ્પેશિયાલિસ્ટ ઉપલબ્ધ' : 'available specialist(s)'}
               </span>
             </div>
 
@@ -487,22 +490,22 @@ export function RegistrationPage() {
                           <p className="text-[10px] text-slate-400 font-medium">{doc.qualifications}</p>
                         </div>
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold shrink-0">
-                          Available
+                          {language === 'hi' ? 'उपलब्ध' : language === 'gu' ? 'ઉપલબ્ધ' : 'Available'}
                         </span>
                       </div>
 
                       <div className="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
                         <div className="flex items-center justify-between text-slate-600">
-                          <span className="font-medium">🚪 OPD Room:</span>
+                          <span className="font-medium">🚪 {language === 'hi' ? 'ओपीडी रूम:' : language === 'gu' ? 'ઓપીડી રૂમ:' : 'OPD Room:'}</span>
                           <span className="font-semibold text-slate-800">{doc.roomNumber}</span>
                         </div>
                         <div className="flex items-center justify-between text-slate-600">
-                          <span className="font-medium">⏰ Timings:</span>
+                          <span className="font-medium">⏰ {language === 'hi' ? 'समय:' : language === 'gu' ? 'સમય:' : 'Timings:'}</span>
                           <span className="text-slate-700">{doc.opdTimings}</span>
                         </div>
                         {doc.assignedNurse && (
                           <div className="flex items-center justify-between text-emerald-700 bg-emerald-50/70 px-2 py-1 rounded-lg mt-1 font-semibold text-[10px]">
-                            <span>🩺 Assigned Nurse:</span>
+                            <span>🩺 {language === 'hi' ? 'नर्स:' : language === 'gu' ? 'નર્સ:' : 'Assigned Nurse:'}</span>
                             <span>{doc.assignedNurse.name}</span>
                           </div>
                         )}
@@ -511,7 +514,9 @@ export function RegistrationPage() {
 
                     <div className="mt-3 flex items-center justify-between pt-1">
                       <span className={`text-[11px] font-bold ${isSelected ? 'text-blue-700' : 'text-slate-400'}`}>
-                        {isSelected ? '✓ Selected Doctor' : 'Click to select'}
+                        {isSelected
+                          ? (language === 'hi' ? '✓ चयनित डॉक्टर' : language === 'gu' ? '✓ પસંદ કરેલ ડૉક્ટર' : '✓ Selected Doctor')
+                          : (language === 'hi' ? 'चुनने के लिए क्लिक करें' : language === 'gu' ? 'પસંદ કરવા ક્લિક કરો' : 'Click to select')}
                       </span>
                     </div>
                   </div>
@@ -529,7 +534,13 @@ export function RegistrationPage() {
               name="reasonForVisit"
               value={formData.reasonForVisit}
               onChange={handleChange}
-              placeholder="Describe your primary symptoms or health concern..."
+              placeholder={
+                language === 'hi'
+                  ? 'अपनी मुख्य समस्या या बीमारी के बारे में संक्षेप में लिखें...'
+                  : language === 'gu'
+                  ? 'આપની મુખ્ય તકલીફ અથવા બીમારી વિશે સંક્ષિપ્તમાં જણાવો...'
+                  : 'Describe your primary symptoms or health concern...'
+              }
               rows={2}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white text-slate-800 text-sm resize-none"
             />
@@ -540,35 +551,47 @@ export function RegistrationPage() {
             <div className="flex items-center gap-2">
               <Pill className="w-4 h-4 text-blue-600" />
               <h3 className="text-xs font-bold uppercase text-slate-700 tracking-wider">
-                Prior Medical History & Regular Medications (Optional)
+                {language === 'hi' ? 'पुरानी बीमारी व नियमित दवाइयाँ (वैकल्पिक)' : language === 'gu' ? 'જૂની બીમારી અને નિયમિત દવાઓ (મરજિયાત)' : 'Prior Medical History & Regular Medications (Optional)'}
               </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="block font-semibold text-slate-600 mb-1">
-                  Existing Medical Conditions
+                  {language === 'hi' ? 'पुरानी बीमारियाँ (BP, शुगर, थायराइड)' : language === 'gu' ? 'જૂની બીમારીઓ (BP, ડાયાબિટીસ, થાયરોઇડ)' : 'Existing Medical Conditions'}
                 </label>
                 <input
                   type="text"
                   name="pastMedicalHistory"
                   value={formData.pastMedicalHistory}
                   onChange={handleChange}
-                  placeholder="e.g. Diabetes, High BP, Asthma, Thyroid"
+                  placeholder={
+                    language === 'hi'
+                      ? 'उदा. ब्लड प्रेशर, शुगर, दमा, थायराइड'
+                      : language === 'gu'
+                      ? 'દા.ત. બ્લડ પ્રેશર, ડાયાબિટીસ, અસ્થમા'
+                      : 'e.g. Diabetes, High BP, Asthma, Thyroid'
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-600 mb-1">
-                  Current Medications / Regular Drugs
+                  {language === 'hi' ? 'वर्तमान में चल रही नियमित दवाइयाँ' : language === 'gu' ? 'હાલ ચાલતી નિયમિત દવાઓ' : 'Current Medications / Regular Drugs'}
                 </label>
                 <input
                   type="text"
                   name="currentMedications"
                   value={formData.currentMedications}
                   onChange={handleChange}
-                  placeholder="e.g. Metformin 500mg, Telmisartan 40mg"
+                  placeholder={
+                    language === 'hi'
+                      ? 'उदा. मेटफॉर्मिन 500mg, टेल्मिसार्टन 40mg'
+                      : language === 'gu'
+                      ? 'દા.ત. Metformin 500mg, Telmisartan 40mg'
+                      : 'e.g. Metformin 500mg, Telmisartan 40mg'
+                  }
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-1 focus:ring-blue-500"
                 />
               </div>

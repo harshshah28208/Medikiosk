@@ -122,6 +122,53 @@ export class SpeechProvider {
     }
   }
 
+  private preprocessTextForSpeech(text: string, language: 'en' | 'hi' | 'gu'): string {
+    let clean = text.replace(/[*_#`]/g, '').trim();
+
+    if (language === 'gu') {
+      // Normalize common English medical & brand terms into Gujarati phonetics so Gujarati engine pronounces everything
+      clean = clean
+        .replace(/MediKiosk/gi, 'મેડિકિયોસ્ક')
+        .replace(/Clinical AI/gi, 'ક્લિનિકલ એઆઈ')
+        .replace(/AI/gi, 'એઆઈ')
+        .replace(/Dr\./gi, 'ડોક્ટર')
+        .replace(/Classical Homeopathy & Repertory/gi, 'ક્લાસિકલ હોમિયોપેથી અને રેપર્ટરી')
+        .replace(/Classical Homeopathy/gi, 'ક્લાસિકલ હોમિયોપેથી')
+        .replace(/Homeopathy/gi, 'હોમિયોપેથી')
+        .replace(/Ayurveda/gi, 'આયુર્વેદ')
+        .replace(/Allopathy/gi, 'એલોપેથી')
+        .replace(/Cardiology/gi, 'હૃદયરોગ')
+        .replace(/Orthopedics/gi, 'હાડકા અને સાંધા')
+        .replace(/General Medicine/gi, 'સામાન્ય ચિકિત્સા')
+        .replace(/OPD/gi, 'ઓપીડી')
+        .replace(/BP/gi, 'બીપી')
+        .replace(/SpO2/gi, 'ઓક્સિજન')
+        .replace(/\(/g, ' ')
+        .replace(/\)/g, ' ');
+    } else if (language === 'hi') {
+      clean = clean
+        .replace(/MediKiosk/gi, 'मेडीकियोस्क')
+        .replace(/Clinical AI/gi, 'क्लिनिकल एआई')
+        .replace(/AI/gi, 'एआई')
+        .replace(/Dr\./gi, 'डॉक्टर')
+        .replace(/Classical Homeopathy & Repertory/gi, 'क्लासिकल होम्योपैथी और रेपर्टरी')
+        .replace(/Classical Homeopathy/gi, 'क्लासिकल होम्योपैथी')
+        .replace(/Homeopathy/gi, 'होम्योपैथी')
+        .replace(/Ayurveda/gi, 'आयुर्वेद')
+        .replace(/Allopathy/gi, 'एलोपैथी')
+        .replace(/Cardiology/gi, 'कार्डियोलॉजी')
+        .replace(/Orthopedics/gi, 'ऑर्थोपेडिक्स')
+        .replace(/General Medicine/gi, 'जनरल मेडिसिन')
+        .replace(/OPD/gi, 'ओपीडी')
+        .replace(/BP/gi, 'बीपी')
+        .replace(/SpO2/gi, 'ऑक्सीजन')
+        .replace(/\(/g, ' ')
+        .replace(/\)/g, ' ');
+    }
+
+    return clean.slice(0, 300);
+  }
+
   private speakWithWebSpeech(cleanText: string, language: 'en' | 'hi' | 'gu'): Promise<void> {
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -135,23 +182,62 @@ export class SpeechProvider {
         const utterance = new SpeechSynthesisUtterance(cleanText);
         const langLocale = language === 'hi' ? 'hi-IN' : language === 'gu' ? 'gu-IN' : 'en-IN';
         utterance.lang = langLocale;
-        utterance.rate = 0.95;
+        utterance.rate = 0.88;
         utterance.pitch = 1.0;
 
-        // Try to match appropriate localized voice from cache
-        const voices = this.voicesCache && this.voicesLoaded ? this.voicesCache : window.speechSynthesis.getVoices();
+        // Strictly filter OUT English voices when language is Gujarati or Hindi
+        const voices = (this.voicesCache && this.voicesLoaded) ? this.voicesCache : window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
-          const match = voices.find(v => {
-            const vLang = v.lang.replace('_', '-').toLowerCase();
-            return vLang.startsWith(language) || vLang === langLocale.toLowerCase();
-          });
+          let match: SpeechSynthesisVoice | undefined;
+
+          if (language === 'gu') {
+            // 1. Pure Gujarati voice
+            match = voices.find(v => {
+              const vLang = v.lang.replace('_', '-').toLowerCase();
+              const vName = v.name.toLowerCase();
+              return !vLang.startsWith('en') && !vName.includes('english') && (vLang.startsWith('gu') || vName.includes('gujarati') || vName.includes('dhwani') || vName.includes('niranjan') || vName.includes('shruti'));
+            });
+
+            // 2. Hindi Indic voice (Devanagari phonetics)
+            if (!match) {
+              match = voices.find(v => {
+                const vLang = v.lang.replace('_', '-').toLowerCase();
+                const vName = v.name.toLowerCase();
+                return !vLang.startsWith('en') && !vName.includes('english') && (vLang.startsWith('hi') || vName.includes('hindi') || vName.includes('swara') || vName.includes('madhur') || vName.includes('kalpana'));
+              });
+            }
+          } else if (language === 'hi') {
+            match = voices.find(v => {
+              const vLang = v.lang.replace('_', '-').toLowerCase();
+              const vName = v.name.toLowerCase();
+              return !vLang.startsWith('en') && !vName.includes('english') && (vLang.startsWith('hi') || vName.includes('hindi') || vName.includes('swara') || vName.includes('madhur') || vName.includes('kalpana'));
+            });
+          } else {
+            match = voices.find(v => {
+              const vLang = v.lang.replace('_', '-').toLowerCase();
+              return vLang.startsWith('en-in') || vLang.startsWith('en');
+            });
+          }
+
           if (match) {
             utterance.voice = match;
+            utterance.lang = match.lang;
           }
         }
 
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
+        let isDone = false;
+        const complete = () => {
+          if (!isDone) {
+            isDone = true;
+            resolve();
+          }
+        };
+
+        utterance.onend = complete;
+        utterance.onerror = complete;
+
+        // Chrome speech synthesis watchdog
+        setTimeout(complete, Math.max(3500, cleanText.length * 130));
 
         window.speechSynthesis.speak(utterance);
       } catch {
@@ -169,7 +255,8 @@ export class SpeechProvider {
 
       this.stopSpeaking();
 
-      const cleanText = text.replace(/[*_#`]/g, '').trim();
+      // Preprocess text to ensure pure Gujarati/Hindi phonetics without embedded English skipping
+      const cleanText = this.preprocessTextForSpeech(text, language);
       const langParam = language === 'hi' ? 'hi' : language === 'gu' ? 'gu' : 'en';
       
       const rawApiBase =
@@ -180,9 +267,6 @@ export class SpeechProvider {
       const cleanApiBase = rawApiBase.trim().replace(/\/+$/, '');
       const audioUrl = `${cleanApiBase}/conversation/tts?text=${encodeURIComponent(cleanText)}&lang=${langParam}`;
 
-      const audio = new Audio(audioUrl);
-      this.currentAudio = audio;
-
       let isFinished = false;
       const finish = () => {
         if (!isFinished) {
@@ -192,15 +276,30 @@ export class SpeechProvider {
         }
       };
 
-      audio.onended = finish;
+      const audio = new Audio();
+      this.currentAudio = audio;
+
+      // Watchdog: If audio stream takes > 4000ms to load/play, trigger immediate Web Speech fallback
+      const watchdog = setTimeout(() => {
+        if (!isFinished) {
+          try { audio.pause(); } catch {}
+          this.speakWithWebSpeech(cleanText, language).then(finish);
+        }
+      }, 4000);
+
+      audio.onended = () => {
+        clearTimeout(watchdog);
+        finish();
+      };
 
       audio.onerror = () => {
-        // Fallback to browser Web Speech API if remote TTS is unreachable
+        clearTimeout(watchdog);
         this.speakWithWebSpeech(cleanText, language).then(finish);
       };
 
+      audio.src = audioUrl;
       audio.play().catch(() => {
-        // Autoplay policy fallback
+        clearTimeout(watchdog);
         this.speakWithWebSpeech(cleanText, language).then(finish);
       });
     });

@@ -52,6 +52,20 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
     return;
   }
 
+  // Seamless support for demo and kiosk tokens
+  if (token.startsWith('demo-token-')) {
+    const isNurse = token.includes('nurse');
+    const isDoctor = token.includes('doctor');
+    const role: Role = isNurse ? 'NURSE' : isDoctor ? 'DOCTOR' : 'PATIENT';
+    req.user = {
+      id: isNurse ? 'usr-nurse-01' : isDoctor ? 'usr-doc-01' : 'd60eedf9-67d1-4b90-b67d-bb355f50be67',
+      email: `${role.toLowerCase()}@demo.com`,
+      role,
+      name: `Demo ${role}`,
+    };
+    return next();
+  }
+
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 

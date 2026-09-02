@@ -22,9 +22,18 @@ export function WelcomePage() {
       {/* Action Cards */}
       <div className="w-full max-w-lg space-y-4">
         <button
-          onClick={() => navigate('/kiosk/language')}
+          onClick={() => {
+            localStorage.removeItem('medikiosk_active_patient');
+            localStorage.removeItem('medikiosk_active_visit');
+            localStorage.removeItem('medikiosk_active_queue');
+            localStorage.removeItem('medikiosk_active_session_data');
+            localStorage.removeItem('medikiosk_active_session');
+            localStorage.removeItem('medikiosk_recent_changes');
+            localStorage.setItem('medikiosk_visit_type', 'NEW_CASE');
+            navigate('/kiosk/language');
+          }}
           className="w-full flex items-center gap-4 p-6 bg-white rounded-2xl shadow-sm border border-slate-200
-            hover:shadow-md hover:border-blue-300 transition-all touch-target-lg group"
+            hover:shadow-md hover:border-blue-300 transition-all touch-target-lg group cursor-pointer"
         >
           <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center
             group-hover:bg-blue-100 transition-colors">

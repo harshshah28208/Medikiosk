@@ -21,7 +21,7 @@ export function RoleRedirect() {
   }
 
   const roleRoutes: Record<string, string> = {
-    PATIENT: '/kiosk/portal',
+    PATIENT: '/portal',
     RECEPTION: '/reception',
     TRIAGE_STAFF: '/triage',
     NURSE: '/nurse',
@@ -32,6 +32,6 @@ export function RoleRedirect() {
     SUPER_ADMIN: '/admin',
   };
 
-  const target = roleRoutes[user.role] || '/login';
+  const target = roleRoutes[user.role] || '/portal';
   return <Navigate to={target} replace />;
 }

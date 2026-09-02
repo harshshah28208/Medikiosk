@@ -81,8 +81,38 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
 
   const token = await generateToken(department.code);
 
-  // If patient already exists, seamlessly attach a new Visit to their longitudinal profile
+  // If patient already exists, check follow-up rules or attach a new Visit
   if (existing) {
+    const isFollowUp = Boolean(
+      (input.reasonForVisit && /follow-up|followup|पुनः परामर्श|ફોલો-અપ/i.test(input.reasonForVisit)) ||
+      (input as any).visitType === 'FOLLOW_UP'
+    );
+
+    // If follow-up is requested for the same doctor, ensure previous consultation is COMPLETED
+    if (isFollowUp && doctor?.id) {
+      const activeIncompleteVisit = await prisma.visit.findFirst({
+        where: {
+          patientId: existing.id,
+          doctorId: doctor.id,
+          status: { notIn: ['COMPLETED', 'CANCELLED'] },
+        },
+        include: {
+          doctor: { include: { user: { select: { name: true } } } },
+        },
+      });
+
+      if (activeIncompleteVisit) {
+        const docName = activeIncompleteVisit.doctor?.user?.name ? `Dr. ${activeIncompleteVisit.doctor.user.name}` : 'the assigned doctor';
+        res.status(400).json({
+          error: `Cannot book follow-up with ${docName}. Your previous consultation (Token: ${activeIncompleteVisit.token || 'Active'}) is still in progress and has not been completed by the doctor yet. You can book a brand new consultation instead.`,
+          code: 'CONSULTATION_INCOMPLETE',
+          activeVisitId: activeIncompleteVisit.id,
+          doctorId: doctor.id,
+        });
+        return;
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const visit = await tx.visit.create({
         data: {
@@ -296,6 +326,8 @@ export async function lookupPatient(req: AuthRequest, res: Response): Promise<vo
             include: {
               department: true,
               summary: true,
+              vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
+              doctor: { include: { user: { select: { name: true } } } },
             },
           },
         },
@@ -314,6 +346,8 @@ export async function lookupPatient(req: AuthRequest, res: Response): Promise<vo
             include: {
               department: true,
               summary: true,
+              vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
+              doctor: { include: { user: { select: { name: true } } } },
             },
           },
         },
@@ -332,6 +366,8 @@ export async function lookupPatient(req: AuthRequest, res: Response): Promise<vo
             include: {
               department: true,
               summary: true,
+              vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
+              doctor: { include: { user: { select: { name: true } } } },
             },
           },
         },

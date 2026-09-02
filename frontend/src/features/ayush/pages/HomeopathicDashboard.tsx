@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../../../services/api";
 import {
   Droplets, Users, CheckCircle2, RefreshCw,
-  Flower2, FileText, Activity, AlertTriangle, Sparkles, Eye, Download, X, Printer
+  Flower2, FileText, Activity, AlertTriangle, Sparkles, Eye, Download, X, Printer, Search
 } from "lucide-react";
 
 const MIASMS = [
@@ -36,6 +36,22 @@ export function HomeopathicDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const safeString = (val: any, fallback = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val.trim() || fallback;
+    if (Array.isArray(val)) {
+      if (val.length === 0) return fallback;
+      return val.map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item))).join(', ');
+    }
+    if (typeof val === 'object') {
+      const entries = Object.entries(val);
+      if (entries.length === 0) return fallback;
+      return entries.map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ');
+    }
+    return String(val);
+  };
 
   // Homeopathic Case State
   const [miasm, setMiasm] = useState(MIASMS[0]);
@@ -52,16 +68,29 @@ export function HomeopathicDashboard() {
 
   const availableRemedies: string[] = REMEDIES_BY_MIASM[miasm] || [];
 
+  const isHomeoVisit = (v: any) => {
+    const carePath = (v.carePath || '').toUpperCase();
+    const docSpec = (v.doctor?.specialization || '').toLowerCase();
+    const docName = (v.doctor?.user?.name || v.doctor?.name || '').toLowerCase();
+    const deptName = (v.department?.name || '').toLowerCase();
+    return (
+      carePath === 'HOMEOPATHY' ||
+      docSpec.includes('homeopathy') ||
+      docName.includes('snehal') ||
+      (deptName.includes('ayush') && !docSpec.includes('ayurveda') && !docName.includes('harish'))
+    );
+  };
+
   const loadPatients = async () => {
     try {
       let visitList: any[] = [];
       const res = await api.doctor.patients(true).catch(() => null);
       if (res?.visits && Array.isArray(res.visits) && res.visits.length > 0) {
-        visitList = res.visits;
+        visitList = res.visits.filter(isHomeoVisit);
       } else {
         const vRes = await api.visits.list().catch(() => null);
         if (vRes?.visits && Array.isArray(vRes.visits)) {
-          visitList = vRes.visits;
+          visitList = vRes.visits.filter(isHomeoVisit);
         }
       }
 
@@ -73,7 +102,7 @@ export function HomeopathicDashboard() {
           const parsedV = JSON.parse(localActiveVisit);
           const parsedP = JSON.parse(localActivePatient);
           parsedV.patient = parsedP;
-          if (!visitList.some((v) => v.id === parsedV.id)) {
+          if (isHomeoVisit(parsedV) && !visitList.some((v) => v.id === parsedV.id)) {
             visitList.unshift(parsedV);
           }
         } catch {}
@@ -81,7 +110,12 @@ export function HomeopathicDashboard() {
 
       setPatients(visitList);
       if (visitList.length > 0) {
-        setSelectedVisit((prev: any) => prev || visitList[0]);
+        setSelectedVisit((prev: any) => {
+          if (prev && visitList.find((v: any) => v.id === prev.id)) return prev;
+          return visitList[0];
+        });
+      } else {
+        setSelectedVisit(null);
       }
     } catch (err) {
       console.warn('Error loading patient list:', err);
@@ -292,46 +326,101 @@ MediKiosk Autonomous Homeopathic Care System
               {patients.length}
             </span>
           </h2>
-          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-            {(patients as any[]).map((visit: any) => {
-              const isSelected = (selectedVisit as any)?.id === visit.id;
-              const hasCaseSaved = Boolean(localStorage.getItem(`medikiosk_homeo_case_${visit.id}`));
 
-              return (
+          {/* Search Input & Search Button */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Name, MRN, Token #..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all"
+              />
+              {searchQuery && (
                 <button
-                  key={visit.id}
-                  onClick={() => setSelectedVisit(visit)}
-                  className={`w-full p-4 rounded-2xl text-left transition-all border ${
-                    isSelected
-                      ? 'bg-teal-600/20 border-teal-500 shadow-md ring-1 ring-teal-500/50'
-                      : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
-                  }`}
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full"
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-800 rounded text-teal-300 border border-slate-700">
-                      {visit.token || 'H-101'}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {hasCaseSaved && (
-                        <span className="text-[10px] font-bold text-teal-400 bg-teal-950/60 border border-teal-500/40 px-1.5 py-0.5 rounded">
-                          Prescribed
-                        </span>
-                      )}
-                      <span className="text-[10px] text-slate-400 uppercase">{visit.status || 'WAITING'}</span>
-                    </div>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-100">{visit.patient?.name || 'Patient'}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    MRN: {visit.patient?.mrn || 'MK-1001'} • {visit.patient?.age || 35}Y / {visit.patient?.gender || 'M'}
-                  </p>
-                  {visit.reasonForVisit && (
-                    <p className="text-[11px] text-teal-300/80 mt-1 truncate">
-                      Complaint: {visit.reasonForVisit}
-                    </p>
-                  )}
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              );
-            })}
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const q = searchQuery.toLowerCase().trim();
+                const matched = (patients as any[]).find((v: any) => {
+                  const name = (v.patient?.name || '').toLowerCase();
+                  const mrn = (v.patient?.mrn || '').toLowerCase();
+                  const token = String(v.token || '').toLowerCase();
+                  return name.includes(q) || mrn.includes(q) || token.includes(q);
+                });
+                if (matched) {
+                  setSelectedVisit(matched);
+                }
+              }}
+              className="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm shadow-teal-600/30"
+              title="Search and select matching patient"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            {(patients as any[])
+              .filter((visit: any) => {
+                if (!searchQuery.trim()) return true;
+                const q = searchQuery.toLowerCase().trim();
+                const name = (visit.patient?.name || '').toLowerCase();
+                const mrn = (visit.patient?.mrn || '').toLowerCase();
+                const token = String(visit.token || '').toLowerCase();
+                const phone = (visit.patient?.phone || '').toLowerCase();
+                const reason = (visit.reasonForVisit || '').toLowerCase();
+                return name.includes(q) || mrn.includes(q) || token.includes(q) || phone.includes(q) || reason.includes(q);
+              })
+              .map((visit: any) => {
+                const isSelected = (selectedVisit as any)?.id === visit.id;
+                const hasCaseSaved = Boolean(localStorage.getItem(`medikiosk_homeo_case_${visit.id}`));
+
+                return (
+                  <button
+                    key={visit.id}
+                    onClick={() => setSelectedVisit(visit)}
+                    className={`w-full p-4 rounded-2xl text-left transition-all border cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-600/20 border-teal-500 shadow-md ring-1 ring-teal-500/50'
+                        : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-800 rounded text-teal-300 border border-slate-700">
+                        {visit.token || 'H-101'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {hasCaseSaved && (
+                          <span className="text-[10px] font-bold text-teal-400 bg-teal-950/60 border border-teal-500/40 px-1.5 py-0.5 rounded">
+                            Prescribed
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 uppercase">{visit.status || 'WAITING'}</span>
+                      </div>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-100">{visit.patient?.name || 'Patient'}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      MRN: {visit.patient?.mrn || 'MK-1001'} • {visit.patient?.age || 35}Y / {visit.patient?.gender || 'M'}
+                    </p>
+                    {visit.reasonForVisit && (
+                      <p className="text-[11px] text-teal-300/80 mt-1 truncate">
+                        Complaint: {visit.reasonForVisit}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
             {(patients as any[]).length === 0 && (
               <p className="text-center text-slate-500 text-xs py-8">No patients currently in queue.</p>
             )}
@@ -654,9 +743,16 @@ MediKiosk Autonomous Homeopathic Care System
                   AI Intake Findings &amp; Lifestyle
                 </span>
                 <p className="text-slate-200 leading-relaxed">
-                  {typeof selectedVisit.summary?.summaryJson === 'string'
-                    ? JSON.parse(selectedVisit.summary.summaryJson)?.historyOfPresentIllness || 'Clinical intake completed.'
-                    : 'Intake details recorded.'}
+                  {(() => {
+                    try {
+                      const s = typeof selectedVisit.summary?.summaryJson === 'string'
+                        ? JSON.parse(selectedVisit.summary.summaryJson)
+                        : (selectedVisit.summary?.summaryJson || selectedVisit.summary);
+                      return safeString(s?.historyOfPresentIllness, safeString(s?.lifestyle, 'Clinical intake completed.'));
+                    } catch {
+                      return 'Intake details recorded.';
+                    }
+                  })()}
                 </p>
               </div>
 

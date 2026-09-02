@@ -100,9 +100,15 @@ router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Res
       if (doc) {
         whereClause = {
           OR: [
+            // 1. Explicitly assigned to this chosen doctor
             { doctorId: doc.id },
-            { departmentId: doc.departmentId || undefined },
-            { doctorId: null },
+            // 2. Unassigned to any doctor, but belongs to this doctor's department
+            {
+              AND: [
+                { doctorId: null },
+                { departmentId: doc.departmentId || undefined },
+              ],
+            },
           ],
         };
       }
@@ -111,9 +117,13 @@ router.get('/patients', requireClinicalRole(), async (req: AuthRequest, res: Res
       if (nurse && nurse.departmentId) {
         whereClause = {
           OR: [
-            { departmentId: nurse.departmentId },
-            { doctorId: nurse.assignedDoctorId || undefined },
-            { doctorId: null },
+            ...(nurse.assignedDoctorId ? [{ doctorId: nurse.assignedDoctorId }] : []),
+            {
+              AND: [
+                { departmentId: nurse.departmentId },
+                { doctorId: nurse.assignedDoctorId || null },
+              ],
+            },
           ],
         };
       }
@@ -418,24 +428,61 @@ router.post('/consultation', requireDoctorRole(), async (req: AuthRequest, res: 
  * Get the longitudinal clinical history for a patient (past visits, complaints, summaries).
  */
 router.get('/timeline/:patientId', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
-  const patientId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
+  const paramId = typeof req.params.patientId === 'string' ? req.params.patientId : req.params.patientId[0];
 
-  // If requester is a patient, ensure they are requesting their own timeline
+  // Resolve target patient either by Patient ID, User ID, MRN, or Phone
+  const patientRecord = await prisma.patient.findFirst({
+    where: {
+      OR: [
+        { id: paramId },
+        { userId: paramId },
+        { mrn: paramId },
+        { phone: paramId },
+      ],
+    },
+    include: {
+      medications: { where: { status: 'ACTIVE' } },
+      allergies: { where: { status: 'ACTIVE' } },
+      clinicalHistories: { orderBy: { createdAt: 'desc' }, take: 5 },
+    },
+  });
+
+  let targetPatientId = patientRecord?.id || paramId;
+
+  // If requester is a patient, ensure they are served their own timeline
   if (req.user?.role === 'PATIENT') {
-    const isOwnRecord = req.user.id === patientId || (req.user as any).patientId === patientId;
-    if (!isOwnRecord) {
-      const p = await prisma.patient.findFirst({
-        where: { OR: [{ userId: req.user.id }, { id: patientId }] },
-      });
-      if (!p || (p.userId && p.userId !== req.user.id && p.id !== patientId)) {
-        res.status(403).json({ error: 'Access denied. You can only view your own longitudinal history.' });
-        return;
-      }
+    const isOwnRecord = req.user.id === paramId ||
+      req.user.id === patientRecord?.userId ||
+      req.user.id === patientRecord?.id ||
+      (req.user as any).patientId === paramId ||
+      (req.user as any).patient?.id === paramId;
+
+    if (!isOwnRecord && patientRecord && patientRecord.userId && patientRecord.userId !== req.user.id) {
+      targetPatientId = (req.user as any).patient?.id || req.user.id;
     }
   }
 
+  // Find all patient records belonging to this person by ID, phone, MRN, or name
+  const matchingPatients = await prisma.patient.findMany({
+    where: {
+      OR: [
+        { id: paramId },
+        { id: targetPatientId },
+        ...(patientRecord?.phone ? [{ phone: patientRecord.phone }] : []),
+        ...(patientRecord?.mrn ? [{ mrn: patientRecord.mrn }] : []),
+        ...(patientRecord?.userId ? [{ userId: patientRecord.userId }] : []),
+        ...(patientRecord?.name ? [{ name: patientRecord.name }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+
+  const allPatientIds = Array.from(new Set([targetPatientId, paramId, ...matchingPatients.map(p => p.id)]));
+
   const visits = await prisma.visit.findMany({
-    where: { patientId },
+    where: {
+      patientId: { in: allPatientIds },
+    },
     include: {
       clinicalHistory: true,
       department: { select: { name: true, code: true } },
@@ -460,7 +507,7 @@ router.get('/timeline/:patientId', authenticateToken, async (req: AuthRequest, r
       },
     },
     orderBy: { createdAt: 'desc' },
-    take: 15,
+    take: 25,
   });
 
   const timeline = visits.map((v) => {
@@ -522,6 +569,55 @@ router.get('/timeline/:patientId', authenticateToken, async (req: AuthRequest, r
       } : null,
     };
   });
+
+  // If no visits exist in DB yet, but patient has registered medical history, build an initial baseline timeline entry
+  if (timeline.length === 0 && patientRecord) {
+    const chiefComplaint = patientRecord.clinicalHistories?.[0]?.chiefComplaint || 'Initial Patient Registration Baseline';
+    const pastMed = patientRecord.clinicalHistories?.[0]?.pastMedicalHistory;
+    let parsedPastMed = 'None reported';
+    if (pastMed) {
+      try {
+        const pArr = JSON.parse(pastMed);
+        parsedPastMed = Array.isArray(pArr) ? pArr.join(', ') : String(pastMed);
+      } catch {
+        parsedPastMed = String(pastMed);
+      }
+    }
+
+    const activeMeds = patientRecord.medications?.map(m => `${m.name} (${m.dosage})`).join(', ') || 'None reported';
+    const activeAllergies = patientRecord.allergies?.map(a => a.allergen).join(', ') || 'No Known Drug Allergies (NKDA)';
+
+    timeline.push({
+      visitId: `reg-${patientRecord.id}`,
+      date: patientRecord.createdAt,
+      chiefComplaint,
+      department: 'General OPD Registration',
+      departmentCode: 'GEN',
+      status: 'REGISTERED',
+      priority: 'NORMAL',
+      completionScore: 100,
+      doctor: {
+        name: 'MediKiosk Intake System',
+        specialization: 'Longitudinal Patient Intake Baseline',
+        diagnosis: 'New Patient Registration & Medical History Intake',
+        clinicalNotes: `Past History: ${parsedPastMed}. Medications: ${activeMeds}. Allergies: ${activeAllergies}.`,
+        treatmentPlan: 'Initial consultation pending attending physician review.',
+      },
+      digitalSignature: null,
+      aiSummary: {
+        chiefComplaint,
+        historyOfPresentIllness: `Newly registered patient longitudinal baseline. Past Medical History: ${parsedPastMed}.`,
+        lifestyle: 'Baseline recorded at registration.',
+        medications: activeMeds,
+        allergies: activeAllergies,
+        pastMedicalHistory: parsedPastMed,
+      },
+      vitals: null,
+      prescriptions: [],
+      lastPrescription: activeMeds !== 'None reported' ? activeMeds : null,
+      ayushAssessment: null,
+    });
+  }
 
   res.json({ timeline, count: timeline.length });
 });

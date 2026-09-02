@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { useAuth } from '../../../store/AuthContext';
 import {
   Users, Stethoscope, AlertCircle, Clock, CheckCircle2,
   FileText, Activity, ChevronRight, RefreshCw, UserCheck, Trash2,
   PlusCircle, Pill, Eye, X, Download, ExternalLink, History, 
-  ShieldAlert, ChevronDown, ChevronUp, ClipboardList, Printer
+  ShieldAlert, ChevronDown, ChevronUp, ClipboardList, Printer, Search, User
 } from 'lucide-react';
 
 export function DoctorDashboard() {
+  const { user } = useAuth();
   const [patients, setPatients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
@@ -38,10 +40,136 @@ export function DoctorDashboard() {
 
   const [showAllHospitalPatients, setShowAllHospitalPatients] = useState(false);
   const [queueTab, setQueueTab] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const activePatients = patients.filter((v: any) => v.status !== 'COMPLETED');
-  const completedPatients = patients.filter((v: any) => v.status === 'COMPLETED');
+  const safeString = (val: any, fallback = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val.trim() || fallback;
+    if (Array.isArray(val)) {
+      if (val.length === 0) return fallback;
+      return val
+        .map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
+        .join(', ');
+    }
+    if (typeof val === 'object') {
+      const entries = Object.entries(val);
+      if (entries.length === 0) return fallback;
+      return entries
+        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+        .join(' | ');
+    }
+    return String(val);
+  };
+
+  // Extract and normalize vitals regardless of property names (systolic vs bpSystolic, etc.)
+  const getNormalizedVitals = (visit: any) => {
+    if (!visit) return null;
+    let rawVital = null;
+
+    if (Array.isArray(visit.vitals) && visit.vitals.length > 0) {
+      rawVital = visit.vitals[0];
+    } else if (visit.vitals && typeof visit.vitals === 'object') {
+      rawVital = visit.vitals;
+    } else if (Array.isArray(visit.patient?.vitals) && visit.patient.vitals.length > 0) {
+      rawVital = visit.patient.vitals[0];
+    } else if (visit.patient?.vitals && typeof visit.patient.vitals === 'object') {
+      rawVital = visit.patient.vitals;
+    }
+
+    if (!rawVital && visit.id) {
+      const localVitals = localStorage.getItem(`medikiosk_vitals_${visit.id}`);
+      if (localVitals) {
+        try {
+          const parsed = JSON.parse(localVitals);
+          rawVital = Array.isArray(parsed) ? parsed[0] : parsed;
+        } catch {}
+      }
+    }
+
+    if (!rawVital) return null;
+
+    const bpSys = rawVital.bpSystolic ?? rawVital.systolic ?? rawVital.bloodPressureSystolic ?? null;
+    const bpDia = rawVital.bpDiastolic ?? rawVital.diastolic ?? rawVital.bloodPressureDiastolic ?? null;
+    const pulse = rawVital.pulse ?? rawVital.heartRate ?? rawVital.pulseRate ?? null;
+    const spo2 = rawVital.spo2 ?? rawVital.oxygenSaturation ?? rawVital.spO2 ?? null;
+    const temp = rawVital.temperature ?? rawVital.temp ?? null;
+    const weight = rawVital.weight ?? null;
+    const height = rawVital.height ?? null;
+    const bmi = rawVital.bmi ?? (weight && height ? (parseFloat(weight) / Math.pow(parseFloat(height) / 100, 2)).toFixed(1) : null);
+    const painScore = rawVital.painScore ?? null;
+    const notes = rawVital.notes ?? '';
+    const recordedAt = rawVital.recordedAt ?? rawVital.createdAt ?? null;
+
+    // Only return if at least one real biometric vital was recorded
+    if (!bpSys && !bpDia && !pulse && !spo2 && !temp && !weight && !height) return null;
+
+    return {
+      bpSystolic: bpSys,
+      bpDiastolic: bpDia,
+      pulse,
+      spo2,
+      temperature: temp,
+      weight,
+      height,
+      bmi,
+      painScore,
+      notes,
+      recordedAt,
+    };
+  };
+
+  // Filter patients by chosen doctor when in "My Patients" mode
+  const isAssignedToCurrentDoctor = (visit: any) => {
+    if (showAllHospitalPatients) return true;
+    if (!user) return true;
+
+    const userDocId = user.doctorProfile?.id;
+    const userDocName = (user.name || '').toLowerCase().trim();
+    const userDeptId = user.doctorProfile?.departmentId || user.doctorProfile?.department?.id;
+    const userDeptCode = (user.doctorProfile?.department?.code || '').toLowerCase().trim();
+
+    const visitDocId = visit.doctorId || visit.doctor?.id;
+    const visitDocName = (visit.doctor?.user?.name || visit.doctor?.name || '').toLowerCase().trim();
+    const visitDeptId = visit.departmentId || visit.department?.id;
+    const visitDeptCode = (visit.department?.code || '').toLowerCase().trim();
+
+    // 1. Explicit match by doctorId
+    if (visitDocId && userDocId && visitDocId === userDocId) return true;
+
+    // 2. Explicit match by doctor's full or partial name
+    if (visitDocName && userDocName && (visitDocName.includes(userDocName) || userDocName.includes(visitDocName))) return true;
+
+    // 3. If visit was explicitly assigned to another named doctor, do NOT match
+    if (visitDocId && userDocId && visitDocId !== userDocId) return false;
+    if (visitDocName && userDocName && !visitDocName.includes(userDocName) && !userDocName.includes(visitDocName) && visitDocName !== 'general opd') {
+      return false;
+    }
+
+    // 4. Unassigned visit matching doctor's department
+    if (visitDeptId && userDeptId && visitDeptId === userDeptId) return true;
+    if (visitDeptCode && userDeptCode && visitDeptCode === userDeptCode) return true;
+
+    // Default fallback
+    return !visitDocId;
+  };
+
+  const myOrAllPatients = patients.filter(isAssignedToCurrentDoctor);
+  const activePatients = myOrAllPatients.filter((v: any) => v.status !== 'COMPLETED');
+  const completedPatients = myOrAllPatients.filter((v: any) => v.status === 'COMPLETED');
   const displayedPatients = queueTab === 'ACTIVE' ? activePatients : completedPatients;
+
+  const filteredPatients = displayedPatients.filter((v: any) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const name = (v.patient?.name || '').toLowerCase();
+    const mrn = (v.patient?.mrn || '').toLowerCase();
+    const token = String(v.token || '').toLowerCase();
+    const phone = (v.patient?.phone || '').toLowerCase();
+    const reason = (v.reasonForVisit || '').toLowerCase();
+    const dept = (v.department?.name || '').toLowerCase();
+    const doc = (v.doctor?.user?.name || v.doctor?.name || '').toLowerCase();
+    return name.includes(q) || mrn.includes(q) || token.includes(q) || phone.includes(q) || reason.includes(q) || dept.includes(q) || doc.includes(q);
+  });
 
   const loadPatients = async (showAll = showAllHospitalPatients) => {
     setIsLoading(true);
@@ -81,12 +209,12 @@ export function DoctorDashboard() {
         ? JSON.parse(visit.summary)
         : (visit.summary.summaryJson ? (typeof visit.summary.summaryJson === 'string' ? JSON.parse(visit.summary.summaryJson) : visit.summary.summaryJson) : visit.summary);
       setSummaryData(sJson);
-      setImpression(sJson.chiefComplaint || visit.reasonForVisit || '');
-      setSoapSubjective(sJson.historyOfPresentIllness || '');
-      setSoapAssessment(sJson.chiefComplaint || '');
+      setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
+      setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
+      setSoapAssessment(safeString(sJson?.chiefComplaint, ''));
     } else {
       setSummaryData(null);
-      setImpression(visit.reasonForVisit || '');
+      setImpression(safeString(visit.reasonForVisit, ''));
     }
     setTimeline([]);
     setClinicalNotes('');
@@ -101,33 +229,53 @@ export function DoctorDashboard() {
     try {
       const res = await api.visits.get(visit.id);
       if (res?.visit) {
-        setSelectedVisit(res.visit);
-        setIsCompleted(res.visit.status === 'COMPLETED' || res.visit.consultation?.status === 'COMPLETED');
-        if (res.visit.consultation?.digitalSignature) {
-          setSignatureData(res.visit.consultation.digitalSignature);
+        let visitObj = res.visit;
+        // If visit has no vitals attached, check api.vitals.getForVisit
+        if (!visitObj.vitals || visitObj.vitals.length === 0) {
+          try {
+            const vRes = await api.vitals.getForVisit(visit.id);
+            if (vRes?.vitals && vRes.vitals.length > 0) {
+              visitObj = { ...visitObj, vitals: vRes.vitals };
+            }
+          } catch {}
         }
-        if (res.visit.summary) {
-          const sJson = typeof res.visit.summary.summaryJson === 'string'
-            ? JSON.parse(res.visit.summary.summaryJson)
-            : res.visit.summary.summaryJson;
+        // Fallback to local storage vitals
+        if (!visitObj.vitals || visitObj.vitals.length === 0) {
+          const localV = localStorage.getItem(`medikiosk_vitals_${visit.id}`);
+          if (localV) {
+            try {
+              const parsed = JSON.parse(localV);
+              visitObj = { ...visitObj, vitals: Array.isArray(parsed) ? parsed : [parsed] };
+            } catch {}
+          }
+        }
+        setSelectedVisit(visitObj);
+        setIsCompleted(visitObj.status === 'COMPLETED' || visitObj.consultation?.status === 'COMPLETED');
+        if (visitObj.consultation?.digitalSignature) {
+          setSignatureData(visitObj.consultation.digitalSignature);
+        }
+        if (visitObj.summary) {
+          const sJson = typeof visitObj.summary.summaryJson === 'string'
+            ? JSON.parse(visitObj.summary.summaryJson)
+            : (visitObj.summary.summaryJson || visitObj.summary);
           setSummaryData(sJson);
-          setImpression(sJson.chiefComplaint || visit.reasonForVisit || '');
-          // Pre-fill SOAP from AI summary
-          setSoapSubjective(sJson.historyOfPresentIllness || '');
-          setSoapAssessment(sJson.chiefComplaint || '');
+          setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
+          // Pre-fill SOAP from AI summary safely
+          setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
+          setSoapAssessment(safeString(sJson?.chiefComplaint, ''));
         }
-        if (res.visit.consultation) {
-          setClinicalNotes(res.visit.consultation.clinicalNotes || '');
-          setImpression(res.visit.consultation.impression || res.visit.consultation.diagnosis || '');
-          setTreatmentPlan(res.visit.consultation.treatmentPlan || '');
+        if (visitObj.consultation) {
+          setClinicalNotes(safeString(visitObj.consultation.clinicalNotes, ''));
+          setImpression(safeString(visitObj.consultation.impression || visitObj.consultation.diagnosis, ''));
+          setTreatmentPlan(safeString(visitObj.consultation.treatmentPlan, ''));
         }
-        if (res.visit.prescriptions && res.visit.prescriptions.length > 0 && res.visit.prescriptions[0].items?.length > 0) {
-          setPrescriptions(res.visit.prescriptions[0].items.map((item: any) => ({
-            medicineName: item.medicineName,
-            dosage: item.dosage,
-            frequency: item.frequency,
-            duration: item.duration,
-            instructions: item.instructions || 'After meals'
+        if (visitObj.prescriptions && visitObj.prescriptions.length > 0 && visitObj.prescriptions[0].items?.length > 0) {
+          setPrescriptions(visitObj.prescriptions[0].items.map((item: any) => ({
+            medicineName: safeString(item.medicineName, ''),
+            dosage: safeString(item.dosage, ''),
+            frequency: safeString(item.frequency, 'Once daily (OD)'),
+            duration: safeString(item.duration, '5 days'),
+            instructions: safeString(item.instructions, 'After meals')
           })));
         }
         // Load longitudinal timeline
@@ -389,14 +537,25 @@ MediKiosk Autonomous Clinical Intake System
             <Stethoscope className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Physician Clinical Command Center</h1>
-            <p className="text-xs text-slate-400">AI-Draft Summary Review • Vitals Inspection • Document PDF Inspection • Digital E-Prescription (Rx)</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white">
+                {user?.name ? `${user.name}` : 'Physician Clinical Command Center'}
+              </h1>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                {user?.doctorProfile?.specialization || 'Clinical Doctor'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {!showAllHospitalPatients
+                ? `Showing patients specifically assigned to / chosen for ${user?.name || 'you'}`
+                : 'Showing all hospital OPD patients across departments'}
+            </p>
           </div>
         </div>
 
         <button
           onClick={() => loadPatients()}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition-colors self-start sm:self-auto touch-target"
+          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition-colors self-start sm:self-auto touch-target cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh Queue</span>
@@ -442,46 +601,94 @@ MediKiosk Autonomous Clinical Intake System
             </button>
           </div>
 
+          {/* Patient Search Input & Search Button (Instant Patient Lookup) */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Name, MRN, Token #..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (filteredPatients.length > 0) {
+                  handleSelectPatient(filteredPatients[0]);
+                }
+              }}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm shadow-blue-600/30"
+              title="Search and select matching patient"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+            </button>
+          </div>
+
           {/* Filter Toggle: My Patients vs All Hospital OPD */}
           <div className="flex items-center p-1 bg-slate-950/60 rounded-xl border border-slate-800/80 text-[11px]">
             <button
               onClick={() => setShowAllHospitalPatients(false)}
-              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer truncate ${
                 !showAllHospitalPatients
                   ? 'bg-slate-800 text-slate-100 shadow-sm'
                   : 'text-slate-400 hover:text-slate-300'
               }`}
+              title="Only show patients assigned to this doctor"
             >
-              👤 My Patients
+              👤 My Assigned Patients
             </button>
             <button
               onClick={() => setShowAllHospitalPatients(true)}
-              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-1 px-2 rounded-lg font-semibold transition-all cursor-pointer truncate ${
                 showAllHospitalPatients
                   ? 'bg-slate-800 text-slate-100 shadow-sm'
                   : 'text-slate-400 hover:text-slate-300'
               }`}
+              title="Show all hospital OPD patients"
             >
               🏥 All Hospital OPD
             </button>
           </div>
 
           <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-            {displayedPatients.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800/60">
-                {queueTab === 'ACTIVE' ? 'No patients currently waiting in active queue.' : 'No completed patient consultations yet.'}
+            {filteredPatients.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800/60 space-y-1">
+                <p>
+                  {searchQuery
+                    ? `No matching patients found for "${searchQuery}".`
+                    : (queueTab === 'ACTIVE' ? 'No patients currently waiting in queue.' : 'No completed patient consultations yet.')}
+                </p>
+                {!showAllHospitalPatients && (
+                  <p className="text-[10px] text-slate-600">
+                    Switch to "All Hospital OPD" to view visits across other doctors.
+                  </p>
+                )}
               </div>
-            ) : displayedPatients.map((visit: any) => {
+            ) : filteredPatients.map((visit: any) => {
               const isSelected = selectedVisit?.id === visit.id;
               const hasAlert = visit.emergencyAlerts && visit.emergencyAlerts.length > 0;
               const hasDocs = (visit.documents && visit.documents.length > 0) || (visit.patient?.documents && visit.patient?.documents.length > 0);
+              const assignedDoctorName = visit.doctor?.user?.name || visit.doctor?.name;
 
               return (
                 <button
                   key={visit.id}
                   onClick={() => handleSelectPatient(visit)}
                   className={`
-                    w-full p-4 rounded-2xl text-left transition-all border
+                    w-full p-4 rounded-2xl text-left transition-all border cursor-pointer
                     ${isSelected
                       ? 'bg-blue-600/20 border-blue-500 shadow-md scale-[1.01]'
                       : 'bg-slate-950 border-slate-800 hover:border-slate-700'
@@ -513,8 +720,15 @@ MediKiosk Autonomous Clinical Intake System
                     MRN: {visit.patient?.mrn} • {visit.patient?.age || 40}Y • {visit.patient?.gender}
                   </p>
 
+                  {assignedDoctorName && (
+                    <div className="text-[10px] text-blue-300 font-medium truncate mt-1 flex items-center gap-1">
+                      <Stethoscope className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span>Doctor: {assignedDoctorName}</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[10px] text-slate-500">
-                    <span className="truncate max-w-[160px]">Reason: {visit.reasonForVisit || 'General OPD'}</span>
+                    <span className="truncate max-w-[150px]">Reason: {visit.reasonForVisit || 'General OPD'}</span>
                     <span className="flex items-center gap-1 font-mono">
                       <Clock className="w-3 h-3" />
                       {new Date(visit.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -568,13 +782,13 @@ MediKiosk Autonomous Clinical Intake System
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500 uppercase font-bold block">Known Conditions</span>
                   <span className="font-semibold text-slate-200 truncate block">
-                    {summaryData?.pastMedicalHistory || 'None on record'}
+                    {safeString(summaryData?.pastMedicalHistory, 'None on record')}
                   </span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500 uppercase font-bold block">Active Medications</span>
                   <span className="font-semibold text-slate-200 truncate block">
-                    {summaryData?.medications || 'None reported'}
+                    {safeString(summaryData?.medications, 'None reported')}
                   </span>
                 </div>
                 <div className="space-y-0.5">
@@ -585,8 +799,101 @@ MediKiosk Autonomous Clinical Intake System
                 </div>
               </div>
 
+              {/* Live Vitals Recorded by Nursing Station */}
+              {(() => {
+                const normalizedVitals = getNormalizedVitals(selectedVisit);
+                if (normalizedVitals) {
+                  return (
+                    <div className="bg-slate-950 border border-emerald-500/40 rounded-2xl p-4.5 space-y-3 shadow-lg">
+                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                            <Activity className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Patient Vitals (Nursing Station Intake)
+                            </h3>
+                            <p className="text-[10px] text-slate-400">Entered by Nurse • Live Synced to Doctor & Patient Portal</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 font-mono font-bold rounded-full border border-emerald-500/30">
+                          Recorded: {normalizedVitals.recordedAt ? new Date(normalizedVitals.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-xs">
+                        {/* BP */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Blood Pressure</span>
+                          <span className="text-sm font-bold text-emerald-400 font-mono">
+                            {normalizedVitals.bpSystolic && normalizedVitals.bpDiastolic ? `${normalizedVitals.bpSystolic}/${normalizedVitals.bpDiastolic}` : (normalizedVitals.bpSystolic || '--')} <span className="text-[10px] text-slate-400">mmHg</span>
+                          </span>
+                        </div>
+
+                        {/* Pulse */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Pulse Rate</span>
+                          <span className="text-sm font-bold text-slate-100 font-mono">
+                            {normalizedVitals.pulse ? `${normalizedVitals.pulse}` : '--'} <span className="text-[10px] text-slate-400">bpm</span>
+                          </span>
+                        </div>
+
+                        {/* SpO2 */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Oxygen (SpO2)</span>
+                          <span className="text-sm font-bold text-blue-400 font-mono">
+                            {normalizedVitals.spo2 ? `${normalizedVitals.spo2}%` : '--'}
+                          </span>
+                        </div>
+
+                        {/* Temp */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Temperature</span>
+                          <span className="text-sm font-bold text-slate-100 font-mono">
+                            {normalizedVitals.temperature ? `${normalizedVitals.temperature}°F` : '--'}
+                          </span>
+                        </div>
+
+                        {/* BMI / Weight */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">BMI / Weight</span>
+                          <span className="text-sm font-bold text-slate-100 font-mono">
+                            {normalizedVitals.bmi ? `${normalizedVitals.bmi}` : (normalizedVitals.weight ? `${normalizedVitals.weight}kg` : '--')} <span className="text-[10px] text-slate-400">BMI</span>
+                          </span>
+                        </div>
+
+                        {/* Pain Score */}
+                        <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 font-bold block uppercase">Pain Score</span>
+                          <span className={`text-sm font-bold font-mono ${normalizedVitals.painScore && normalizedVitals.painScore > 5 ? 'text-red-400' : 'text-slate-100'}`}>
+                            {normalizedVitals.painScore !== null && normalizedVitals.painScore !== undefined ? `${normalizedVitals.painScore}` : '--'} <span className="text-[10px] text-slate-400">/ 10</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {normalizedVitals.notes && (
+                        <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2 rounded-lg border border-slate-800 flex items-center gap-2">
+                          <span className="text-emerald-400 font-bold">Nurse Intake Notes:</span>
+                          <span>{normalizedVitals.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between text-xs text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-amber-400" />
+                      <span>⚠️ <strong>Nursing Station Vitals:</strong> Awaiting nurse check-in. Vitals not yet recorded for this encounter.</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Contradiction Detection Banner (Item 31) */}
-              {selectedVisit.patient?.allergies?.length > 0 && /no known|nkda/i.test(summaryData?.allergies || '') && (
+              {selectedVisit.patient?.allergies?.length > 0 && /no known|nkda/i.test(safeString(summaryData?.allergies)) && (
                 <div className="p-3.5 bg-amber-950/40 border border-amber-500/50 rounded-2xl flex items-center gap-3 text-amber-200 text-xs">
                   <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
                   <div>
@@ -674,7 +981,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Chief Complaint</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded font-mono">Voice NLU</span>
                     </div>
-                    <p className="text-slate-100 font-semibold">{summaryData?.chiefComplaint || selectedVisit.reasonForVisit || 'Under Evaluation'}</p>
+                    <p className="text-slate-100 font-semibold">{safeString(summaryData?.chiefComplaint, safeString(selectedVisit.reasonForVisit, 'Under Evaluation'))}</p>
                   </div>
 
                   {/* Vitals Snapshot */}
@@ -698,7 +1005,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[9px] px-1.5 py-0.5 bg-purple-900/40 text-purple-300 rounded font-mono">Groq Clinical Engine</span>
                     </div>
                     <p className="text-slate-200 leading-relaxed">
-                      {summaryData?.historyOfPresentIllness || 'Patient completed conversational multilingual AI intake at registration kiosk.'}
+                      {safeString(summaryData?.historyOfPresentIllness, 'Patient completed conversational multilingual AI intake at registration kiosk.')}
                     </p>
                   </div>
 
@@ -709,7 +1016,7 @@ MediKiosk Autonomous Clinical Intake System
                         <span className="text-[10px] font-bold uppercase text-slate-400 block">Daily Routine & Lifestyle Factors</span>
                         <span className="text-[9px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded font-mono">Patient Reported</span>
                       </div>
-                      <p className="text-slate-200 leading-relaxed">{summaryData.lifestyle}</p>
+                      <p className="text-slate-200 leading-relaxed">{safeString(summaryData.lifestyle)}</p>
                     </div>
                   )}
 
@@ -720,7 +1027,7 @@ MediKiosk Autonomous Clinical Intake System
                         <span className="text-[10px] font-bold uppercase text-indigo-300 block">🔄 Changes Since Previous Consultation</span>
                         <span className="text-[9px] px-1.5 py-0.5 bg-indigo-500/20 text-indigo-200 rounded font-mono">Longitudinal Delta</span>
                       </div>
-                      <p className="text-slate-100 font-medium leading-relaxed">{summaryData.changesSincePreviousVisit}</p>
+                      <p className="text-slate-100 font-medium leading-relaxed">{safeString(summaryData.changesSincePreviousVisit)}</p>
                     </div>
                   )}
 
@@ -730,7 +1037,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Past Medical History</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-indigo-900/40 text-indigo-300 rounded font-mono">Self-Declared</span>
                     </div>
-                    <p className="text-slate-200">{summaryData?.pastMedicalHistory || 'None reported'}</p>
+                    <p className="text-slate-200">{safeString(summaryData?.pastMedicalHistory, 'None reported')}</p>
                   </div>
 
                   {/* Past Surgical History */}
@@ -739,7 +1046,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Past Surgical History</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-indigo-900/40 text-indigo-300 rounded font-mono">Self-Declared</span>
                     </div>
-                    <p className="text-slate-200">{summaryData?.pastSurgicalHistory || 'No prior surgeries reported'}</p>
+                    <p className="text-slate-200">{safeString(summaryData?.pastSurgicalHistory, 'No prior surgeries reported')}</p>
                   </div>
 
                   {/* Current Medications */}
@@ -748,7 +1055,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Current Medications</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-indigo-900/40 text-indigo-300 rounded font-mono">Active Rx</span>
                     </div>
-                    <p className="text-slate-200">{summaryData?.medications || 'No regular medicines'}</p>
+                    <p className="text-slate-200">{safeString(summaryData?.medications, 'No regular medicines')}</p>
                   </div>
 
                   {/* Allergies */}
@@ -757,7 +1064,7 @@ MediKiosk Autonomous Clinical Intake System
                       <span className="text-[10px] font-bold uppercase text-slate-400 block">Allergies & Sensitivities</span>
                       <span className="text-[9px] px-1.5 py-0.5 bg-red-900/40 text-red-300 rounded font-mono">Safety Check</span>
                     </div>
-                    <p className="text-slate-200">{summaryData?.allergies || 'No known drug allergies (NKDA)'}</p>
+                    <p className="text-slate-200">{safeString(summaryData?.allergies, 'No known drug allergies (NKDA)')}</p>
                   </div>
 
                   {/* Family & Social History */}
@@ -768,9 +1075,9 @@ MediKiosk Autonomous Clinical Intake System
                         <span className="text-[9px] px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded font-mono">Background</span>
                       </div>
                       <p className="text-slate-200">
-                        {summaryData.familyHistory ? `Family: ${summaryData.familyHistory}` : ''}
+                        {summaryData.familyHistory ? `Family: ${safeString(summaryData.familyHistory)}` : ''}
                         {summaryData.familyHistory && summaryData.socialHistory ? ' • ' : ''}
-                        {summaryData.socialHistory ? `Social: ${summaryData.socialHistory}` : ''}
+                        {summaryData.socialHistory ? `Social: ${safeString(summaryData.socialHistory)}` : ''}
                       </p>
                     </div>
                   )}
@@ -785,15 +1092,15 @@ MediKiosk Autonomous Clinical Intake System
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                         <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                           <span className="text-slate-400 font-bold block mb-1">Patient Reported:</span>
-                          <span className="text-slate-200">{summaryData.medicationReconciliation.patientReported?.join(', ') || 'None'}</span>
+                          <span className="text-slate-200">{safeString(summaryData.medicationReconciliation.patientReported, 'None')}</span>
                         </div>
                         <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                           <span className="text-slate-400 font-bold block mb-1">Past Prescribed:</span>
-                          <span className="text-slate-200">{summaryData.medicationReconciliation.previouslyPrescribed?.join(', ') || 'None'}</span>
+                          <span className="text-slate-200">{safeString(summaryData.medicationReconciliation.previouslyPrescribed, 'None')}</span>
                         </div>
                         <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                           <span className="text-slate-400 font-bold block mb-1">Document Extracted:</span>
-                          <span className="text-slate-200">{summaryData.medicationReconciliation.documentExtracted?.join(', ') || 'None'}</span>
+                          <span className="text-slate-200">{safeString(summaryData.medicationReconciliation.documentExtracted, 'None')}</span>
                         </div>
                       </div>
                     </div>
@@ -818,9 +1125,9 @@ MediKiosk Autonomous Clinical Intake System
                           >
                             <div className="truncate mr-2">
                               <span className="font-semibold text-slate-100 block truncate group-hover:text-blue-400 transition-colors">
-                                {doc.title}
+                                {safeString(doc.title, 'Document')}
                               </span>
-                              <span className="text-[10px] text-slate-500">{doc.fileType} • {new Date(doc.uploadedAt || Date.now()).toLocaleDateString()}</span>
+                              <span className="text-[10px] text-slate-500">{safeString(doc.fileType, 'PDF')} • {new Date(doc.uploadedAt || Date.now()).toLocaleDateString()}</span>
                             </div>
                             <button
                               type="button"
@@ -891,18 +1198,18 @@ MediKiosk Autonomous Clinical Intake System
                           historyOfPresentIllness: 'Completed multilingual AI clinical intake.',
                           lifestyle: 'Assessed at registration.',
                         },
-                        vitals: selectedVisit.vitals?.[0] || { bpSystolic: 120, bpDiastolic: 80, pulse: 76, spo2: 99 },
+                        vitals: getNormalizedVitals(selectedVisit),
                         prescriptions,
                         lastPrescription: prescriptions.length > 0 ? prescriptions.map(p => `${p.medicineName} (${p.dosage})`).join(', ') : 'None prescribed yet',
                       }
                     ]).map((tl: any, i: number) => {
                       const totalCount = Math.max(timeline.length, 1);
-                      const docName = tl.doctor?.name || 'Dr. Yogesh Sharma';
-                      const docSpec = tl.doctor?.specialization || tl.department || 'Internal Medicine';
-                      const diagnosis = tl.doctor?.diagnosis || tl.chiefComplaint || 'Clinical Review Completed';
-                      const aiSummaryText = tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || 'AI Intake summary verified at Kiosk.';
-                      const lifestyleText = tl.aiSummary?.lifestyle;
-                      const rxText = tl.lastPrescription || (tl.prescriptions?.length ? tl.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null);
+                      const docName = safeString(tl.doctor?.name, 'Dr. Yogesh Sharma');
+                      const docSpec = safeString(tl.doctor?.specialization || tl.department, 'Internal Medicine');
+                      const diagnosis = safeString(tl.doctor?.diagnosis || tl.chiefComplaint, 'Clinical Review Completed');
+                      const aiSummaryText = safeString(tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || tl.description, 'AI Intake summary verified at Kiosk.');
+                      const lifestyleText = safeString(tl.aiSummary?.lifestyle);
+                      const rxText = safeString(tl.lastPrescription || (Array.isArray(tl.prescriptions) ? tl.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null));
 
                       return (
                         <div key={i} className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all space-y-3">
@@ -912,12 +1219,12 @@ MediKiosk Autonomous Clinical Intake System
                               <span className="px-2 py-0.5 rounded-lg bg-indigo-600/20 text-indigo-300 text-[11px] font-bold font-mono border border-indigo-500/30">
                                 Visit #{totalCount - i}
                               </span>
-                              <span className="text-xs font-bold text-slate-100">{tl.chiefComplaint || 'General OPD Consultation'}</span>
+                              <span className="text-xs font-bold text-slate-100">{safeString(tl.chiefComplaint, 'General OPD Consultation')}</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-400">
                               <span>{tl.date ? new Date(tl.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today'}</span>
                               <span>•</span>
-                              <span className="text-indigo-400 font-semibold">{tl.department || 'General Medicine'}</span>
+                              <span className="text-indigo-400 font-semibold">{safeString(tl.department, 'General Medicine')}</span>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); handleDownloadSingleVisit(tl, totalCount - i); }}
@@ -946,7 +1253,7 @@ MediKiosk Autonomous Clinical Intake System
                                 <span className="text-emerald-400 font-semibold">{diagnosis}</span>
                               </div>
                               {tl.doctor?.clinicalNotes && (
-                                <p className="text-[11px] text-slate-400 italic">"{tl.doctor.clinicalNotes}"</p>
+                                <p className="text-[11px] text-slate-400 italic">"{safeString(tl.doctor.clinicalNotes)}"</p>
                               )}
                             </div>
 
@@ -1001,10 +1308,10 @@ MediKiosk Autonomous Clinical Intake System
                   <ShieldAlert className="w-5 h-5 text-red-400 animate-pulse shrink-0" />
                   <div className="text-xs">
                     <span className="font-bold text-red-300 block">🔴 Red Flag Detected by AI Triage</span>
-                    <span className="text-red-400/80">{selectedVisit.emergencyAlerts[0].description}</span>
+                    <span className="text-red-400/80">{safeString(selectedVisit.emergencyAlerts[0].description)}</span>
                   </div>
                   <span className="ml-auto text-[10px] font-bold px-2 py-1 bg-red-500/20 text-red-300 rounded-full border border-red-500/30">
-                    {selectedVisit.emergencyAlerts[0].severity}
+                    {safeString(selectedVisit.emergencyAlerts[0].severity, 'URGENT')}
                   </span>
                 </div>
               )}
@@ -1455,10 +1762,10 @@ MediKiosk Autonomous Clinical Intake System
                   1. Chief Complaint &amp; History of Present Illness (HPI)
                 </span>
                 <p className="text-slate-100 font-semibold text-sm">
-                  {summaryData?.chiefComplaint || selectedVisit.reasonForVisit || 'Under Evaluation'}
+                  {safeString(summaryData?.chiefComplaint, safeString(selectedVisit.reasonForVisit, 'Under Evaluation'))}
                 </p>
                 <p className="text-slate-300 leading-relaxed">
-                  {summaryData?.historyOfPresentIllness || 'Patient completed structured conversational multilingual AI clinical intake at registration kiosk.'}
+                  {safeString(summaryData?.historyOfPresentIllness, 'Patient completed structured conversational multilingual AI clinical intake at registration kiosk.')}
                 </p>
               </div>
 
@@ -1468,7 +1775,7 @@ MediKiosk Autonomous Clinical Intake System
                   2. Lifestyle, Daily Habits &amp; Routine Assessment
                 </span>
                 <p className="text-slate-200 leading-relaxed">
-                  {summaryData?.lifestyle || 'Daily routine, sleep hours, physical activity, and stress factors evaluated during intake.'}
+                  {safeString(summaryData?.lifestyle, 'Daily routine, sleep hours, physical activity, and stress factors evaluated during intake.')}
                 </p>
               </div>
 
@@ -1476,17 +1783,17 @@ MediKiosk Autonomous Clinical Intake System
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Chronic History</span>
-                  <span className="text-slate-200">{summaryData?.pastMedicalHistory || 'None reported'}</span>
+                  <span className="text-slate-200">{safeString(summaryData?.pastMedicalHistory, 'None reported')}</span>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Allergy Profile</span>
                   <span className={selectedVisit.patient?.allergies?.length ? 'text-red-400 font-bold' : 'text-emerald-400'}>
-                    {selectedVisit.patient?.allergies?.length ? selectedVisit.patient.allergies.map((a: any) => a.allergen).join(', ') : (summaryData?.allergies || 'No Known Drug Allergies')}
+                    {selectedVisit.patient?.allergies?.length ? selectedVisit.patient.allergies.map((a: any) => a.allergen).join(', ') : (safeString(summaryData?.allergies, 'No Known Drug Allergies'))}
                   </span>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Daily Medications</span>
-                  <span className="text-slate-200">{summaryData?.medications || 'None reported'}</span>
+                  <span className="text-slate-200">{safeString(summaryData?.medications, 'None reported')}</span>
                 </div>
               </div>
 

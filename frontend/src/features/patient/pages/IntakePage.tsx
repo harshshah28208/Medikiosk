@@ -440,11 +440,11 @@ export function IntakePage() {
 
       // Clean up session data so future visits don't resume this finished session
       localStorage.removeItem('medikiosk_active_session_data');
-      navigate(`/kiosk/review/${visitId || 'current'}`);
+      navigate(`/kiosk/documents/${visitId || 'current'}`);
     } catch (err) {
       console.warn('Error completing intake:', err);
       localStorage.removeItem('medikiosk_active_session_data');
-      navigate(`/kiosk/review/${visitId || 'current'}`);
+      navigate(`/kiosk/documents/${visitId || 'current'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -939,7 +939,7 @@ export function IntakePage() {
                   disabled={isProcessing}
                   className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 touch-target cursor-pointer"
                 >
-                  <span>{language === 'hi' ? 'अपॉइंटमेंट के लिए आगे बढ़ें' : language === 'gu' ? 'કન્સલ્ટેશન માટે આગળ વધો' : 'Proceed to Appointment'}</span>
+                  <span>{language === 'hi' ? 'दस्तावेज़ अपलोड / अपॉइंटमेंट पर आगे बढ़ें' : language === 'gu' ? 'દસ્તાવેજ અપલોડ / કન્સલ્ટેશન માટે આગળ વધો' : 'Proceed to Document Upload'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

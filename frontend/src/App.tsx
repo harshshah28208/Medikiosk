@@ -29,20 +29,22 @@ import { TriageDashboard } from './features/triage/pages/TriageDashboard';
 import { AYUSHDashboard } from './features/ayush/pages/AYUSHDashboard';
 import { HomeopathicDashboard } from './features/ayush/pages/HomeopathicDashboard';
 import { AdminDashboard } from './features/admin/pages/AdminDashboard';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export function App() {
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public / Auth */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={<RoleRedirect />} />
+    <ErrorBoundary fallbackTitle="MediKiosk Application Recovered">
+      <AuthProvider>
+        <LanguageProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public / Auth */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/" element={<RoleRedirect />} />
 
-            {/* Patient Portal & Kiosk Flow */}
-            <Route path="/portal" element={<KioskShell />}>
-              <Route index element={<PatientPortalPage />} />
+              {/* Patient Portal & Kiosk Flow */}
+              <Route path="/portal" element={<KioskShell />}>
+                <Route index element={<PatientPortalPage />} />
             </Route>
             <Route path="/patient" element={<KioskShell />}>
               <Route index element={<PatientPortalPage />} />
@@ -56,7 +58,9 @@ export function App() {
               <Route path="token/:visitId" element={<TokenPage />} />
               <Route path="intake/:visitId" element={<IntakePage />} />
               <Route path="documents/:visitId" element={<DocumentUploadPage />} />
+              <Route path="documents" element={<DocumentUploadPage />} />
               <Route path="review/:visitId" element={<PatientReviewPage />} />
+              <Route path="review" element={<PatientReviewPage />} />
               <Route path="portal" element={<PatientPortalPage />} />
             </Route>
 
@@ -124,6 +128,7 @@ export function App() {
         </BrowserRouter>
       </LanguageProvider>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

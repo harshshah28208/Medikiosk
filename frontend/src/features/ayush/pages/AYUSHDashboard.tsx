@@ -2,13 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import {
   Leaf, Users, CheckCircle2, RefreshCw,
-  Sparkles, Stethoscope, FileText, Heart
+  Sparkles, Stethoscope, FileText, Heart, Search, X
 } from 'lucide-react';
 
 export function AYUSHDashboard() {
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const safeString = (val: any, fallback = ''): string => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'string') return val.trim() || fallback;
+    if (Array.isArray(val)) {
+      if (val.length === 0) return fallback;
+      return val.map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item))).join(', ');
+    }
+    if (typeof val === 'object') {
+      const entries = Object.entries(val);
+      if (entries.length === 0) return fallback;
+      return entries.map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ');
+    }
+    return String(val);
+  };
 
   // AYUSH Assessment State (Prakriti, Vikriti, Agni, Koshtha, Ashtavidha Pariksha)
   const [prakriti, setPrakriti] = useState('Vata-Pitta');
@@ -20,14 +36,45 @@ export function AYUSHDashboard() {
   const [aharaVihara, setAharaVihara] = useState('Late night meals, excessive oily & spicy food consumption');
   const [ayushNotes, setAyushNotes] = useState('Advised Panchakarma Deepana-Pachana therapy, Triphala Churna 3g at bedtime with lukewarm water.');
 
+  const isAyushVisit = (v: any) => {
+    const deptCode = (v.department?.code || '').toUpperCase();
+    const deptName = (v.department?.name || '').toLowerCase();
+    const carePath = (v.carePath || '').toUpperCase();
+    const docSpec = (v.doctor?.specialization || '').toLowerCase();
+    const docName = (v.doctor?.user?.name || v.doctor?.name || '').toLowerCase();
+    return (
+      deptCode === 'AYUSH' ||
+      deptName.includes('ayush') ||
+      deptName.includes('ayurveda') ||
+      carePath === 'AYUSH' ||
+      docSpec.includes('ayurveda') ||
+      docSpec.includes('ayush') ||
+      docName.includes('harish') ||
+      docName.includes('aarav')
+    );
+  };
+
   const loadPatients = async () => {
     try {
-      const res = await api.visits.list();
-      if (res?.visits) {
-        setPatients(res.visits);
-        if (res.visits.length > 0 && !selectedVisit) {
-          setSelectedVisit(res.visits[0]);
+      let visitList: any[] = [];
+      const res = await api.doctor.patients(true).catch(() => null);
+      if (res?.visits && Array.isArray(res.visits) && res.visits.length > 0) {
+        visitList = res.visits.filter(isAyushVisit);
+      } else {
+        const vRes = await api.visits.list().catch(() => null);
+        if (vRes?.visits && Array.isArray(vRes.visits)) {
+          visitList = vRes.visits.filter(isAyushVisit);
         }
+      }
+
+      setPatients(visitList);
+      if (visitList.length > 0) {
+        setSelectedVisit((prev: any) => {
+          if (prev && visitList.find((v: any) => v.id === prev.id)) return prev;
+          return visitList[0];
+        });
+      } else {
+        setSelectedVisit(null);
       }
     } catch (e) {
       console.error('Failed to load AYUSH patients:', e);
@@ -37,6 +84,17 @@ export function AYUSHDashboard() {
   useEffect(() => {
     loadPatients();
   }, []);
+
+  const filteredPatients = patients.filter((visit: any) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const name = (visit.patient?.name || '').toLowerCase();
+    const mrn = (visit.patient?.mrn || '').toLowerCase();
+    const token = String(visit.token || '').toLowerCase();
+    const phone = (visit.patient?.phone || '').toLowerCase();
+    const reason = (visit.reasonForVisit || '').toLowerCase();
+    return name.includes(q) || mrn.includes(q) || token.includes(q) || phone.includes(q) || reason.includes(q);
+  });
 
   const handleSaveAYUSH = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,20 +150,65 @@ export function AYUSHDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Patient List */}
         <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2 pb-2 border-b border-slate-800">
-            <Users className="w-4 h-4 text-amber-400" />
-            <span>AYUSH OPD Patients</span>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center justify-between pb-2 border-b border-slate-800">
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400" />
+              <span>AYUSH OPD Patients</span>
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full">
+              {patients.length}
+            </span>
           </h2>
 
+          {/* Search Input & Search Button */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Name, MRN, Token #..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-full"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (filteredPatients.length > 0) {
+                  setSelectedVisit(filteredPatients[0]);
+                }
+              }}
+              className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm shadow-amber-600/30"
+              title="Search and select matching patient"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+            </button>
+          </div>
+
           <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
-            {patients.map((visit) => {
+            {filteredPatients.length === 0 ? (
+              <p className="text-center text-slate-500 text-xs py-8">
+                {searchQuery ? `No matching patients for "${searchQuery}".` : 'No patients currently in queue.'}
+              </p>
+            ) : filteredPatients.map((visit) => {
               const isSelected = selectedVisit?.id === visit.id;
               return (
                 <button
                   key={visit.id}
                   onClick={() => setSelectedVisit(visit)}
                   className={`
-                    w-full p-4 rounded-2xl text-left transition-all border
+                    w-full p-4 rounded-2xl text-left transition-all border cursor-pointer
                     ${isSelected
                       ? 'bg-amber-600/20 border-amber-500 shadow-md scale-[1.01]'
                       : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'

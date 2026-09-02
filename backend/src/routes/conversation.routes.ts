@@ -34,17 +34,32 @@ router.get('/tts', async (req: AuthRequest, res: Response): Promise<void> => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     }, (ttsRes) => {
+      if (ttsRes.statusCode !== 200) {
+        res.status(502).send('TTS upstream error');
+        return;
+      }
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       ttsRes.pipe(res);
     });
 
+    ttsReq.setTimeout(3000, () => {
+      ttsReq.destroy();
+      if (!res.headersSent) {
+        res.status(504).send('TTS Timeout');
+      }
+    });
+
     ttsReq.on('error', (err) => {
       console.warn('TTS proxy error:', err);
-      res.status(500).send('TTS error');
+      if (!res.headersSent) {
+        res.status(500).send('TTS error');
+      }
     });
   } catch (e) {
-    res.status(500).send('TTS error');
+    if (!res.headersSent) {
+      res.status(500).send('TTS error');
+    }
   }
 });
 
