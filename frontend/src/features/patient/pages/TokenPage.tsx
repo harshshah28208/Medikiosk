@@ -42,9 +42,9 @@ export function TokenPage() {
     if (q) setActiveQueue(q);
   }, []);
 
-  const tokenNumber = activeVisit?.token || activeQueue?.tokenNumber || 'G-101';
-  const patientName = activePatient?.name || 'Rahul Sharma';
-  const mrn = activePatient?.mrn || 'MK-1001';
+  const tokenNumber = activeVisit?.token || activeQueue?.tokenNumber || (activeVisit?.id ? `G-${activeVisit.id.slice(-3)}` : 'G-101');
+  const patientName = activePatient?.name || 'Patient';
+  const mrn = activePatient?.mrn || 'MK-Pending';
   const departmentName = activeVisit?.department?.name || activeVisit?.department || 'General Medicine';
 
   return (

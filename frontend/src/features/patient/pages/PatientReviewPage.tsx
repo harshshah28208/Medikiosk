@@ -244,13 +244,13 @@ MediKiosk Autonomous Healthcare System
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">Patient Name</span>
             <p className="text-base font-bold truncate">{activePatient?.name || 'Patient'}</p>
-            <span className="text-xs text-blue-100 font-mono">MRN: {activePatient?.mrn || 'MK-1001'} | Age: {activePatient?.age || '--'}Y / {activePatient?.gender || '--'}</span>
+            <span className="text-xs text-blue-100 font-mono">MRN: {activePatient?.mrn || 'MK-Pending'} | Age: {activePatient?.age || '--'}Y / {activePatient?.gender || '--'}</span>
           </div>
 
           <div className="text-left sm:text-center">
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">OPD Token #</span>
-            <p className="text-2xl font-black font-mono tracking-tight">{activeVisit?.token || 'G-101'}</p>
-            <span className="text-xs text-blue-100">Dept: {activeVisit?.department?.name || 'General OPD'}</span>
+            <p className="text-2xl font-black font-mono tracking-tight">{activeVisit?.token || activeVisit?.tokenNumber || (activeVisit?.id ? `G-${activeVisit.id.slice(-3)}` : 'G-101')}</p>
+            <span className="text-xs text-blue-100">Dept: {activeVisit?.department?.name || activeVisit?.department || 'General OPD'}</span>
           </div>
 
           <div className="text-left sm:text-right">
