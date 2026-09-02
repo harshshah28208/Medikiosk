@@ -148,16 +148,30 @@ export function RegistrationPage() {
       const res = await api.patients.register(payload);
 
       if (res?.patient) {
-        localStorage.setItem('medikiosk_care_path', effectiveCarePath);
-        localStorage.setItem('medikiosk_selected_system', selectedSystem);
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...res.patient, isNewPatient: true, isReturning: false }));
-        localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.visit));
-        localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.queueEntry));
+        const docObj = selectedDoc ? {
+          id: selectedDoc.id,
+          specialization: selectedDoc.specialization,
+          name: selectedDoc.name,
+          user: { name: selectedDoc.name, email: selectedDoc.email },
+        } : (res.visit?.doctor || null);
+
+        const visitObj = {
+          ...res.visit,
+          doctorId: selectedDoc?.id || res.visit?.doctorId,
+          doctor: docObj,
+          patient: res.patient,
+        };
+
+        safeSetItem('medikiosk_care_path', effectiveCarePath);
+        safeSetItem('medikiosk_selected_system', selectedSystem);
+        safeSetItem('medikiosk_active_patient', { ...res.patient, isNewPatient: true, isReturning: false });
+        safeSetItem('medikiosk_active_visit', visitObj);
+        safeSetItem('medikiosk_active_queue', res.queueEntry);
+        if (docObj) {
+          safeSetItem('medikiosk_active_doctor', docObj);
+        }
         localStorage.removeItem('medikiosk_recent_changes');
         localStorage.removeItem('medikiosk_temp_raw_transcript');
-        if (selectedDoc) {
-          localStorage.setItem('medikiosk_active_doctor', JSON.stringify(selectedDoc));
-        }
         navigate('/kiosk/consent');
       } else if (res?.error) {
         setErrorMsg(res.error);

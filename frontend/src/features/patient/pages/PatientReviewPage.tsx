@@ -173,13 +173,10 @@ MediKiosk Autonomous Healthcare System
       allergies: editForm.allergies,
     };
     setSummaryReport(updated);
-    const vRaw = localStorage.getItem('medikiosk_active_visit');
-    if (vRaw) {
-      try {
-        const parsed = JSON.parse(vRaw);
-        parsed.summary = updated;
-        localStorage.setItem('medikiosk_active_visit', JSON.stringify(parsed));
-      } catch {}
+    const vObj = safeGetItem<any>('medikiosk_active_visit', null);
+    if (vObj) {
+      vObj.summary = updated;
+      safeSetItem('medikiosk_active_visit', vObj);
     }
     setIsEditModalOpen(false);
   };

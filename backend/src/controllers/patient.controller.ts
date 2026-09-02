@@ -168,7 +168,14 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
         token: result.visit.token,
         status: result.visit.status,
         department: department.name,
+        departmentId: department.id,
         reasonForVisit: result.visit.reasonForVisit,
+        doctorId: doctor?.id || null,
+        doctor: doctor ? {
+          id: doctor.id,
+          specialization: doctor.specialization,
+          user: { name: doctor.user.name, email: doctor.user.email },
+        } : null,
       },
       queueEntry: {
         id: result.queueEntry.id,
@@ -298,7 +305,22 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
       token: result.visit.token,
       status: result.visit.status,
       department: department.name,
+      departmentId: department.id,
       reasonForVisit: result.visit.reasonForVisit,
+      doctorId: doctor?.id || null,
+      doctor: doctor ? {
+        id: doctor.id,
+        specialization: doctor.specialization,
+        user: { name: doctor.user.name, email: doctor.user.email },
+      } : null,
+      patient: {
+        id: result.patient.id,
+        mrn: result.patient.mrn,
+        name: result.patient.name,
+        phone: result.patient.phone,
+        age: result.patient.age,
+        gender: result.patient.gender,
+      },
     },
     queueEntry: {
       id: result.queueEntry.id,
