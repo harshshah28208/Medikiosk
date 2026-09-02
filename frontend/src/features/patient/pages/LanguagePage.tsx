@@ -96,8 +96,13 @@ export function LanguagePage() {
               localStorage.removeItem('medikiosk_active_patient');
               localStorage.removeItem('medikiosk_active_visit');
               localStorage.removeItem('medikiosk_active_queue');
-              localStorage.removeItem('medikiosk_visit_type');
+              localStorage.removeItem('medikiosk_active_session_data');
+              localStorage.removeItem('medikiosk_active_session_id');
+              localStorage.removeItem('medikiosk_active_doctor');
+              localStorage.removeItem('medikiosk_recent_changes');
+              localStorage.removeItem('medikiosk_temp_raw_transcript');
               localStorage.removeItem('medikiosk_target_complaint');
+              localStorage.setItem('medikiosk_visit_type', 'NEW_CASE');
               navigate('/kiosk/register');
             }}
             className="flex items-center gap-4 p-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-600/30 transition-all touch-target text-left"

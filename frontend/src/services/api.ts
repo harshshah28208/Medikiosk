@@ -140,11 +140,28 @@ export const api = {
           medicalHistory: data.medicalHistory || '',
           isNewPatient: true,
         };
+        const token = `G-${Math.floor(100 + Math.random() * 900)}`;
+        const newVisit = {
+          id: `vis-${Date.now()}`,
+          token,
+          status: 'REGISTERED',
+          department: data.departmentCode || 'General Medicine',
+          reasonForVisit: data.reasonForVisit || 'General OPD Consultation',
+          doctorId: data.doctorId,
+          patient: newPat,
+        };
+        const newQueue = {
+          id: `q-${Date.now()}`,
+          tokenNumber: token,
+          status: 'WAITING',
+        };
         const existing = safeGetItem<any[]>('medikiosk_registered_patients', []);
         existing.unshift(newPat);
         safeSetItem('medikiosk_registered_patients', existing);
         safeSetItem('medikiosk_active_patient', newPat);
-        return { patient: newPat };
+        safeSetItem('medikiosk_active_visit', newVisit);
+        safeSetItem('medikiosk_active_queue', newQueue);
+        return { patient: newPat, visit: newVisit, queueEntry: newQueue };
       }),
     lookup: (query: string, type: string = 'PHONE') =>
       request('/patients/lookup', {

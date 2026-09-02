@@ -39,29 +39,31 @@ export function RegistrationPage() {
   });
 
   useEffect(() => {
-    // Check for existing logged in session or patient
+    // Check for explicit returning patient follow-up lookup
     const visitType = localStorage.getItem('medikiosk_visit_type');
-    const isNewCase = visitType === 'NEW_CASE';
-    const activePatient = isNewCase ? null : safeGetItem<any>('medikiosk_active_patient', null);
-    const storedUser = isNewCase ? null : safeGetItem<any>('medikiosk_user', null);
-    const sessionPatient = activePatient || (storedUser?.patient ? storedUser.patient : (storedUser?.role === 'PATIENT' ? storedUser : null));
+    const isExplicitFollowUp = visitType === 'FOLLOW_UP';
+    const activePatient = isExplicitFollowUp ? safeGetItem<any>('medikiosk_active_patient', null) : null;
 
-    if (!isNewCase && sessionPatient && (sessionPatient.name || sessionPatient.phone)) {
+    if (isExplicitFollowUp && activePatient && (activePatient.name || activePatient.phone)) {
       setHasSession(true);
       setFormData((prev) => ({
         ...prev,
-        name: sessionPatient.name || '',
-        phone: sessionPatient.phone || '',
-        age: sessionPatient.age ? String(sessionPatient.age) : '30',
-        gender: sessionPatient.gender || 'MALE',
-        email: sessionPatient.email || '',
-        address: sessionPatient.address || '',
-        emergencyContact: sessionPatient.emergencyContact || '',
-        abhaId: sessionPatient.abhaId || '',
+        name: activePatient.name || '',
+        phone: activePatient.phone || '',
+        age: activePatient.age ? String(activePatient.age) : '',
+        gender: activePatient.gender || 'MALE',
+        email: activePatient.email || '',
+        address: activePatient.address || '',
+        emergencyContact: activePatient.emergencyContact || '',
+        abhaId: activePatient.abhaId || '',
       }));
     } else {
       setHasSession(false);
       setIsEditingDetails(true);
+      // Clean up previous patient temporary data from storage
+      localStorage.removeItem('medikiosk_active_session_data');
+      localStorage.removeItem('medikiosk_recent_changes');
+      localStorage.removeItem('medikiosk_temp_raw_transcript');
     }
 
     api.admin

@@ -24,9 +24,9 @@ export function PatientPortalPage() {
     const storedUser = safeGetItem<any>('medikiosk_user', null);
     const parsedRaw = safeGetItem<any>('medikiosk_active_patient', null);
 
-    let p = parsedRaw;
-    if (storedUser?.role === 'PATIENT') {
-      p = storedUser.patient || p || {
+    let p = parsedRaw || storedUser?.patient;
+    if (!p && storedUser?.role === 'PATIENT') {
+      p = {
         id: storedUser.id,
         name: storedUser.name,
         email: storedUser.email,
@@ -37,17 +37,12 @@ export function PatientPortalPage() {
         bloodGroup: storedUser.bloodGroup || 'B+',
         abhaId: storedUser.abhaId || undefined,
       };
-      safeSetItem('medikiosk_active_patient', p);
     } else if (!p) {
-      if (storedUser?.patient) {
-        p = storedUser.patient;
-      } else {
-        const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
-        if (parsedV?.patient) p = parsedV.patient;
-      }
-      if (p) {
-        safeSetItem('medikiosk_active_patient', p);
-      }
+      const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
+      if (parsedV?.patient) p = parsedV.patient;
+    }
+    if (p) {
+      safeSetItem('medikiosk_active_patient', p);
     }
     setPatient(p);
 
