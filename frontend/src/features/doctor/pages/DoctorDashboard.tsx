@@ -824,7 +824,7 @@ MediKiosk Autonomous Clinical Intake System
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-500 uppercase font-bold block">Prior Visits (Timeline)</span>
                   <span className="font-semibold text-indigo-400">
-                    {timeline.length} previous visits recorded
+                    {timeline.length > 0 ? `${timeline.length} previous visits recorded` : 'First-time Patient (0 Prior Visits)'}
                   </span>
                 </div>
               </div>
@@ -1179,17 +1179,19 @@ MediKiosk Autonomous Clinical Intake System
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2.5 text-indigo-300 text-xs font-bold uppercase tracking-wider">
                       <History className="w-4 h-4 text-indigo-400" />
-                      <span>Longitudinal Medical History ({Math.max(timeline.length, 1)} Recorded Visits)</span>
+                      <span>Longitudinal Medical History ({timeline.length} Prior Visit{timeline.length !== 1 ? 's' : ''})</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDownloadTimeline}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/30"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download Longitudinal History (.txt)</span>
-                      </button>
+                      {timeline.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleDownloadTimeline}
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/30"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download Longitudinal History (.txt)</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={handleDownloadFHIRBundle}
@@ -1211,35 +1213,23 @@ MediKiosk Autonomous Clinical Intake System
                   </div>
 
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {(timeline.length > 0 ? timeline : [
-                      {
-                        visitId: selectedVisit.id,
-                        date: selectedVisit.createdAt || new Date().toISOString(),
-                        chiefComplaint: summaryData?.chiefComplaint || selectedVisit.reasonForVisit || 'Current OPD Consultation',
-                        department: selectedVisit.department?.name || 'General Medicine',
-                        doctor: {
-                          name: selectedVisit.doctor?.user?.name || 'Dr. Yogesh Sharma',
-                          specialization: selectedVisit.department?.name || 'General Medicine',
-                          diagnosis: soapAssessment || impression || 'Active Clinical Consultation',
-                          clinicalNotes: clinicalNotes || 'Intake completed and verified at MediKiosk.',
-                        },
-                        aiSummary: summaryData || {
-                          chiefComplaint: selectedVisit.reasonForVisit || 'OPD Intake',
-                          historyOfPresentIllness: 'Completed multilingual AI clinical intake.',
-                          lifestyle: 'Assessed at registration.',
-                        },
-                        vitals: getNormalizedVitals(selectedVisit),
-                        prescriptions,
-                        lastPrescription: prescriptions.length > 0 ? prescriptions.map(p => `${p.medicineName} (${p.dosage})`).join(', ') : 'None prescribed yet',
-                      }
-                    ]).map((tl: any, i: number) => {
-                      const totalCount = Math.max(timeline.length, 1);
-                      const docName = safeString(tl.doctor?.name, 'Dr. Yogesh Sharma');
-                      const docSpec = safeString(tl.doctor?.specialization || tl.department, 'Internal Medicine');
-                      const diagnosis = safeString(tl.doctor?.diagnosis || tl.chiefComplaint, 'Clinical Review Completed');
-                      const aiSummaryText = safeString(tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || tl.description, 'AI Intake summary verified at Kiosk.');
-                      const lifestyleText = safeString(tl.aiSummary?.lifestyle);
-                      const rxText = safeString(tl.lastPrescription || (Array.isArray(tl.prescriptions) ? tl.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null));
+                    {timeline.length === 0 ? (
+                      <div className="p-6 bg-slate-900/40 rounded-xl border border-slate-800/80 text-center space-y-2">
+                        <History className="w-8 h-8 text-slate-600 mx-auto" />
+                        <p className="text-xs font-semibold text-slate-300">No Previous Consultation History</p>
+                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                          This is a brand new patient registration with no prior OPD encounters on file. Prior encounter timelines will populate here automatically upon completion of future visits.
+                        </p>
+                      </div>
+                    ) : (
+                      timeline.map((tl: any, i: number) => {
+                        const totalCount = timeline.length;
+                        const docName = safeString(tl.doctor?.name || tl.doctor?.user?.name, 'Attending Doctor');
+                        const docSpec = safeString(tl.doctor?.specialization || tl.department, 'Internal Medicine');
+                        const diagnosis = safeString(tl.doctor?.diagnosis || tl.chiefComplaint, 'Clinical Review Completed');
+                        const aiSummaryText = safeString(tl.aiSummary?.historyOfPresentIllness || tl.aiSummary?.chiefComplaint || tl.description, 'AI Intake summary verified at Kiosk.');
+                        const lifestyleText = safeString(tl.aiSummary?.lifestyle);
+                        const rxText = safeString(tl.lastPrescription || (Array.isArray(tl.prescriptions) ? tl.prescriptions.map((p: any) => `${p.medicineName} (${p.dosage})`).join(', ') : null));
 
                       return (
                         <div key={i} className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all space-y-3">
@@ -1328,7 +1318,7 @@ MediKiosk Autonomous Clinical Intake System
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 </div>
 
