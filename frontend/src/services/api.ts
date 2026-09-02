@@ -355,44 +355,58 @@ export const api = {
           turnsCompleted: 0,
         };
 
+        const patientName = options?.previousPatientInfo?.name || 'Patient';
+        const rawDocName = options?.doctorName;
+        const specialty = options?.specialty || 'General Medicine';
+        const docDisplayName = rawDocName
+          ? (rawDocName.startsWith('Dr.') || rawDocName.startsWith('Vaidya') ? rawDocName : `Dr. ${rawDocName}`)
+          : (options?.carePath === 'AYUSH' ? 'Vaidya Harish Bhatt' : options?.carePath === 'HOMEOPATHY' ? 'Dr. Snehal Shah' : 'Dr. Yogesh Sharma');
+
         try {
           const groqRes = await callGroqDynamicIntake(state, langUpper, []);
+          let openingQ = groqRes.question;
+
+          if (langUpper === 'HI') {
+            openingQ = `नमस्ते ${patientName} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${docDisplayName} (${specialty}) से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। ${groqRes.question}`;
+          } else if (langUpper === 'GU') {
+            openingQ = `નમસ્તે ${patientName}! હું MediKiosk Clinical AI છું. હું ${docDisplayName} (${specialty}) માટે તમારો ક્લિનિકલ ઇન્ટેક તૈયાર કરી રહ્યો છું. ${groqRes.question}`;
+          } else {
+            openingQ = `Hello ${patientName}! I am MediKiosk Clinical AI. I am preparing your clinical intake for ${docDisplayName} (${specialty}). ${groqRes.question}`;
+          }
+
           return {
             session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
             message: {
               id: 'msg-start',
               role: 'AI',
-              content: groqRes.question,
+              content: openingQ,
             },
             touchOptions: groqRes.touchOptions,
-            nextQuestion: groqRes.question,
+            nextQuestion: openingQ,
           };
         } catch {
-          const patientName = options?.previousPatientInfo?.name ? ` ${options.previousPatientInfo.name}` : '';
-          const langLower = (language || 'en').toLowerCase();
-
-          let content = `Welcome to MediKiosk${patientName}. What main symptom or health concern brought you in today?`;
+          let content = `Hello ${patientName}! I am MediKiosk Clinical AI. I am preparing your clinical intake for ${docDisplayName} (${specialty}). What main symptom or health concern brought you in today?`;
           let touchOptions = ['Fever / Body Ache', 'Chest Pain / Pressure', 'Severe Abdominal Pain', 'Cough / Breathlessness', 'Headache / Dizziness'];
 
           if (options?.carePath === 'AYUSH') {
-            content = `Welcome to the Ayurveda Clinic${patientName}. What health concerns are you experiencing today?`;
+            content = `Hello ${patientName}! Welcome to the Ayurveda Clinic. I am preparing your clinical intake for ${docDisplayName} (${specialty}). What health concerns are you experiencing today?`;
             touchOptions = ['Acidity, heartburn & sour burps', 'Sluggish digestion & gas', 'Joint pain & body stiffness', 'Chronic cough & sinus', 'Skin itching & eruptions'];
           } else if (options?.carePath === 'HOMEOPATHY') {
-            content = `Welcome to Classical Homeopathy${patientName}. Please describe your main health concern and symptoms.`;
+            content = `Hello ${patientName}! Welcome to Classical Homeopathy. I am preparing your clinical intake for ${docDisplayName} (${specialty}). Please describe your main health concern and symptoms.`;
             touchOptions = ['Throbbing headache (< Sun, > Cold)', 'Skin itching & eczema (< Warmth)', 'Chronic acidity & gastric reflux', 'Joint pain (< First motion)', 'Cough / asthma flare (< Cold drafts)'];
           }
 
-          if (langLower === 'hi') {
+          if (langUpper === 'HI') {
             content = isRet
-              ? `मेडीकियोस्क में आपका स्वागत है${patientName}। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है? क्या वे सुधरे हैं, बिगड़े हैं या वैसे ही हैं?`
-              : (options?.carePath === 'AYUSH' ? `आयुर्वेद विभाग में आपका स्वागत है${patientName}। आज आपको क्या स्वास्थ्य समस्या महसूस हो रही है?` : `मेडीकियोस्क में आपका स्वागत है${patientName}। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`);
+              ? `नमस्ते ${patientName} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${docDisplayName} (${specialty}) से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। पिछली मुलाकात के बाद से आपके लक्षणों में क्या बदलाव आया है?`
+              : `नमस्ते ${patientName} जी! मैं मेडीकियोस्क AI सहायक हूँ। ${docDisplayName} (${specialty}) से परामर्श के लिए आपकी क्लिनिकल पूछताछ शुरू कर रहे हैं। आज आपको क्या मुख्य स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?`;
             touchOptions = isRet
               ? ['लक्षणों में सुधार हुआ है', 'लक्षण और बिगड़ गए हैं', 'कोई बदलाव नहीं हुआ', 'नई समस्या शुरू हुई है']
               : ['बुखार / शरीर दर्द', 'सीने में दर्द / दबाव', 'पेट में तेज़ दर्द', 'खांसी / सांस में तकलीफ', 'सिरदर्द / चक्कर आना'];
-          } else if (langLower === 'gu') {
+          } else if (langUpper === 'GU') {
             content = isRet
-              ? `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે? સુધારો થયો છે, વધ્યા છે કે એવા જ છે?`
-              : (options?.carePath === 'AYUSH' ? `આયુર્વેદ વિભાગમાં આપનું સ્વાગત છે${patientName}। આજે આપને કઈ મુખ્ય તકલીફ જણાય છે?` : `મેડીકિયોસ્ક માં આપનું સ્વાગત છે${patientName}। આજે તમને કઈ મુખ્ય શારીરિક તકલીફ અથવા લક્ષણો જણાય છે?`);
+              ? `નમસ્તે ${patientName}! હું MediKiosk Clinical AI છું. હું ${docDisplayName} (${specialty}) માટે તમારો ક્લિનિકલ ઇન્ટેક તૈયાર કરી રહ્યો છું. અગાઉની મુલાકાત પછી તમારા લક્ષણોમાં શું ફેરફાર થયો છે?`
+              : `નમસ્તે ${patientName}! હું MediKiosk Clinical AI છું. હું ${docDisplayName} (${specialty}) માટે તમારો ક્લિનિકલ ઇન્ટેક તૈયાર કરી રહ્યો છું. આજે તમને અહીં લાવતી મુખ્ય આરોગ્ય સમસ્યા શું છે? કૃપા કરીને તે વિશિષ્ટ ક્ષેત્ર અથવા લક્ષણ જણાવો જે તમે અનુભવી રહ્યા છો.`;
             touchOptions = isRet
               ? ['લક્ષણોમાં સુધારો થયો છે', 'લક્ષણો વધ્યા છે', 'કોઈ ફેરફાર નથી', 'નવી તકલીફ શરૂ થઈ છે']
               : ['તાવ / શરીરનો દુખાવો', 'છાતીમાં દુખાવો / દબાણ', 'પેટમાં તીવ્ર દુખાવો', 'ખાંસી / શ્વાસ લેવામાં તકલીફ', 'માથાનો દુખાવો / ચક્કર'];
@@ -402,6 +416,7 @@ export const api = {
             session: { id: `session-${Date.now()}`, visitId, language, status: 'ACTIVE' },
             message: { id: 'msg-start', role: 'AI', content },
             touchOptions,
+            nextQuestion: content,
           };
         }
       }),
