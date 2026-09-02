@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../store/AuthContext';
-import { safeJsonParse, safeGetItem } from '../../../utils/storage';
+import { safeJsonParse, safeGetItem, safeSetItem } from '../../../utils/storage';
 import {
   Activity, Users, AlertTriangle, Clock, Heart,
   Flame, CheckCircle2, ChevronRight, RefreshCw, FileText,
@@ -72,11 +72,23 @@ export function NurseDashboard() {
       // Check localStorage for the active visit so newly queued patient is selected
       const parsedV = safeGetItem<any>('medikiosk_active_visit', null);
       const parsedP = safeGetItem<any>('medikiosk_active_patient', null);
+      const parsedDoc = safeGetItem<any>('medikiosk_active_doctor', null);
       if (parsedV) {
-        if (parsedP) {
+        if (parsedP && !parsedV.patient) {
           parsedV.patient = parsedP;
         }
-        if (!visitList.some((v) => v.id === parsedV.id)) {
+        if (parsedDoc && !parsedV.doctor) {
+          parsedV.doctor = parsedDoc;
+        }
+        const existingIdx = visitList.findIndex((v) => v.id === parsedV.id);
+        if (existingIdx !== -1) {
+          visitList[existingIdx] = {
+            ...visitList[existingIdx],
+            vitals: parsedV.vitals || visitList[existingIdx].vitals,
+            summary: parsedV.summary || visitList[existingIdx].summary,
+            doctor: visitList[existingIdx].doctor || parsedV.doctor || parsedDoc,
+          };
+        } else {
           visitList.unshift(parsedV);
         }
       }
@@ -190,16 +202,16 @@ export function NurseDashboard() {
 
       // Instant live sync to local storage for patient portal & doctor session
       try {
-        const activeV = localStorage.getItem('medikiosk_active_visit');
-        if (activeV) {
-          const parsed = JSON.parse(activeV);
-          if (parsed.id === selectedVisit.id || !parsed.id) {
-            parsed.vitals = [vitalPayload, ...(parsed.vitals || [])];
-            parsed.status = 'VITALS_RECORDED';
-            localStorage.setItem('medikiosk_active_visit', JSON.stringify(parsed));
-          }
+        const activeV = safeGetItem<any>('medikiosk_active_visit', null);
+        if (activeV && (activeV.id === selectedVisit.id || !activeV.id)) {
+          activeV.vitals = [vitalPayload, ...(activeV.vitals || [])];
+          activeV.status = 'VITALS_RECORDED';
+          if (selectedVisit.doctor && !activeV.doctor) activeV.doctor = selectedVisit.doctor;
+          if (selectedVisit.summary && !activeV.summary) activeV.summary = selectedVisit.summary;
+          if (selectedVisit.patient && !activeV.patient) activeV.patient = selectedVisit.patient;
+          safeSetItem('medikiosk_active_visit', activeV);
         }
-        localStorage.setItem(`medikiosk_vitals_${selectedVisit.id}`, JSON.stringify(vitalPayload));
+        safeSetItem(`medikiosk_vitals_${selectedVisit.id}`, vitalPayload);
       } catch {}
 
       setSuccessMessage('✅ Vitals recorded successfully. Synced to Physician & Patient portal.');

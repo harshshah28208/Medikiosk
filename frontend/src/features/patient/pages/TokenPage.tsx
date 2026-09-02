@@ -23,12 +23,17 @@ export function TokenPage() {
     if (p) setActivePatient(p);
     if (v) {
       setActiveVisit(v);
-      // Auto-assign doctor for this visit
-      if (v.id) {
+      const storedDoc = safeGetItem<any>('medikiosk_active_doctor', null);
+      const existingDocName = storedDoc?.user?.name || storedDoc?.name || v.doctor?.user?.name || v.doctor?.name;
+      
+      if (existingDocName) {
+        setAssignedDoctor(existingDocName.startsWith('Dr.') || existingDocName.startsWith('Vaidya') ? existingDocName : `Dr. ${existingDocName}`);
+      } else if (v.id) {
+        // Auto-assign doctor only if no doctor was selected
         api.visits.assignDoctor(v.id)
           .then((res) => {
             if (res?.doctorName) {
-              setAssignedDoctor(`Dr. ${res.doctorName}`);
+              setAssignedDoctor(res.doctorName.startsWith('Dr.') || res.doctorName.startsWith('Vaidya') ? res.doctorName : `Dr. ${res.doctorName}`);
             }
           })
           .catch(() => {});

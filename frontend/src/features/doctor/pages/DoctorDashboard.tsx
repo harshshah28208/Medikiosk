@@ -177,9 +177,28 @@ export function DoctorDashboard() {
     try {
       const res = await api.doctor.patients(showAll);
       if (res?.visits) {
-        setPatients(res.visits);
-        const nonComp = res.visits.filter((v: any) => v.status !== 'COMPLETED');
-        const listToSelect = queueTab === 'ACTIVE' ? (nonComp.length > 0 ? nonComp : res.visits) : res.visits;
+        let visitsList: any[] = [...res.visits];
+        const localActive = safeGetItem<any>('medikiosk_active_visit', null);
+        const localPatient = safeGetItem<any>('medikiosk_active_patient', null);
+        const localDoc = safeGetItem<any>('medikiosk_active_doctor', null);
+        if (localActive) {
+          if (localPatient && !localActive.patient) localActive.patient = localPatient;
+          if (localDoc && !localActive.doctor) localActive.doctor = localDoc;
+          const idx = visitsList.findIndex((v: any) => v.id === localActive.id);
+          if (idx !== -1) {
+            visitsList[idx] = {
+              ...visitsList[idx],
+              summary: visitsList[idx].summary || localActive.summary,
+              vitals: (visitsList[idx].vitals && visitsList[idx].vitals.length > 0) ? visitsList[idx].vitals : localActive.vitals,
+              doctor: visitsList[idx].doctor || localActive.doctor,
+            };
+          } else {
+            visitsList.unshift(localActive);
+          }
+        }
+        setPatients(visitsList);
+        const nonComp = visitsList.filter((v: any) => v.status !== 'COMPLETED');
+        const listToSelect = queueTab === 'ACTIVE' ? (nonComp.length > 0 ? nonComp : visitsList) : visitsList;
         if (listToSelect.length > 0) {
           const currentSelectedStillInList = selectedVisit && listToSelect.find((v: any) => v.id === selectedVisit.id);
           if (currentSelectedStillInList) {
@@ -204,11 +223,14 @@ export function DoctorDashboard() {
   }, [showAllHospitalPatients]);
 
   const handleSelectPatient = async (visit: any) => {
+    const localActive = safeGetItem<any>('medikiosk_active_visit', null);
+    const effectiveSummary = visit.summary || (localActive?.id === visit.id || !visit.id ? localActive?.summary : null);
+
     setSelectedVisit(visit);
-    if (visit.summary) {
-      const sJson = typeof visit.summary === 'string'
-        ? safeJsonParse(visit.summary, null)
-        : (visit.summary.summaryJson ? (typeof visit.summary.summaryJson === 'string' ? safeJsonParse(visit.summary.summaryJson, null) : visit.summary.summaryJson) : visit.summary);
+    if (effectiveSummary) {
+      const sJson = typeof effectiveSummary === 'string'
+        ? safeJsonParse(effectiveSummary, null)
+        : (effectiveSummary.summaryJson ? (typeof effectiveSummary.summaryJson === 'string' ? safeJsonParse(effectiveSummary.summaryJson, null) : effectiveSummary.summaryJson) : effectiveSummary);
       setSummaryData(sJson);
       setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
       setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
@@ -247,20 +269,30 @@ export function DoctorDashboard() {
             visitObj = { ...visitObj, vitals: Array.isArray(parsed) ? parsed : [parsed] };
           }
         }
+        
+        // Preserve doctor and summary if backend object lacks them
+        if (!visitObj.doctor && (visit.doctor || localActive?.doctor)) {
+          visitObj.doctor = visit.doctor || localActive?.doctor;
+        }
+
+        const fullSummary = visitObj.summary || effectiveSummary;
+        if (fullSummary) {
+          visitObj.summary = fullSummary;
+          const sJson = typeof fullSummary.summaryJson === 'string'
+            ? safeJsonParse(fullSummary.summaryJson, null)
+            : (fullSummary.summaryJson || fullSummary);
+          if (sJson) {
+            setSummaryData(sJson);
+            setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
+            setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
+            setSoapAssessment(safeString(sJson?.chiefComplaint, ''));
+          }
+        }
+
         setSelectedVisit(visitObj);
         setIsCompleted(visitObj.status === 'COMPLETED' || visitObj.consultation?.status === 'COMPLETED');
         if (visitObj.consultation?.digitalSignature) {
           setSignatureData(visitObj.consultation.digitalSignature);
-        }
-        if (visitObj.summary) {
-          const sJson = typeof visitObj.summary.summaryJson === 'string'
-            ? safeJsonParse(visitObj.summary.summaryJson, null)
-            : (visitObj.summary.summaryJson || visitObj.summary);
-          setSummaryData(sJson);
-          setImpression(safeString(sJson?.chiefComplaint, safeString(visit.reasonForVisit, '')));
-          // Pre-fill SOAP from AI summary safely
-          setSoapSubjective(safeString(sJson?.historyOfPresentIllness, ''));
-          setSoapAssessment(safeString(sJson?.chiefComplaint, ''));
         }
         if (visitObj.consultation) {
           setClinicalNotes(safeString(visitObj.consultation.clinicalNotes, ''));

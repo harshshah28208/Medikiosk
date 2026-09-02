@@ -219,10 +219,15 @@ export const api = {
     assignDoctor: (visitId: string) =>
       request(`/visits/${visitId}/assign-doctor`, {
         method: 'POST',
-      }).catch(() => ({
-        success: true,
-        doctorName: 'Dr. Yogesh Sharma',
-      })),
+      }).catch(() => {
+        const storedDoc = safeGetItem<any>('medikiosk_active_doctor', null);
+        const storedV = safeGetItem<any>('medikiosk_active_visit', null);
+        const docName = storedDoc?.user?.name || storedDoc?.name || storedV?.doctor?.user?.name || storedV?.doctor?.name || 'Dr. Vikram Seth';
+        return {
+          success: true,
+          doctorName: docName.replace(/^Dr\.\s*/, ''),
+        };
+      }),
   },
 
   vitals: {
