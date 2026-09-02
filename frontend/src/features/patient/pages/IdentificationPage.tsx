@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeSetItem } from '../../../utils/storage';
 import { Search, UserCheck, ArrowLeft, ArrowRight, UserPlus, Phone, CreditCard, ShieldCheck } from 'lucide-react';
 
 export function IdentificationPage() {
@@ -26,6 +27,8 @@ export function IdentificationPage() {
       const res = await api.patients.lookup(query.trim(), lookupType);
       if (res?.patient) {
         setFoundPatient(res.patient);
+      } else {
+        setErrorMsg(t('noRecordFound') || 'No patient record found matching your query.');
       }
     } catch (err: any) {
       setErrorMsg(err.message || t('noRecordFound'));
@@ -55,20 +58,20 @@ export function IdentificationPage() {
       });
 
       if (regRes?.visit) {
-        localStorage.setItem('medikiosk_active_visit', JSON.stringify(regRes.visit));
-        localStorage.setItem('medikiosk_active_queue', JSON.stringify(regRes.queueEntry));
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify({
+        safeSetItem('medikiosk_active_visit', regRes.visit);
+        safeSetItem('medikiosk_active_queue', regRes.queueEntry);
+        safeSetItem('medikiosk_active_patient', {
           ...foundPatient,
           ...(regRes.patient || {}),
           isReturning: !isNewComplaint,
           isNewPatient: isNewComplaint,
-        }));
+        });
       } else {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint }));
+        safeSetItem('medikiosk_active_patient', { ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint });
       }
     } catch (e) {
       console.warn('Returning patient visit reg notice:', e);
-      localStorage.setItem('medikiosk_active_patient', JSON.stringify({ ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint }));
+      safeSetItem('medikiosk_active_patient', { ...foundPatient, isReturning: !isNewComplaint, isNewPatient: isNewComplaint });
     }
 
     navigate('/kiosk/consent');
