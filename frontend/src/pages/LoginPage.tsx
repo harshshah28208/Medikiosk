@@ -18,6 +18,7 @@ const ROLES = [
 
 
 import api from '../services/api';
+import { safeGetItem } from '../utils/storage';
 
 export function LoginPage() {
   const { demoLogin, login, register, error, isLoading, clearError } = useAuth();
@@ -102,8 +103,7 @@ export function LoginPage() {
     e.preventDefault();
     try {
       await login(email, password);
-      const userStr = localStorage.getItem('medikiosk_user');
-      const userObj = userStr ? JSON.parse(userStr) : null;
+      const userObj = safeGetItem<any>('medikiosk_user', null);
       const target = getTargetWorkspace(userObj?.role || 'PATIENT', userObj?.specialization);
       navigate(target, { replace: true });
     } catch {
@@ -140,8 +140,7 @@ export function LoginPage() {
       }
 
       await register(payload);
-      const userStr = localStorage.getItem('medikiosk_user');
-      const userObj = userStr ? JSON.parse(userStr) : null;
+      const userObj = safeGetItem<any>('medikiosk_user', null);
       const target = getTargetWorkspace(userObj?.role || selectedRole, specialization);
       navigate(target, { replace: true });
     } catch {

@@ -29,11 +29,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
     this.setState({ hasError: false, error: null, errorInfo: null });
-    window.location.reload();
+    window.location.href = '/';
   };
 
   private handleGoHome = () => {
+    try {
+      localStorage.removeItem('medikiosk_active_session_data');
+      localStorage.removeItem('medikiosk_active_session');
+      localStorage.removeItem('medikiosk_active_patient');
+      localStorage.removeItem('medikiosk_active_visit');
+      localStorage.removeItem('medikiosk_active_queue');
+    } catch {}
     window.location.href = '/';
   };
 

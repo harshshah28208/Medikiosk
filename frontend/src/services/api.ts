@@ -1,3 +1,5 @@
+import { safeJsonParse, safeGetItem, safeSetItem } from '../utils/storage';
+
 const rawApiBase =
   import.meta.env.VITE_API_BASE ||
   (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
@@ -6,37 +8,40 @@ const rawApiBase =
 const API_BASE = rawApiBase.trim().replace(/\/+$/, '');
 
 export function getToken(): string | null {
-  return localStorage.getItem('medikiosk_token');
-}
-
-export function setAuthSession(token: string, user: any) {
-  localStorage.setItem('medikiosk_token', token);
-  localStorage.setItem('medikiosk_user', JSON.stringify(user));
-}
-
-export function clearAuthSession() {
-  localStorage.removeItem('medikiosk_token');
-  localStorage.removeItem('medikiosk_user');
-  localStorage.removeItem('medikiosk_active_patient');
-  localStorage.removeItem('medikiosk_active_visit');
-  localStorage.removeItem('medikiosk_active_queue');
-  localStorage.removeItem('medikiosk_active_doctor');
-  localStorage.removeItem('medikiosk_active_session_data');
-  localStorage.removeItem('medikiosk_active_session');
-  localStorage.removeItem('medikiosk_active_session_id');
-  localStorage.removeItem('medikiosk_recent_changes');
-  localStorage.removeItem('medikiosk_target_complaint');
-  localStorage.removeItem('medikiosk_care_path');
-  localStorage.removeItem('medikiosk_visit_type');
-}
-
-export function getCurrentUser(): any | null {
-  const raw = localStorage.getItem('medikiosk_user');
   try {
-    return raw ? JSON.parse(raw) : null;
+    return localStorage.getItem('medikiosk_token');
   } catch {
     return null;
   }
+}
+
+export function setAuthSession(token: string, user: any) {
+  try {
+    if (token) localStorage.setItem('medikiosk_token', token);
+    if (user) safeSetItem('medikiosk_user', user);
+  } catch {}
+}
+
+export function clearAuthSession() {
+  try {
+    localStorage.removeItem('medikiosk_token');
+    localStorage.removeItem('medikiosk_user');
+    localStorage.removeItem('medikiosk_active_patient');
+    localStorage.removeItem('medikiosk_active_visit');
+    localStorage.removeItem('medikiosk_active_queue');
+    localStorage.removeItem('medikiosk_active_doctor');
+    localStorage.removeItem('medikiosk_active_session_data');
+    localStorage.removeItem('medikiosk_active_session');
+    localStorage.removeItem('medikiosk_active_session_id');
+    localStorage.removeItem('medikiosk_recent_changes');
+    localStorage.removeItem('medikiosk_target_complaint');
+    localStorage.removeItem('medikiosk_care_path');
+    localStorage.removeItem('medikiosk_visit_type');
+  } catch {}
+}
+
+export function getCurrentUser(): any | null {
+  return safeGetItem('medikiosk_user', null);
 }
 
 export const getStoredUser = getCurrentUser;
@@ -135,10 +140,10 @@ export const api = {
           medicalHistory: data.medicalHistory || '',
           isNewPatient: true,
         };
-        const existing = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
+        const existing = safeGetItem<any[]>('medikiosk_registered_patients', []);
         existing.unshift(newPat);
-        localStorage.setItem('medikiosk_registered_patients', JSON.stringify(existing));
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(newPat));
+        safeSetItem('medikiosk_registered_patients', existing);
+        safeSetItem('medikiosk_active_patient', newPat);
         return { patient: newPat };
       }),
     lookup: (query: string, type: string = 'PHONE') =>
@@ -146,34 +151,25 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ query, type }),
       }).catch(() => {
-        const localActive = localStorage.getItem('medikiosk_active_patient');
-        if (localActive) {
-          try { return { patient: JSON.parse(localActive) }; } catch {}
-        }
-        const regPats = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
-        const found = regPats.find((p: any) => p.phone === query || p.mrn === query);
+        const localActive = safeGetItem<any>('medikiosk_active_patient', null);
+        if (localActive) return { patient: localActive };
+        const regPats = safeGetItem<any[]>('medikiosk_registered_patients', []);
+        const found = regPats.find((p: any) => p?.phone === query || p?.mrn === query);
         if (found) return { patient: found };
         return { patient: DEMO_USERS['patient@demo.com'].patient };
       }),
     get: (id: string) =>
       request(`/patients/${id}`).catch(() => {
-        const localActive = localStorage.getItem('medikiosk_active_patient');
-        if (localActive) {
-          try {
-            const p = JSON.parse(localActive);
-            if (p.id === id || !id) return { patient: p };
-          } catch {}
-        }
-        const regPats = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
-        const found = regPats.find((p: any) => p.id === id);
+        const localActive = safeGetItem<any>('medikiosk_active_patient', null);
+        if (localActive && (localActive.id === id || !id)) return { patient: localActive };
+        const regPats = safeGetItem<any[]>('medikiosk_registered_patients', []);
+        const found = regPats.find((p: any) => p?.id === id);
         if (found) return { patient: found };
         return { patient: DEMO_USERS['patient@demo.com'].patient };
       }),
     me: () => request('/patients/me').catch(() => {
-      const localActive = localStorage.getItem('medikiosk_active_patient');
-      if (localActive) {
-        try { return { patient: JSON.parse(localActive) }; } catch {}
-      }
+      const localActive = safeGetItem<any>('medikiosk_active_patient', null);
+      if (localActive) return { patient: localActive };
       return { patient: DEMO_USERS['patient@demo.com'].patient };
     }),
   },
@@ -181,33 +177,25 @@ export const api = {
   visits: {
     get: (id: string) =>
       request(`/visits/${id}`).catch(() => {
-        const activeV = localStorage.getItem('medikiosk_active_visit');
-        if (activeV) {
-          try {
-            const v = JSON.parse(activeV);
-            if (v.id === id || !id) return { visit: v };
-          } catch {}
-        }
+        const activeV = safeGetItem<any>('medikiosk_active_visit', null);
+        if (activeV && (activeV.id === id || !id)) return { visit: activeV };
         return { visit: DEMO_QUEUE[0].visit };
       }),
     list: (filters?: Record<string, string>) => {
       const params = new URLSearchParams(filters || {});
       return request(`/visits?${params}`).catch(() => {
         const realVisits: any[] = [];
-        const activeV = localStorage.getItem('medikiosk_active_visit');
-        const activeP = localStorage.getItem('medikiosk_active_patient');
+        const activeV = safeGetItem<any>('medikiosk_active_visit', null);
+        const activeP = safeGetItem<any>('medikiosk_active_patient', null);
         if (activeV) {
-          try {
-            const v = JSON.parse(activeV);
-            if (activeP) v.patient = JSON.parse(activeP);
-            realVisits.push(v);
-          } catch {}
+          if (activeP) activeV.patient = activeP;
+          realVisits.push(activeV);
         }
-        const regPats = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
+        const regPats = safeGetItem<any[]>('medikiosk_registered_patients', []);
         regPats.forEach((p: any, idx: number) => {
-          if (!realVisits.some(v => v.patient?.id === p.id || v.patient?.mrn === p.mrn)) {
+          if (!realVisits.some(v => v.patient?.id === p?.id || v.patient?.mrn === p?.mrn)) {
             realVisits.push({
-              id: `vis-reg-${p.id || idx}`,
+              id: `vis-reg-${p?.id || idx}`,
               token: `G-${100 + idx}`,
               priority: 'NORMAL',
               status: 'READY_FOR_DOCTOR',

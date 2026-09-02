@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, setAuthSession, clearAuthSession, getStoredUser } from '../services/api';
 import { DEMO_USERS } from '../services/demoFallbackData';
+import { safeGetItem, safeSetItem, cleanCorruptStorage } from '../utils/storage';
 
 interface User {
   id: string;
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Restore session on mount
   useEffect(() => {
+    cleanCorruptStorage();
     const stored = getStoredUser();
     if (stored) {
       setUser(stored);
@@ -62,11 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await api.auth.login(email, password);
       setAuthSession(res.token, res.user);
       if (res.user?.patient) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+        safeSetItem('medikiosk_active_patient', res.user.patient);
         if (res.user.patient.visits?.[0]) {
-          localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.user.patient.visits[0]));
+          safeSetItem('medikiosk_active_visit', res.user.patient.visits[0]);
           if (res.user.patient.visits[0].queueEntry) {
-            localStorage.setItem('medikiosk_active_queue', JSON.stringify(res.user.patient.visits[0].queueEntry));
+            safeSetItem('medikiosk_active_queue', res.user.patient.visits[0].queueEntry);
           }
         }
       }
@@ -74,8 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       // Instant standalone fallback for Vercel deployment & registered local users
       const cleanEmail = email.trim().toLowerCase();
-      const localUsers = JSON.parse(localStorage.getItem('medikiosk_registered_users') || '[]');
-      const registeredUser = localUsers.find((u: any) => u.email?.toLowerCase() === cleanEmail);
+      const localUsers = safeGetItem<any[]>('medikiosk_registered_users', []);
+      const registeredUser = localUsers.find((u: any) => u?.email?.toLowerCase() === cleanEmail);
 
       const fallbackUser = registeredUser || DEMO_USERS[cleanEmail] || Object.values(DEMO_USERS).find((u: any) => u.email?.toLowerCase() === cleanEmail);
       if (fallbackUser) {
@@ -94,17 +96,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             abhaId: fallbackUser.abhaId || undefined,
           };
           userWithRole.patient = patientObj;
-          localStorage.setItem('medikiosk_active_patient', JSON.stringify(patientObj));
+          safeSetItem('medikiosk_active_patient', patientObj);
 
           // Ensure in registered patients list for doctor queue
-          const regPatients = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
-          if (!regPatients.some((p: any) => p.id === patientObj.id || p.mrn === patientObj.mrn)) {
+          const regPatients = safeGetItem<any[]>('medikiosk_registered_patients', []);
+          if (!regPatients.some((p: any) => p?.id === patientObj.id || p?.mrn === patientObj.mrn)) {
             regPatients.unshift(patientObj);
-            localStorage.setItem('medikiosk_registered_patients', JSON.stringify(regPatients));
+            safeSetItem('medikiosk_registered_patients', regPatients);
           }
 
           if (fallbackUser.patient?.visits?.[0]) {
-            localStorage.setItem('medikiosk_active_visit', JSON.stringify(fallbackUser.patient.visits[0]));
+            safeSetItem('medikiosk_active_visit', fallbackUser.patient.visits[0]);
           } else {
             const activeV = {
               id: `vis-${Date.now()}`,
@@ -123,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 lifestyle: 'Regular daily habits.',
               }
             };
-            localStorage.setItem('medikiosk_active_visit', JSON.stringify(activeV));
+            safeSetItem('medikiosk_active_visit', activeV);
           }
         }
 
@@ -145,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await api.auth.register(data);
       setAuthSession(res.token, res.user);
       if (res.user?.patient) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+        safeSetItem('medikiosk_active_patient', res.user.patient);
       }
       setUser(res.user);
     } catch (err: any) {
@@ -174,21 +176,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           abhaId: dummyUser.abhaId,
         };
         dummyUser.patient = patientObj;
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(patientObj));
+        safeSetItem('medikiosk_active_patient', patientObj);
 
         // Add to registered patients for Doctor Dashboard queue
-        const regPats = JSON.parse(localStorage.getItem('medikiosk_registered_patients') || '[]');
+        const regPats = safeGetItem<any[]>('medikiosk_registered_patients', []);
         regPats.unshift(patientObj);
-        localStorage.setItem('medikiosk_registered_patients', JSON.stringify(regPats));
+        safeSetItem('medikiosk_registered_patients', regPats);
 
         localStorage.removeItem('medikiosk_active_visit');
         localStorage.removeItem('medikiosk_active_queue');
       }
 
       // Store in registered users list
-      const localUsers = JSON.parse(localStorage.getItem('medikiosk_registered_users') || '[]');
+      const localUsers = safeGetItem<any[]>('medikiosk_registered_users', []);
       localUsers.push(dummyUser);
-      localStorage.setItem('medikiosk_registered_users', JSON.stringify(localUsers));
+      safeSetItem('medikiosk_registered_users', localUsers);
 
       setAuthSession(`demo-token-${Date.now()}`, dummyUser);
       setUser(dummyUser);
@@ -204,9 +206,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await api.auth.demoLogin(role);
       setAuthSession(res.token, res.user);
       if (res.user?.patient) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(res.user.patient));
+        safeSetItem('medikiosk_active_patient', res.user.patient);
         if (res.user.patient.visits?.[0]) {
-          localStorage.setItem('medikiosk_active_visit', JSON.stringify(res.user.patient.visits[0]));
+          safeSetItem('medikiosk_active_visit', res.user.patient.visits[0]);
         }
       }
       setUser(res.user);
@@ -216,9 +218,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const dummyToken = `demo-token-${Date.now()}`;
       setAuthSession(dummyToken, fallbackUser);
       if (fallbackUser.patient) {
-        localStorage.setItem('medikiosk_active_patient', JSON.stringify(fallbackUser.patient));
+        safeSetItem('medikiosk_active_patient', fallbackUser.patient);
         if (fallbackUser.patient.visits?.[0]) {
-          localStorage.setItem('medikiosk_active_visit', JSON.stringify(fallbackUser.patient.visits[0]));
+          safeSetItem('medikiosk_active_visit', fallbackUser.patient.visits[0]);
         }
       }
       setUser(fallbackUser);

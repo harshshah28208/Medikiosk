@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeGetItem } from '../../../utils/storage';
 import {
   Upload, FileText, CheckCircle2, ArrowRight, ArrowLeft,
   AlertCircle, Sparkles, Eye, ShieldCheck, SkipForward
@@ -21,8 +22,8 @@ export function DocumentUploadPage() {
   const [extractedResult, setExtractedResult] = useState<any | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem('medikiosk_active_patient');
-    if (raw) setActivePatient(JSON.parse(raw));
+    const raw = safeGetItem<any>('medikiosk_active_patient', null);
+    if (raw) setActivePatient(raw);
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,24 +41,18 @@ export function DocumentUploadPage() {
 
     let patientId = activePatient?.id;
     if (!patientId) {
-      const storedPatient = localStorage.getItem('medikiosk_active_patient');
+      const storedPatient = safeGetItem<any>('medikiosk_active_patient', null);
       if (storedPatient) {
-        try {
-          const parsed = JSON.parse(storedPatient);
-          patientId = parsed.id;
-        } catch {}
+        patientId = storedPatient.id;
       }
     }
 
     let resolvedVisitId = visitId && visitId !== 'current' && visitId !== 'active' ? visitId : '';
     if (!resolvedVisitId) {
-      const storedVisit = localStorage.getItem('medikiosk_active_visit');
+      const storedVisit = safeGetItem<any>('medikiosk_active_visit', null);
       if (storedVisit) {
-        try {
-          const parsedV = JSON.parse(storedVisit);
-          resolvedVisitId = parsedV.id || '';
-          if (!patientId && parsedV.patientId) patientId = parsedV.patientId;
-        } catch {}
+        resolvedVisitId = storedVisit.id || '';
+        if (!patientId && storedVisit.patientId) patientId = storedVisit.patientId;
       }
     }
 

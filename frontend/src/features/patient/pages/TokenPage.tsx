@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../store/LanguageContext';
 import { api } from '../../../services/api';
+import { safeGetItem } from '../../../utils/storage';
 import { Ticket, ArrowRight, Clock, MapPin, User, CheckCircle2, Stethoscope } from 'lucide-react';
 
 export function TokenPage() {
@@ -15,17 +16,16 @@ export function TokenPage() {
   const [assignedDoctor, setAssignedDoctor] = useState<string | null>(null);
 
   useEffect(() => {
-    const p = localStorage.getItem('medikiosk_active_patient');
-    const v = localStorage.getItem('medikiosk_active_visit');
-    const q = localStorage.getItem('medikiosk_active_queue');
+    const p = safeGetItem<any>('medikiosk_active_patient', null);
+    const v = safeGetItem<any>('medikiosk_active_visit', null);
+    const q = safeGetItem<any>('medikiosk_active_queue', null);
 
-    if (p) setActivePatient(JSON.parse(p));
+    if (p) setActivePatient(p);
     if (v) {
-      const parsedV = JSON.parse(v);
-      setActiveVisit(parsedV);
+      setActiveVisit(v);
       // Auto-assign doctor for this visit
-      if (parsedV.id) {
-        api.visits.assignDoctor(parsedV.id)
+      if (v.id) {
+        api.visits.assignDoctor(v.id)
           .then((res) => {
             if (res?.doctorName) {
               setAssignedDoctor(`Dr. ${res.doctorName}`);
@@ -34,7 +34,7 @@ export function TokenPage() {
           .catch(() => {});
       }
     }
-    if (q) setActiveQueue(JSON.parse(q));
+    if (q) setActiveQueue(q);
   }, []);
 
   const tokenNumber = activeVisit?.token || activeQueue?.tokenNumber || 'G-101';
