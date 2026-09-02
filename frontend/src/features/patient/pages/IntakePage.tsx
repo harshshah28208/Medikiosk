@@ -6,7 +6,7 @@ import { speechProvider } from '../../../services/speech';
 import { safeGetItem, safeSetItem, safeJsonParse } from '../../../utils/storage';
 import {
   Mic, MicOff, Send, Volume2, VolumeX, ShieldAlert,
-  Sparkles, CheckCircle2, User, Bot, RefreshCw, ArrowRight, CheckSquare
+  Sparkles, CheckCircle2, User, Bot, RefreshCw, ArrowRight, CheckSquare, Stethoscope
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -32,6 +32,9 @@ export function IntakePage() {
   const [redFlagAlert, setRedFlagAlert] = useState<any | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [activePatient, setActivePatient] = useState<any>(null);
+  const [activeDoctor, setActiveDoctor] = useState<any>(null);
+  const [activeVisit, setActiveVisit] = useState<any>(null);
 
   const activeLangRef = useRef<LanguageCode>(language);
   const sessionRef = useRef<any>(null);
@@ -65,6 +68,12 @@ export function IntakePage() {
         const parsedPatient = safeGetItem<any>('medikiosk_active_patient', null);
         const parsedDoctor = safeGetItem<any>('medikiosk_active_doctor', null);
         const sessionData = safeGetItem<any>('medikiosk_active_session_data', null);
+
+        if (isMounted) {
+          if (parsedPatient) setActivePatient(parsedPatient);
+          if (parsedDoctor) setActiveDoctor(parsedDoctor);
+          if (parsedVisit) setActiveVisit(parsedVisit);
+        }
 
         const vId = visitId && visitId !== 'active' ? visitId : (parsedVisit?.id || 'active');
 
@@ -642,6 +651,43 @@ export function IntakePage() {
             </div>
           );
         })()}
+
+        {/* Active Patient & Assigned Doctor Context Strip (Login/Registration Details) */}
+        <div className="px-4 py-2 bg-slate-800/90 border-b border-slate-700/80 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 text-slate-200">
+            <div className="w-5 h-5 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center font-bold text-[10px]">
+              <User className="w-3 h-3" />
+            </div>
+            <span className="font-semibold text-white">
+              {activePatient?.name || 'Registered Patient'}
+            </span>
+            {activePatient?.mrn && (
+              <span className="text-[10px] text-slate-400 font-mono px-1.5 py-0.5 bg-slate-900 rounded">
+                MRN: {activePatient.mrn}
+              </span>
+            )}
+            {activePatient?.age && (
+              <span className="text-slate-400 text-[11px]">
+                • {activePatient.age}Y / {activePatient.gender || 'M'}
+              </span>
+            )}
+            {activePatient?.phone && (
+              <span className="text-slate-400 text-[11px] hidden sm:inline">
+                • 📞 {activePatient.phone}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-slate-300">
+            <span className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1">
+              <Stethoscope className="w-3.5 h-3.5 text-emerald-400" />
+              {activeDoctor?.name ? (activeDoctor.name.startsWith('Dr.') ? activeDoctor.name : `Dr. ${activeDoctor.name}`) : (activeVisit?.doctor?.user?.name ? `Dr. ${activeVisit.doctor.user.name}` : 'General OPD')}
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              Token: {activeVisit?.token || 'G-100'}
+            </span>
+          </div>
+        </div>
 
         {/* Emergency Red Flag Notice Banner */}
         {redFlagAlert && (
