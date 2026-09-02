@@ -531,21 +531,34 @@ Prescription: ${item.lastPrescription || 'None'}
         isNewPatient: false,
       }));
 
-      // Try registering the follow-up visit directly so we can open the question panel immediately!
+      // Bind previous doctor to active session
+      if (record?.doctor) {
+        localStorage.setItem('medikiosk_active_doctor', JSON.stringify(record.doctor));
+      }
+
+      // Try registering the follow-up visit directly with the EXACT SAME doctor!
       try {
+        const targetDoctorId = record?.doctorId || record?.doctor?.id || record?.doctor?.userId || p.doctorId;
+        const targetDepartmentCode = record?.departmentCode || record?.department?.code || p.departmentCode || 'GEN';
+
         const regRes = await api.patients.register({
           name: p.name || 'Patient',
           phone: p.phone || '9876543210',
           age: p.age || 35,
           gender: p.gender || 'MALE',
           preferredLang: (p.preferredLang || 'en').toUpperCase(),
-          departmentCode: record?.departmentCode || p.departmentCode || 'GEN',
+          departmentCode: targetDepartmentCode,
+          doctorId: targetDoctorId,
           reasonForVisit: `Follow-up: ${targetComplaint}`,
           abhaId: p.abhaId || undefined,
         });
 
         if (regRes?.visit) {
-          localStorage.setItem('medikiosk_active_visit', JSON.stringify(regRes.visit));
+          const updatedVisit = {
+            ...regRes.visit,
+            doctor: regRes.visit.doctor || record?.doctor || null,
+          };
+          localStorage.setItem('medikiosk_active_visit', JSON.stringify(updatedVisit));
           localStorage.setItem('medikiosk_active_queue', JSON.stringify(regRes.queueEntry));
           setIsActionModalOpen(false);
           navigate(`/kiosk/intake/${regRes.visit.id}`);

@@ -45,6 +45,15 @@ export function IdentificationPage() {
     localStorage.setItem('medikiosk_visit_type', visitType);
     localStorage.setItem('medikiosk_recent_changes', change);
 
+    const lastVisit = foundPatient.visits?.[0];
+    const prevDoctorId = lastVisit?.doctorId || lastVisit?.doctor?.id || foundPatient.doctorId;
+    const prevDoctor = lastVisit?.doctor || foundPatient.doctor;
+    const prevDeptCode = lastVisit?.department?.code || foundPatient.departmentCode || 'GEN';
+
+    if (prevDoctor) {
+      safeSetItem('medikiosk_active_doctor', prevDoctor);
+    }
+
     try {
       const regRes = await api.patients.register({
         name: foundPatient.name,
@@ -52,13 +61,18 @@ export function IdentificationPage() {
         age: foundPatient.age || 35,
         gender: foundPatient.gender || 'MALE',
         preferredLang: (language || 'en').toUpperCase(),
-        departmentCode: foundPatient.departmentCode || 'GEN',
+        departmentCode: prevDeptCode,
+        doctorId: prevDoctorId,
         reasonForVisit: change,
         abhaId: foundPatient.abhaId || undefined,
       });
 
       if (regRes?.visit) {
-        safeSetItem('medikiosk_active_visit', regRes.visit);
+        const fullVisit = {
+          ...regRes.visit,
+          doctor: regRes.visit.doctor || prevDoctor || null,
+        };
+        safeSetItem('medikiosk_active_visit', fullVisit);
         safeSetItem('medikiosk_active_queue', regRes.queueEntry);
         safeSetItem('medikiosk_active_patient', {
           ...foundPatient,

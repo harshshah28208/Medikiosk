@@ -27,6 +27,23 @@ export async function registerPatient(req: AuthRequest, res: Response): Promise<
     });
   }
 
+  // If returning patient and no explicit doctor passed, preserve their previous treating doctor
+  if (!doctor && existing) {
+    const lastVisitWithDoc = await prisma.visit.findFirst({
+      where: {
+        patientId: existing.id,
+        doctorId: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        doctor: { include: { department: true, user: true } },
+      },
+    });
+    if (lastVisitWithDoc?.doctor) {
+      doctor = lastVisitWithDoc.doctor;
+    }
+  }
+
   let department = null;
   if (doctor?.department) {
     department = doctor.department;
